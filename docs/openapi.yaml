@@ -1,0 +1,1391 @@
+openapi: 3.1.0
+info:
+  title: Fred's POS API
+  version: 1.0.0
+  description: |
+    HTTP contract for Fred's POS, matching the frontend Service Adapter
+    (`src/services/interfaces/`). Mockup currently uses localStorage adapters;
+    a future FastAPI backend can implement these paths without changing UI.
+
+    **Conventions**
+    - Amounts are TWD integers (no cents).
+    - Timestamps are ISO 8601 strings.
+    - Business failures use HTTP 4xx with `BusinessError` body (`code` + `message`).
+    - `updateCustomerSpending` and `fulfillPreOrderItems` are typically invoked
+      inside `POST /checkout/orders`, not by the cashier UI.
+
+    **Mockup UI payment methods:** `cash`, `credit_card`, `line_pay`, `bank_transfer`.
+    `cod` is reserved for future website imports and is not shown on the payment modal.
+  contact:
+    name: Fred's POS
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Local FastAPI (planned)
+  - url: /api/v1
+    description: Relative (same origin)
+
+tags:
+  - name: products
+    description: Product catalog and multi-location stock
+  - name: checkout
+    description: Sales orders, receipts, refunds
+  - name: preorders
+    description: Pre-orders, partial arrival, fulfillment
+  - name: customers
+    description: Members, VIP, points
+
+paths:
+  /products:
+    get:
+      tags: [products]
+      operationId: searchProducts
+      summary: Search products
+      description: |
+        Fuzzy search by barcode, SKU without dashes, product name, or brand.
+        Maps to `IProductService.searchProducts`.
+      parameters:
+        - name: keyword
+          in: query
+          schema:
+            type: string
+          description: SKU / barcode / name / brand
+        - name: scale
+          in: query
+          schema:
+            $ref: '#/components/schemas/ModelScaleOrAll'
+        - name: brand
+          in: query
+          schema:
+            type: string
+          description: Brand filter, or `ALL`
+        - name: inStockOnly
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Matching products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+    post:
+      tags: [products]
+      operationId: createProduct
+      summary: Create product
+      description: Maps to `IProductService.createProduct`. Server assigns `id` and may recompute `normalizedSku` / `totalStock`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+
+  /products/{productId}:
+    get:
+      tags: [products]
+      operationId: getProductById
+      summary: Get product by ID
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      responses:
+        '200':
+          description: Product
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [products]
+      operationId: updateProduct
+      summary: Update product information
+      description: Maps to `IProductService.updateProduct`.
+      parameters:
+        - $ref: '#/components/parameters/ProductId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Partial product update properties
+      responses:
+        '200':
+          description: Updated product
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+
+  /inventory/transfers:
+    post:
+      tags: [products]
+      operationId: transferStock
+      summary: Transfer stock between locations
+      description: Maps to `IProductService.transferStock`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryTransferRequest'
+      responses:
+        '200':
+          description: Transfer succeeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '400':
+          $ref: '#/components/responses/BusinessError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /inventory/adjustments:
+    post:
+      tags: [products]
+      operationId: adjustStock
+      summary: Manually set quantity at a location
+      description: Maps to `IProductService.adjustStock`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StockAdjustRequest'
+      responses:
+        '200':
+          description: Adjustment succeeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /inventory/batch-adjustments:
+    post:
+      tags: [products]
+      operationId: batchAdjustStock
+      summary: Batch adjust stock quantities and log operation history
+      description: Maps to `IProductService.batchAdjustStock`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchStockAdjustRequest'
+      responses:
+        '200':
+          description: Batch adjustment succeeded and logged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '400':
+          $ref: '#/components/responses/BusinessError'
+
+  /inventory/adjustments/logs:
+    get:
+      tags: [products]
+      operationId: getStockAdjustmentLogs
+      summary: Get stock adjustment history logs
+      description: Maps to `IProductService.getStockAdjustmentLogs`.
+      responses:
+        '200':
+          description: Stock adjustment logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StockAdjustmentLog'
+
+
+
+  /checkout/orders:
+    get:
+      tags: [checkout]
+      operationId: getOrderHistory
+      summary: List checkout orders
+      description: Maps to `ICheckoutService.getOrderHistory`. Optional customer filter.
+      parameters:
+        - name: customerId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Order list (newest-first recommended)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CheckoutOrder'
+    post:
+      tags: [checkout]
+      operationId: createCheckoutOrder
+      summary: Create checkout order
+      description: |
+        Maps to `ICheckoutService.createCheckoutOrder`.
+
+        Server must validate then write atomically:
+        1. Positive lines: store stock >= quantity
+        2. Pre-order lines: qty <= qtyArrived - qtyDelivered
+        3. Sum of payment amounts >= order total
+        Then deduct/restore store stock, fulfill pre-order items, persist order,
+        and update member spending/points. `discountAmount` is derived on the server
+        from `(originalPrice - unitPrice) * quantity`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrderPayload'
+      responses:
+        '201':
+          description: Order created with receipt HTML
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutReceipt'
+        '400':
+          $ref: '#/components/responses/BusinessError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /checkout/orders/{orderId}:
+    get:
+      tags: [checkout]
+      operationId: getOrderById
+      summary: Get order (reprint receipt)
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      responses:
+        '200':
+          description: Order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutOrder'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /checkout/orders/{orderId}/refund:
+    post:
+      tags: [checkout]
+      operationId: refundOrder
+      summary: Refund / void order
+      description: Maps to `ICheckoutService.refundOrder`. Mockup may only acknowledge existence.
+      parameters:
+        - $ref: '#/components/parameters/OrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundOrderRequest'
+      responses:
+        '200':
+          description: Refund processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /preorders:
+    get:
+      tags: [preorders]
+      operationId: getPendingPreOrders
+      summary: Search open pre-orders
+      description: |
+        Maps to `IPreOrderService.getPendingPreOrders`.
+        Matches customer phone, name, or order number. Excludes `completed` and `cancelled`.
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Phone fragment, name, or order number (e.g. `0912`)
+      responses:
+        '200':
+          description: Matching open pre-orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PreOrder'
+    post:
+      tags: [preorders]
+      operationId: createPreOrder
+      summary: Create pre-order
+      description: Maps to `IPreOrderService.createPreOrder`. Server assigns `id`, `orderNumber`, `status`, `updatedAt` if omitted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePreOrderRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreOrder'
+
+  /customers/{customerId}/preorders:
+    get:
+      tags: [preorders]
+      operationId: getPreOrdersByCustomerId
+      summary: List pre-orders for a customer
+      description: Maps to `IPreOrderService.getPreOrdersByCustomerId` (all statuses).
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '200':
+          description: Pre-orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PreOrder'
+
+  /preorders/{preOrderId}:
+    get:
+      tags: [preorders]
+      operationId: getPreOrderById
+      summary: Get pre-order by ID
+      parameters:
+        - $ref: '#/components/parameters/PreOrderId'
+      responses:
+        '200':
+          description: Pre-order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreOrder'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [preorders]
+      operationId: updatePreOrder
+      summary: Update pre-order information
+      description: Maps to `IPreOrderService.updatePreOrder`.
+      parameters:
+        - $ref: '#/components/parameters/PreOrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePreOrderRequest'
+      responses:
+        '200':
+          description: Updated pre-order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PreOrder'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+
+  /preorders/{preOrderId}/fulfill:
+    post:
+      tags: [preorders]
+      operationId: fulfillPreOrderItems
+      summary: Fulfill pre-order line quantities
+      description: |
+        Maps to `IPreOrderService.fulfillPreOrderItems`.
+        Usually called from checkout, not the cashier UI. Identify lines by `preOrderItemId`.
+      parameters:
+        - $ref: '#/components/parameters/PreOrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FulfillPreOrderRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '400':
+          $ref: '#/components/responses/BusinessError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /preorders/{preOrderId}/arrived:
+    post:
+      tags: [preorders]
+      operationId: markItemsArrived
+      summary: Mark items arrived (Phase 2)
+      description: |
+        Maps to optional `IPreOrderService.markItemsArrived`.
+        Mockup Phase 1 seeds `qtyArrived`; this endpoint is for a later UI.
+      parameters:
+        - $ref: '#/components/parameters/PreOrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkItemsArrivedRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /customers:
+    get:
+      tags: [customers]
+      operationId: searchCustomers
+      summary: Search customers
+      description: Maps to `ICustomerService.searchCustomers`. Empty query returns all.
+      parameters:
+        - name: query
+          in: query
+          schema:
+            type: string
+          description: Phone or name fragment
+      responses:
+        '200':
+          description: Customers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Customer'
+    post:
+      tags: [customers]
+      operationId: createCustomer
+      summary: Create customer
+      description: Maps to `ICustomerService.createCustomer`. Server assigns `id` and `createdAt`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCustomerRequest'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+
+  /customers/{customerId}:
+    get:
+      tags: [customers]
+      operationId: getCustomerById
+      summary: Get customer by ID
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '200':
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [customers]
+      operationId: updateCustomer
+      summary: Update customer information
+      description: Maps to `ICustomerService.updateCustomer`.
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomerRequest'
+      responses:
+        '200':
+          description: Updated customer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+
+  /customers/by-phone/{phone}:
+    get:
+      tags: [customers]
+      operationId: getCustomerByPhone
+      summary: Get customer by exact phone
+      description: Maps to `ICustomerService.getCustomerByPhone` (checkout member bind).
+      parameters:
+        - name: phone
+          in: path
+          required: true
+          schema:
+            type: string
+          example: '0912345678'
+      responses:
+        '200':
+          description: Customer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /customers/{customerId}/spending:
+    post:
+      tags: [customers]
+      operationId: updateCustomerSpending
+      summary: Add spending and points
+      description: |
+        Maps to `ICustomerService.updateCustomerSpending`.
+        Intended for checkout service internals, not cashier UI.
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCustomerSpendingRequest'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  parameters:
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      schema:
+        type: string
+      example: prod-001
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        type: string
+      example: so-2001
+    PreOrderId:
+      name: preOrderId
+      in: path
+      required: true
+      schema:
+        type: string
+      example: po-1001
+    CustomerId:
+      name: customerId
+      in: path
+      required: true
+      schema:
+        type: string
+      example: cust-001
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BusinessError'
+          example:
+            code: PRODUCT_NOT_FOUND
+            message: 找不到指定商品
+    BusinessError:
+      description: Business rule failed (no partial writes)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/BusinessError'
+          examples:
+            insufficientStock:
+              value:
+                code: INSUFFICIENT_STORE_STOCK
+                message: 門市現貨不足，請先從倉庫調撥
+            preorderQty:
+              value:
+                code: PREORDER_QTY_EXCEEDED
+                message: 超過可取數量上限
+            payment:
+              value:
+                code: PAYMENT_INSUFFICIENT
+                message: 支付總額不足
+
+  schemas:
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          const: true
+
+    BusinessError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          $ref: '#/components/schemas/BusinessErrorCode'
+        message:
+          type: string
+
+    BusinessErrorCode:
+      type: string
+      enum:
+        - INSUFFICIENT_STORE_STOCK
+        - PREORDER_QTY_EXCEEDED
+        - PAYMENT_INSUFFICIENT
+        - PRODUCT_NOT_FOUND
+        - STORAGE_CORRUPTED
+
+    ModelScale:
+      type: string
+      enum:
+        - '1:18'
+        - '1:43'
+        - '1:64'
+        - '1:24'
+        - '1:12'
+        - 配件周邊
+
+    ModelScaleOrAll:
+      oneOf:
+        - $ref: '#/components/schemas/ModelScale'
+        - type: string
+          const: ALL
+
+    StockLocation:
+      type: string
+      enum: [store, warehouse, company, other]
+
+    LocationStock:
+      type: object
+      required: [location, locationName, quantity]
+      properties:
+        location:
+          $ref: '#/components/schemas/StockLocation'
+        locationName:
+          type: string
+          example: 門市現貨
+        quantity:
+          type: integer
+
+    ProductStatus:
+      type: string
+      enum: [active, discontinued]
+
+    Product:
+      type: object
+      required:
+        - id
+        - sku
+        - normalizedSku
+        - barcode
+        - brand
+        - name
+        - scale
+        - listPrice
+        - costPrice
+        - stocks
+        - totalStock
+        - preOrderPendingCount
+        - status
+      properties:
+        id:
+          type: string
+        sku:
+          type: string
+          example: AA-79121
+        normalizedSku:
+          type: string
+          example: AA79121
+        barcode:
+          type: string
+        brand:
+          type: string
+        name:
+          type: string
+        scale:
+          $ref: '#/components/schemas/ModelScale'
+        material:
+          type: string
+        color:
+          type: string
+        imageUrl:
+          type: string
+        listPrice:
+          type: integer
+        costPrice:
+          type: integer
+        vipPrice:
+          type: integer
+        stocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocationStock'
+        totalStock:
+          type: integer
+        preOrderPendingCount:
+          type: integer
+        note:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+
+    CreateProductRequest:
+      type: object
+      required:
+        - sku
+        - normalizedSku
+        - barcode
+        - brand
+        - name
+        - scale
+        - listPrice
+        - costPrice
+        - stocks
+        - totalStock
+        - preOrderPendingCount
+        - status
+      properties:
+        sku:
+          type: string
+        normalizedSku:
+          type: string
+          description: Server may overwrite from SKU
+        barcode:
+          type: string
+        brand:
+          type: string
+        name:
+          type: string
+        scale:
+          $ref: '#/components/schemas/ModelScale'
+        material:
+          type: string
+        color:
+          type: string
+        imageUrl:
+          type: string
+        listPrice:
+          type: integer
+        costPrice:
+          type: integer
+        vipPrice:
+          type: integer
+        stocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocationStock'
+        totalStock:
+          type: integer
+          description: Server may recompute from stocks
+        preOrderPendingCount:
+          type: integer
+        note:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+
+    InventoryTransferRequest:
+      type: object
+      required: [productId, fromLocation, toLocation, quantity]
+      properties:
+        productId:
+          type: string
+        fromLocation:
+          $ref: '#/components/schemas/StockLocation'
+        toLocation:
+          $ref: '#/components/schemas/StockLocation'
+        quantity:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+        operatorId:
+          type: string
+
+    StockAdjustRequest:
+      type: object
+      required: [productId, location, newQuantity, reason]
+      properties:
+        productId:
+          type: string
+        location:
+          $ref: '#/components/schemas/StockLocation'
+        newQuantity:
+          type: integer
+          minimum: 0
+        reason:
+          type: string
+
+    BatchStockAdjustRequest:
+      type: object
+      required: [adjustments, operatorName, timestamp]
+      properties:
+        operatorName:
+          type: string
+        timestamp:
+          type: string
+        note:
+          type: string
+        adjustments:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockItemAdjustment'
+
+    StockLocationChange:
+      type: object
+      required: [location, locationName, oldQty, newQty, diff]
+      properties:
+        location:
+          $ref: '#/components/schemas/StockLocation'
+        locationName:
+          type: string
+        oldQty:
+          type: integer
+        newQty:
+          type: integer
+        diff:
+          type: integer
+
+    StockItemAdjustment:
+      type: object
+      required: [productId, sku, name, brand, changes, summaryText]
+      properties:
+        productId:
+          type: string
+        sku:
+          type: string
+        name:
+          type: string
+        brand:
+          type: string
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockLocationChange'
+        summaryText:
+          type: string
+
+    StockAdjustmentLog:
+      type: object
+      required: [id, timestamp, operatorName, items, totalQtyChange]
+      properties:
+        id:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        operatorName:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StockItemAdjustment'
+        totalQtyChange:
+          type: integer
+        note:
+          type: string
+
+
+
+    PaymentMethodType:
+      type: string
+      enum: [cash, credit_card, line_pay, bank_transfer, cod]
+      description: UI omits `cod` in mockup
+
+    PaymentTender:
+      type: object
+      required: [type, name, amount]
+      properties:
+        type:
+          $ref: '#/components/schemas/PaymentMethodType'
+        name:
+          type: string
+          example: 現金
+        amount:
+          type: integer
+        tenderedCash:
+          type: integer
+          description: Cash notes received
+        changeAmount:
+          type: integer
+        transactionRef:
+          type: string
+          description: Card last-4 or transfer last-5
+
+    InvoiceInfo:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          enum: [none, carrier, tax_id, paper]
+        carrierCode:
+          type: string
+          example: /ABC+123
+        taxId:
+          type: string
+          example: '83521409'
+        buyerTitle:
+          type: string
+
+    CheckoutOrderItem:
+      type: object
+      required:
+        - productId
+        - sku
+        - name
+        - scale
+        - originalPrice
+        - unitPrice
+        - isManualPrice
+        - quantity
+        - subtotal
+      properties:
+        productId:
+          type: string
+        sku:
+          type: string
+        name:
+          type: string
+        scale:
+          $ref: '#/components/schemas/ModelScale'
+        originalPrice:
+          type: integer
+        unitPrice:
+          type: integer
+        isManualPrice:
+          type: boolean
+        priceDiffReason:
+          type: string
+        quantity:
+          type: integer
+          description: Negative = return / exchange
+        subtotal:
+          type: integer
+        preOrderId:
+          type: string
+        preOrderItemId:
+          type: string
+
+    CheckoutOrder:
+      type: object
+      required:
+        - id
+        - orderNumber
+        - cashierId
+        - cashierName
+        - items
+        - itemsSubtotal
+        - discountAmount
+        - shippingFee
+        - totalAmount
+        - payments
+        - invoice
+        - earnedPoints
+        - usedPoints
+        - createdAt
+      properties:
+        id:
+          type: string
+        orderNumber:
+          type: string
+          example: SO-20260830-0088
+        cashierId:
+          type: string
+        cashierName:
+          type: string
+        customerId:
+          type: string
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckoutOrderItem'
+        itemsSubtotal:
+          type: integer
+        discountAmount:
+          type: integer
+        shippingFee:
+          type: integer
+        totalAmount:
+          type: integer
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentTender'
+        invoice:
+          $ref: '#/components/schemas/InvoiceInfo'
+        earnedPoints:
+          type: integer
+        usedPoints:
+          type: integer
+        note:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateOrderPayload:
+      type: object
+      required: [items, shippingFee, payments, invoice]
+      properties:
+        customerId:
+          type: string
+        items:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/CheckoutOrderItem'
+        shippingFee:
+          type: integer
+        payments:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/PaymentTender'
+        invoice:
+          $ref: '#/components/schemas/InvoiceInfo'
+        note:
+          type: string
+
+    CheckoutReceipt:
+      type: object
+      required: [order, receiptPrintHtml]
+      properties:
+        order:
+          $ref: '#/components/schemas/CheckoutOrder'
+        receiptPrintHtml:
+          type: string
+          description: Thermal-style receipt HTML for preview
+
+    RefundOrderRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+
+    PreOrderStatus:
+      type: string
+      enum:
+        - pending
+        - partially_arrived
+        - partially_completed
+        - completed
+        - cancelled
+
+    PreOrderItem:
+      type: object
+      required:
+        - id
+        - productId
+        - sku
+        - productName
+        - scale
+        - brand
+        - quotedPrice
+        - qtyOrdered
+        - qtyArrived
+        - qtyDelivered
+      properties:
+        id:
+          type: string
+        productId:
+          type: string
+        sku:
+          type: string
+        productName:
+          type: string
+        scale:
+          $ref: '#/components/schemas/ModelScale'
+        brand:
+          type: string
+        quotedPrice:
+          type: integer
+        qtyOrdered:
+          type: integer
+        qtyArrived:
+          type: integer
+        qtyDelivered:
+          type: integer
+
+    PreOrder:
+      type: object
+      required:
+        - id
+        - orderNumber
+        - customerId
+        - customerName
+        - customerPhone
+        - orderDate
+        - status
+        - source
+        - items
+        - updatedAt
+      properties:
+        id:
+          type: string
+        orderNumber:
+          type: string
+          example: PO-202607-0019
+        customerId:
+          type: string
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        orderDate:
+          type: string
+        expectedArrivalDate:
+          type: string
+        status:
+          $ref: '#/components/schemas/PreOrderStatus'
+        source:
+          type: string
+          enum: [in_store, website]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreOrderItem'
+        note:
+          type: string
+        operatorName:
+          type: string
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreatePreOrderRequest:
+      type: object
+      properties:
+        customerId:
+          type: string
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        orderDate:
+          type: string
+        expectedArrivalDate:
+          type: string
+        source:
+          type: string
+          enum: [in_store, website]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreOrderItem'
+        note:
+          type: string
+        operatorName:
+          type: string
+
+    UpdatePreOrderRequest:
+      type: object
+      properties:
+        customerId:
+          type: string
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        orderDate:
+          type: string
+        expectedArrivalDate:
+          type: string
+        status:
+          $ref: '#/components/schemas/PreOrderStatus'
+        source:
+          type: string
+          enum: [in_store, website]
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PreOrderItem'
+        note:
+          type: string
+        operatorName:
+          type: string
+
+
+    FulfillPreOrderRequest:
+      type: object
+      required: [fulfilledItems]
+      properties:
+        fulfilledItems:
+          type: array
+          items:
+            type: object
+            required: [preOrderItemId, qty]
+            properties:
+              preOrderItemId:
+                type: string
+              qty:
+                type: integer
+                minimum: 1
+
+    MarkItemsArrivedRequest:
+      type: object
+      required: [arrivedItems]
+      properties:
+        arrivedItems:
+          type: array
+          items:
+            type: object
+            required: [productId, qty]
+            properties:
+              productId:
+                type: string
+              qty:
+                type: integer
+                minimum: 1
+
+    VipTier:
+      type: string
+      enum: [regular, silver, gold, platinum]
+
+    Customer:
+      type: object
+      required:
+        - id
+        - name
+        - phone
+        - vipTier
+        - vipTierName
+        - rewardPoints
+        - totalSpent
+        - createdAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        vipTier:
+          $ref: '#/components/schemas/VipTier'
+        vipTierName:
+          type: string
+        rewardPoints:
+          type: integer
+        totalSpent:
+          type: integer
+        note:
+          type: string
+        createdAt:
+          type: string
+
+    CreateCustomerRequest:
+      type: object
+      required:
+        - name
+        - phone
+        - vipTier
+        - vipTierName
+        - rewardPoints
+        - totalSpent
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        vipTier:
+          $ref: '#/components/schemas/VipTier'
+        vipTierName:
+          type: string
+        rewardPoints:
+          type: integer
+        totalSpent:
+          type: integer
+        note:
+          type: string
+
+    UpdateCustomerRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        vipTier:
+          $ref: '#/components/schemas/VipTier'
+        vipTierName:
+          type: string
+        rewardPoints:
+          type: integer
+        totalSpent:
+          type: integer
+        note:
+          type: string
+
+    UpdateCustomerSpendingRequest:
+      type: object
+      required: [amount, earnedPoints]
+      properties:
+        amount:
+          type: integer
+          description: Amount added to totalSpent (may be negative on refund)
+        earnedPoints:
+          type: integer
+          description: Points added to rewardPoints
+
