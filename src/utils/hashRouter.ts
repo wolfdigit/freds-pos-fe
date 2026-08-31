@@ -26,10 +26,11 @@ export function getHashFromState(
 
 /**
  * 解析 URL Hash 並傳回對應的 activeTab 與 selectedCustomerId
+ * 支援絕對與相對 Hash 路徑（如 #/checkout, #checkout, #./checkout）
  */
 export function getStateFromHash(hash: string): RouteState {
-  const raw = hash.replace(/^#\/?/, '').trim();
-  if (!raw || raw === '/') {
+  const raw = hash.replace(/^#\/?(\.\/)?/, '').trim();
+  if (!raw || raw === '/' || raw === '.') {
     return { activeTab: null, selectedCustomerId: null };
   }
 
@@ -59,3 +60,4 @@ export function getStateFromHash(hash: string): RouteState {
 
   return { activeTab: null, selectedCustomerId: null };
 }
+
