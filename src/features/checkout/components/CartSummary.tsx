@@ -3,6 +3,8 @@ import { Button } from '@/components/common/Button';
 
 interface CartSummaryProps {
   subtotal: number;
+  salesSubtotal?: number;
+  returnSubtotal?: number;
   discount: number;
   shippingFee: number;
   onShippingFeeChange: (fee: number) => void;
@@ -23,6 +25,8 @@ const SHIPPING_PRESETS = [
 
 export function CartSummary({
   subtotal,
+  salesSubtotal,
+  returnSubtotal,
   discount,
   shippingFee,
   onShippingFeeChange,
@@ -43,14 +47,29 @@ export function CartSummary({
     return `將購物車商品轉為會員「${boundCustomerName}」之預購單`;
   };
 
+  const hasReturns = returnSubtotal !== undefined && returnSubtotal < 0;
+
   return (
     <div className="mt-3 space-y-3 border-t border-zinc-800 pt-3">
       {/* 費用明細 */}
       <div className="space-y-2 font-mono text-base text-zinc-300">
-        <div className="flex justify-between items-center">
-          <span className="text-zinc-400">商品小計</span>
-          <span className="font-semibold text-zinc-200 text-lg">{formatCurrency(subtotal)}</span>
-        </div>
+        {hasReturns ? (
+          <>
+            <div className="flex justify-between items-center text-sm">
+              <span className="text-zinc-400">待結銷售小計</span>
+              <span className="font-semibold text-zinc-200">{formatCurrency(salesSubtotal ?? 0)}</span>
+            </div>
+            <div className="flex justify-between items-center text-sm text-rose-400">
+              <span>↩️ 瑕疵退貨折抵</span>
+              <span className="font-bold">{formatCurrency(returnSubtotal)}</span>
+            </div>
+          </>
+        ) : (
+          <div className="flex justify-between items-center">
+            <span className="text-zinc-400">商品小計</span>
+            <span className="font-semibold text-zinc-200 text-lg">{formatCurrency(subtotal)}</span>
+          </div>
+        )}
 
         {discount !== 0 && (
           <div className="flex justify-between items-center text-amber-400">
@@ -95,11 +114,19 @@ export function CartSummary({
 
       {/* 應收總計 */}
       <div className="flex items-center justify-between border-t border-zinc-800/80 pt-2.5">
-        <span className="text-base font-bold text-zinc-300">應收總計</span>
-        <span className="font-mono text-3xl font-extrabold text-cyan-300">{formatCurrency(totalAmount)}</span>
+        <span className="text-base font-bold text-zinc-300">
+          {totalAmount < 0 ? '門市退款總額' : '應收總計'}
+        </span>
+        <span
+          className={`font-mono text-3xl font-extrabold ${
+            totalAmount < 0 ? 'text-rose-400' : 'text-cyan-300'
+          }`}
+        >
+          {formatCurrency(totalAmount)}
+        </span>
       </div>
 
-      {/* 3 顆按鈕同在一行 */}
+      {/* 按鈕組 */}
       <div className="flex items-center gap-2 pt-1">
         <Button
           variant="ghost"
@@ -133,12 +160,13 @@ export function CartSummary({
           size="lg"
           onClick={onCheckout}
           disabled={itemCount === 0}
-          className="flex-1 text-base font-bold py-3"
+          className={`flex-1 text-base font-bold py-3 ${
+            totalAmount < 0 ? 'bg-rose-600 hover:bg-rose-500 border-rose-500 text-white' : ''
+          }`}
         >
-          ★ 付款結帳 (F9)
+          {totalAmount < 0 ? '↩️ 門市退款處置 (F9)' : '★ 付款結帳 (F9)'}
         </Button>
       </div>
     </div>
   );
 }
-

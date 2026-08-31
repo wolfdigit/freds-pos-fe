@@ -93,11 +93,27 @@ export function PaymentModal({
   return (
     <Modal open={open} onClose={onClose} title="付款與收銀" widthClassName="max-w-2xl">
       <div className="space-y-4 text-base">
-        {/* 金額顯示 */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 py-3 px-4 text-center">
-          <p className="text-base font-medium text-zinc-400">{isNegative ? '門市退款金額' : '應收總金額'}</p>
-          <p className="font-mono text-4xl font-extrabold text-cyan-300 mt-0.5">
-            {formatCurrency(Math.abs(totalAmount))}
+        {/* 金額顯示 (若為負數則特別以退款玫瑰紅套色提示) */}
+        <div
+          className={`rounded-xl border py-3.5 px-4 text-center transition-all ${
+            isNegative
+              ? 'border-rose-600/80 bg-rose-950/50 shadow-lg shadow-rose-950/60 ring-1 ring-rose-500/40'
+              : 'border-zinc-800 bg-zinc-950/60'
+          }`}
+        >
+          <p
+            className={`text-base font-bold ${
+              isNegative ? 'text-rose-300' : 'text-zinc-400'
+            }`}
+          >
+            {isNegative ? '↩️ 門市退款總額 (收銀抽屜退還現金)' : '應收總金額'}
+          </p>
+          <p
+            className={`font-mono text-4xl font-extrabold mt-0.5 tracking-tight ${
+              isNegative ? 'text-rose-400 drop-shadow-md' : 'text-cyan-300'
+            }`}
+          >
+            {isNegative ? `-${formatCurrency(Math.abs(totalAmount))}` : formatCurrency(totalAmount)}
           </p>
         </div>
 
@@ -109,7 +125,9 @@ export function PaymentModal({
               onClick={() => setMethod(m)}
               className={`flex-1 rounded-xl border py-2.5 text-base font-bold transition-colors ${
                 method === m
-                  ? 'border-cyan-400 bg-cyan-500/15 text-cyan-300 shadow-md shadow-cyan-950/50'
+                  ? isNegative
+                    ? 'border-rose-500 bg-rose-500/20 text-rose-200 shadow-md shadow-rose-950/50'
+                    : 'border-cyan-400 bg-cyan-500/15 text-cyan-300 shadow-md shadow-cyan-950/50'
                   : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white'
               }`}
             >
@@ -257,13 +275,19 @@ export function PaymentModal({
             取消
           </Button>
           <Button
-            variant="success"
+            variant={isNegative ? 'danger' : 'success'}
             size="lg"
             onClick={handleConfirmClick}
             disabled={!canConfirm || isSubmitting}
-            className="text-lg font-bold px-8 py-2.5"
+            className={`text-lg font-bold px-8 py-2.5 ${
+              isNegative ? 'bg-rose-600 hover:bg-rose-500 text-white border border-rose-500 shadow-md shadow-rose-950/50' : ''
+            }`}
           >
-            {isSubmitting ? '結帳處理中…' : '確認結帳出單 (Enter)'}
+            {isSubmitting
+              ? '單據處理中…'
+              : isNegative
+              ? '↩️ 確認退款出單 (Enter)'
+              : '★ 確認結帳出單 (Enter)'}
           </Button>
         </div>
       </div>

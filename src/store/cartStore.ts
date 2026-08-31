@@ -60,11 +60,17 @@ export const useCartStore = create<CartStore>()(
 
       addItem: (product, qty = 1) => {
         const { items, attachedCustomer } = get();
-        const existing = items.find((i) => i.productId === product.id && !i.preOrderId);
+        const isTargetReturn = qty < 0;
+        const existing = items.find(
+          (i) =>
+            i.productId === product.id &&
+            !i.preOrderId &&
+            (isTargetReturn ? i.quantity < 0 : i.quantity > 0)
+        );
         if (existing) {
           set({
             items: items.map((i) =>
-              i.productId === product.id && !i.preOrderId ? { ...i, quantity: i.quantity + qty } : i
+              i === existing ? { ...i, quantity: i.quantity + qty } : i
             ),
           });
           return;
