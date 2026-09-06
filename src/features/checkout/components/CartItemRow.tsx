@@ -232,14 +232,23 @@ export function ReturnCartItemRow({
     setQtyInput(valStr);
     const val = parseInt(valStr, 10);
     if (!isNaN(val) && val > 0) {
-      onUpdateQuantity(-val);
+      if (item.maxReturnableQty !== undefined && val > item.maxReturnableQty) {
+        onUpdateQuantity(-item.maxReturnableQty);
+      } else {
+        onUpdateQuantity(-val);
+      }
     }
   };
 
   const handleQtyBlur = () => {
     const val = parseInt(qtyInput, 10);
     if (!isNaN(val) && val > 0) {
-      onUpdateQuantity(-val);
+      if (item.maxReturnableQty !== undefined && val > item.maxReturnableQty) {
+        onUpdateQuantity(-item.maxReturnableQty);
+        setQtyInput(String(item.maxReturnableQty));
+      } else {
+        onUpdateQuantity(-val);
+      }
     } else {
       setQtyInput(String(Math.abs(item.quantity)));
     }
@@ -256,27 +265,54 @@ export function ReturnCartItemRow({
 
   const absQty = Math.abs(item.quantity);
   const refundSubtotal = item.unitPrice * item.quantity; // 負數金額
+  const isMaxReturnReached = item.maxReturnableQty !== undefined && absQty >= item.maxReturnableQty;
 
   return (
     <div className="group flex items-center justify-between gap-2.5 border-b border-rose-900/40 py-1.5 px-2 text-base transition-colors rounded bg-rose-950/40 hover:bg-rose-950/60">
-      {/* 品名與貨號 */}
+      {/* 品名與貨號：點擊跳出原單收據或關聯原單 */}
       <div
         onClick={onViewDetail}
         className="min-w-0 flex-1 cursor-pointer select-none rounded p-1 -m-1 hover:bg-rose-900/30 transition-colors"
-        title="點擊查看此商品詳細資訊"
+        title={
+          item.originalOrderId
+            ? `點擊查看原始售出單據明細 (${item.originalOrderId})`
+            : '點擊查詢並關聯原始售出單據'
+        }
       >
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-rose-400/80 text-xs shrink-0">{index}.</span>
           <span className="rounded bg-rose-500/20 border border-rose-500/50 px-1.5 py-0.5 text-[11px] font-bold text-rose-300 shrink-0">
             退貨
           </span>
+          {item.originalOrderId ? (
+            <span
+              className="rounded bg-rose-900/50 border border-rose-700/60 px-1.5 py-0.5 text-[10px] font-mono text-rose-200 shrink-0 flex items-center gap-1 hover:bg-rose-800 transition-colors"
+              title={`原始銷售單據: ${item.originalOrderId}（點擊查看原單明細）`}
+            >
+              <span>🧾</span>
+              <span>原單: {item.originalOrderId}</span>
+            </span>
+          ) : (
+            <span
+              className="rounded bg-amber-900/50 border border-amber-700/60 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 shrink-0"
+              title="未關聯原單，點擊查詢關聯"
+            >
+              ⚠️ 未關聯原單
+            </span>
+          )}
           <p className="font-semibold text-rose-100 text-sm group-hover:text-rose-200 transition-colors truncate">
             {item.name}
           </p>
         </div>
         <div className="mt-0.5 flex items-center gap-1.5 text-xs text-rose-300/70">
           <span className="font-mono font-medium">{item.sku}</span>
-          <span>· {item.brand}</span>
+          {item.brand && <span>· {item.brand}</span>}
+          {item.maxReturnableQty !== undefined && (
+            <span className="rounded bg-zinc-800/80 px-1.5 py-0.2 text-[10px] font-mono text-zinc-300">
+              原單可退: {item.maxReturnableQty} 件
+            </span>
+          )}
+          {item.returnReason && <span className="text-rose-400">({item.returnReason})</span>}
         </div>
       </div>
 
@@ -306,7 +342,8 @@ export function ReturnCartItemRow({
             type="number"
             step="1"
             min="1"
-            title="修改退貨數量"
+            max={item.maxReturnableQty}
+            title={item.maxReturnableQty !== undefined ? `修改退貨數量 (上限 ${item.maxReturnableQty} 件)` : '修改退貨數量'}
             value={qtyInput}
             onChange={handleQtyChange}
             onBlur={handleQtyBlur}
@@ -316,13 +353,19 @@ export function ReturnCartItemRow({
           <div className="flex flex-col border-l border-rose-900 bg-rose-900/60 shrink-0">
             <button
               type="button"
+              disabled={isMaxReturnReached}
               onClick={() => {
+                if (isMaxReturnReached) return;
                 const nextAbs = absQty + 1;
                 onUpdateQuantity(-nextAbs);
                 setQtyInput(String(nextAbs));
               }}
-              className="flex h-3.5 w-4 items-center justify-center text-[9px] text-rose-300 hover:bg-rose-800 transition-colors"
-              title="增加退貨數量 (+1)"
+              className={`flex h-3.5 w-4 items-center justify-center text-[9px] transition-colors ${
+                isMaxReturnReached
+                  ? 'text-zinc-600 bg-zinc-900/80 cursor-not-allowed'
+                  : 'text-rose-300 hover:bg-rose-800'
+              }`}
+              title={isMaxReturnReached ? `已達原單剩餘可退上限 (${item.maxReturnableQty} 件)` : '增加退貨數量 (+1)'}
             >
               ▲
             </button>

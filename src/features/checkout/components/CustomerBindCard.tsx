@@ -78,6 +78,16 @@ export function CustomerBindCard() {
   }, [attachedCustomer, items]);
 
   const handleSelectCustomer = (customer: Customer) => {
+    const conflictingReturn = items.find(
+      (i) => i.quantity < 0 && i.originalOrderCustomerId && i.originalOrderCustomerId !== customer.id
+    );
+    if (conflictingReturn) {
+      showToast(
+        `購物車內含有會員【${conflictingReturn.originalOrderCustomerName || '其他會員'}】的原單退貨品項，請先移除該退貨品項後再更換會員`,
+        'error'
+      );
+      return;
+    }
     attachCustomer(customer);
     setQuery('');
     setIsDropdownOpen(false);

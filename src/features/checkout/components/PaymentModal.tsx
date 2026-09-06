@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { formatCurrency, calculateChange } from '@/utils/currency';
+import { useCartStore } from '@/store/cartStore';
 import type { InvoiceInfo, PaymentMethodType, PaymentTender } from '@/types/checkout';
 
 export interface OverStockItemDetail {
@@ -52,9 +53,26 @@ export function PaymentModal({
   const [buyerTitle, setBuyerTitle] = useState('');
   const [showOverStockConfirm, setShowOverStockConfirm] = useState(false);
 
+  const { attachedCustomer, usedPoints, setUsedPoints, getSubtotal, shippingFee } = useCartStore();
+
+  const customerPoints = attachedCustomer?.rewardPoints ?? 0;
+  const isNegative = totalAmount < 0;
+
+  useEffect(() => {
+    if (open) {
+      setTenderedCash('');
+    }
+  }, [open]);
+
+  // 最大可折抵點數：不可超過顧客現有點數，且不可超過（商品小計 + 運費）
+  const maxRedeemablePoints = useMemo(() => {
+    if (isNegative || !attachedCustomer) return 0;
+    const orderPrePointsTotal = Math.max(0, getSubtotal() + shippingFee);
+    return Math.min(customerPoints, orderPrePointsTotal);
+  }, [isNegative, attachedCustomer, customerPoints, getSubtotal, shippingFee]);
+
   const cashInput = Number(tenderedCash) || 0;
   const change = useMemo(() => calculateChange(cashInput, totalAmount), [cashInput, totalAmount]);
-  const isNegative = totalAmount < 0;
 
   const canConfirm = method !== 'cash' || isNegative || change.isSufficient;
 
@@ -73,9 +91,9 @@ export function PaymentModal({
 
     const payment: PaymentTender = {
       type: method,
-      name: METHOD_LABELS[method as Exclude<PaymentMethodType, 'cod'>],
-      amount: method === 'cash' ? Math.max(cashInput, totalAmount) : totalAmount,
-      ...(method === 'cash' ? { tenderedCash: cashInput, changeAmount: change.changeAmount } : {}),
+      name: isNegative ? `${METHOD_LABELS[method as Exclude<PaymentMethodType, 'cod'>]}退款` : METHOD_LABELS[method as Exclude<PaymentMethodType, 'cod'>],
+      amount: method === 'cash' && !isNegative ? Math.max(cashInput, totalAmount) : totalAmount,
+      ...(method === 'cash' && !isNegative ? { tenderedCash: cashInput, changeAmount: change.changeAmount } : {}),
     };
 
     setShowOverStockConfirm(false);
@@ -91,8 +109,73 @@ export function PaymentModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="付款與收銀" widthClassName="max-w-2xl">
+    <Modal open={open} onClose={onClose} title={isNegative ? '↩️ 門市退換貨處置' : '💳 付款與收銀結帳'} widthClassName="max-w-2xl">
       <div className="space-y-4 text-base">
+        {/* 會員點數折抵區塊 (當有會員且非純退款時顯示) */}
+        {attachedCustomer && !isNegative && customerPoints > 0 && (
+          <div className="rounded-xl border border-amber-600/40 bg-amber-950/20 p-3.5 space-y-2">
+            <div className="flex items-center justify-between text-sm font-semibold">
+              <span className="text-amber-300 flex items-center gap-1.5">
+                <span>🎁 會員點數折抵</span>
+                <span className="font-mono text-xs text-amber-400 font-normal">
+                  (現有 {customerPoints} pts · 1 點折抵 1 元)
+                </span>
+              </span>
+              <span className="font-mono text-amber-200">
+                已折抵：<strong className="text-base text-amber-400 font-bold">{usedPoints}</strong> 元
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="flex-1 flex gap-1.5">
+                {[0, 50, 100, 200].map((pts) => (
+                  <button
+                    key={pts}
+                    type="button"
+                    disabled={pts > maxRedeemablePoints}
+                    onClick={() => setUsedPoints(pts)}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-mono font-bold transition-all border ${
+                      usedPoints === pts
+                        ? 'border-amber-400 bg-amber-500 text-zinc-950 shadow-sm'
+                        : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed'
+                    }`}
+                  >
+                    {pts === 0 ? '不折抵' : `折 $${pts}`}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  disabled={maxRedeemablePoints <= 0}
+                  onClick={() => setUsedPoints(maxRedeemablePoints)}
+                  className={`rounded-lg px-2.5 py-1 text-xs font-mono font-bold transition-all border ${
+                    usedPoints === maxRedeemablePoints && maxRedeemablePoints > 0
+                      ? 'border-amber-400 bg-amber-500 text-zinc-950 shadow-sm'
+                      : 'border-amber-600/60 bg-amber-900/40 text-amber-200 hover:bg-amber-800/60 disabled:opacity-40'
+                  }`}
+                >
+                  全額折抵 (${maxRedeemablePoints})
+                </button>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-zinc-400">自訂:</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={maxRedeemablePoints}
+                  value={usedPoints || ''}
+                  placeholder="0"
+                  onChange={(e) => {
+                    const val = Math.min(maxRedeemablePoints, Math.max(0, Number(e.target.value) || 0));
+                    setUsedPoints(val);
+                  }}
+                  className="w-16 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-right font-mono text-sm font-bold text-amber-300 focus:border-amber-400 focus:outline-none"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 金額顯示 (若為負數則特別以退款玫瑰紅套色提示) */}
         <div
           className={`rounded-xl border py-3.5 px-4 text-center transition-all ${
@@ -106,7 +189,7 @@ export function PaymentModal({
               isNegative ? 'text-rose-300' : 'text-zinc-400'
             }`}
           >
-            {isNegative ? '↩️ 門市退款總額 (收銀抽屜退還現金)' : '應收總金額'}
+            {isNegative ? '↩️ 門市退款總額 (收銀抽屜退還現金 / 原管道刷退)' : '應收總金額'}
           </p>
           <p
             className={`font-mono text-4xl font-extrabold mt-0.5 tracking-tight ${
@@ -131,12 +214,12 @@ export function PaymentModal({
                   : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 hover:text-white'
               }`}
             >
-              {METHOD_LABELS[m]}
+              {isNegative ? `${METHOD_LABELS[m]}退款` : METHOD_LABELS[m]}
             </button>
           ))}
         </div>
 
-        {/* 現金付款快捷操作 */}
+        {/* 現金付款快捷操作 (僅在應收為正數且選現金時出現) */}
         {method === 'cash' && !isNegative && (
           <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/40 p-3.5">
             <label className="block text-base font-semibold text-zinc-200">實收現金金額</label>
@@ -163,7 +246,7 @@ export function PaymentModal({
               )}
             </div>
 
-            {/* 快速面額按鈕：由大到小排列 */}
+            {/* 快速面額按鈕 */}
             <div className="space-y-2 pt-0.5">
               <div className="flex flex-wrap gap-2">
                 <button
@@ -183,9 +266,9 @@ export function PaymentModal({
                 <button
                   type="button"
                   onClick={handleExact}
-                  className="rounded-lg border border-cyan-800/80 bg-cyan-950/60 px-3.5 py-1.5 text-base font-bold text-cyan-300 hover:bg-cyan-900/60 transition-colors"
+                  className="rounded-lg border border-cyan-800 bg-cyan-950/80 px-3.5 py-1.5 text-base font-semibold text-cyan-300 hover:bg-cyan-900 transition-colors"
                 >
-                  剛好 {formatCurrency(totalAmount)}
+                  剛剛好 ({formatCurrency(totalAmount)})
                 </button>
               </div>
 
@@ -195,7 +278,7 @@ export function PaymentModal({
                     key={amt}
                     type="button"
                     onClick={() => handleQuickAdd(amt)}
-                    className="min-w-[4rem] rounded-lg border border-zinc-700 bg-zinc-800/90 px-3 py-1.5 text-base font-bold text-zinc-200 hover:bg-zinc-700 hover:border-cyan-500 hover:text-cyan-300 transition-colors"
+                    className="flex-1 rounded-lg border border-zinc-800 bg-zinc-900/80 py-1.5 font-mono text-base font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
                   >
                     +{amt}
                   </button>
@@ -226,7 +309,9 @@ export function PaymentModal({
         {/* 發票資訊 */}
         <div className="space-y-2.5 rounded-xl border border-zinc-800 bg-zinc-950/30 p-3.5">
           <div className="flex items-center justify-between">
-            <label className="text-base font-semibold text-zinc-200">發票資訊</label>
+            <label className="text-base font-semibold text-zinc-200">
+              {isNegative ? '發票與折讓處理' : '發票資訊'}
+            </label>
             <div className="flex gap-2">
               {(['none', 'carrier', 'tax_id'] as const).map((t) => (
                 <button
@@ -238,7 +323,11 @@ export function PaymentModal({
                       : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
                   }`}
                 >
-                  {t === 'none' ? '無發票 / 免開' : t === 'carrier' ? '手機載具' : '統一編號'}
+                  {t === 'none'
+                    ? isNegative ? '開立折讓單 (免載具)' : '無發票 / 免開'
+                    : t === 'carrier'
+                    ? '手機載具'
+                    : '統一編號'}
                 </button>
               ))}
             </div>
