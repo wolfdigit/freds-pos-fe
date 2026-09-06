@@ -1,5 +1,10 @@
 import type { IProductService } from '@/services/interfaces/IProductService';
-import type { Product, ProductSearchParams } from '@/types/product';
+import type {
+  Product,
+  ProductSearchParams,
+  CreateProductRequest,
+  UpdateProductRequest,
+} from '@/types/product';
 import type {
   InventoryTransferRequest,
   StockAdjustRequest,
@@ -28,13 +33,11 @@ export class HttpProductService implements IProductService {
     }
   }
 
-  async createProduct(
-    product: Omit<Product, 'id' | 'totalStock' | 'preOrderPendingCount' | 'normalizedSku'>
-  ): Promise<Product> {
+  async createProduct(product: CreateProductRequest): Promise<Product> {
     return httpClient.post<Product>('/products', product);
   }
 
-  async updateProduct(id: string, product: Partial<Product>): Promise<Product> {
+  async updateProduct(id: string, product: UpdateProductRequest): Promise<Product> {
     return httpClient.put<Product>(`/products/${id}`, product);
   }
 

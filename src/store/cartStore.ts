@@ -9,11 +9,12 @@ import { safeAdd } from '@/utils/currency';
 export interface CartItem {
   productId: string;
   sku: string;
+  barcode?: string;
   name: string;
   scale: ModelScale;
   brand: string;
+  spec?: string;
   originalPrice: number;
-  vipPrice?: number;
   unitPrice: number;
   isManualPrice: boolean;
   priceChangeReason?: string;
@@ -32,11 +33,6 @@ export interface CartItem {
   returnReason?: string;
 }
 
-function resolveUnitPrice(product: Product, customer: Customer | null): number {
-  if (customer && product.vipPrice) return product.vipPrice;
-  return product.listPrice;
-}
-
 interface CartStore {
   items: CartItem[];
   attachedCustomer: Customer | null;
@@ -44,7 +40,11 @@ interface CartStore {
   usedPoints: number;
   orderNote: string;
 
+  highlightedProductId: string | null;
+  setHighlightedProductId: (id: string | null) => void;
+
   addItem: (product: Product, qty?: number) => void;
+  switchItemSku: (oldProductId: string, newProduct: Product) => void;
   importPreOrderItem: (preOrder: PreOrder, item: PreOrderItem, qty: number) => void;
   importReturnItem: (
     order: CheckoutOrder,
@@ -65,6 +65,8 @@ interface CartStore {
   getSubtotal: () => number;
   getTotalAmount: () => number;
   getTotalItemsCount: () => number;
+  getSalesItemsCount: () => number;
+  getReturnItemsCount: () => number;
 }
 
 export const useCartStore = create<CartStore>()(
@@ -75,9 +77,12 @@ export const useCartStore = create<CartStore>()(
       shippingFee: 0,
       usedPoints: 0,
       orderNote: '',
+      highlightedProductId: null,
+
+      setHighlightedProductId: (id) => set({ highlightedProductId: id }),
 
       addItem: (product, qty = 1) => {
-        const { items, attachedCustomer } = get();
+        const { items } = get();
         const isTargetReturn = qty < 0;
         const existing = items.find(
           (i) =>
@@ -91,21 +96,22 @@ export const useCartStore = create<CartStore>()(
             items: items.map((i) =>
               i === existing ? { ...i, quantity: i.quantity + qty } : i
             ),
+            highlightedProductId: existing.productId,
           });
           return;
         }
 
-        const unitPrice = resolveUnitPrice(product, attachedCustomer);
         const storeStock = product.stocks.find((s) => s.location === 'store')?.quantity ?? 0;
         const newItem: CartItem = {
           productId: product.id,
           sku: product.sku,
+          barcode: product.barcode,
           name: product.name,
           scale: product.scale,
           brand: product.brand,
+          spec: product.spec,
           originalPrice: product.listPrice,
-          vipPrice: product.vipPrice,
-          unitPrice,
+          unitPrice: product.listPrice,
           isManualPrice: false,
           quantity: qty,
           storeStock,
@@ -114,6 +120,59 @@ export const useCartStore = create<CartStore>()(
         };
         set({ items: [...items, newItem] });
       },
+
+      switchItemSku: (oldProductId, newProduct) => {
+        const { items } = get();
+        const currentItem = items.find(
+          (i) => i.productId === oldProductId && i.quantity > 0 && !i.originalOrderId && !i.preOrderId
+        );
+        if (!currentItem) return;
+
+        // 依需求 1：檢查購物車中是否已存在相同貨號的待結品項，若有則自動合併數量
+        const existingTarget = items.find(
+          (i) =>
+            i.productId === newProduct.id &&
+            i !== currentItem &&
+            i.quantity > 0 &&
+            !i.originalOrderId &&
+            !i.preOrderId
+        );
+
+        if (existingTarget) {
+          const mergedQty = existingTarget.quantity + currentItem.quantity;
+          set({
+            items: items
+              .filter((i) => i !== currentItem)
+              .map((i) => (i === existingTarget ? { ...i, quantity: mergedQty } : i)),
+            highlightedProductId: existingTarget.productId,
+          });
+          return;
+        }
+
+        const storeStock = newProduct.stocks.find((s) => s.location === 'store')?.quantity ?? 0;
+        set({
+          items: items.map((i) => {
+            if (i !== currentItem) return i;
+            return {
+              ...i,
+              productId: newProduct.id,
+              sku: newProduct.sku,
+              barcode: newProduct.barcode,
+              name: newProduct.name,
+              scale: newProduct.scale,
+              brand: newProduct.brand,
+              spec: newProduct.spec,
+              originalPrice: newProduct.listPrice,
+              unitPrice: i.isManualPrice ? i.unitPrice : newProduct.listPrice,
+              storeStock,
+              totalStock: newProduct.totalStock,
+              preOrderPendingCount: newProduct.preOrderPendingCount ?? 0,
+            };
+          }),
+        });
+      },
+
+
 
       importPreOrderItem: (preOrder, item, qty) => {
         const { items } = get();
@@ -243,15 +302,7 @@ export const useCartStore = create<CartStore>()(
       },
 
       attachCustomer: (customer) => {
-        const { items } = get();
-        const nextItems = items.map((i) => {
-          if (i.isManualPrice || i.preOrderId || i.originalOrderId) return i;
-          if (customer && i.vipPrice) {
-            return { ...i, unitPrice: i.vipPrice };
-          }
-          return { ...i, unitPrice: i.originalPrice };
-        });
-        set({ attachedCustomer: customer, items: nextItems });
+        set({ attachedCustomer: customer });
       },
 
       setShippingFee: (fee) => set({ shippingFee: fee }),
@@ -263,7 +314,10 @@ export const useCartStore = create<CartStore>()(
       getSubtotal: () => safeAdd(...get().items.map((i) => i.unitPrice * i.quantity)),
       getTotalAmount: () => safeAdd(get().getSubtotal(), get().shippingFee, -get().usedPoints),
       getTotalItemsCount: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
+      getSalesItemsCount: () => get().items.filter((i) => i.quantity > 0).reduce((sum, i) => sum + i.quantity, 0),
+      getReturnItemsCount: () => get().items.filter((i) => i.quantity < 0).reduce((sum, i) => sum + Math.abs(i.quantity), 0),
     }),
     { name: 'FREDS_POS_CART' }
   )
 );
+

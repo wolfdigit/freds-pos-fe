@@ -17,11 +17,6 @@ export class MockCustomerService implements ICustomerService {
     return getCustomers().find((c) => c.id === id) ?? null;
   }
 
-  async getCustomerByPhone(phone: string): Promise<Customer | null> {
-    await simulateDelay();
-    return getCustomers().find((c) => c.phone === phone) ?? null;
-  }
-
   async createCustomer(customer: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer> {
     await simulateDelay();
     const customers = getCustomers();

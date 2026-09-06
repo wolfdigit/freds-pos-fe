@@ -16,17 +16,13 @@ export interface Product {
   brand: string;
   name: string;
   scale: ModelScale;
-  material?: string;
-  color?: string;
+  spec?: string;
   imageUrl?: string;
   listPrice: number;
-  costPrice: number;
-  vipPrice?: number;
   stocks: LocationStock[];
   totalStock: number;
   preOrderPendingCount: number;
   note?: string;
-  status: 'active' | 'discontinued';
 }
 
 export interface ProductSearchParams {
@@ -35,3 +31,28 @@ export interface ProductSearchParams {
   brand?: string | 'ALL';
   inStockOnly?: boolean;
 }
+
+export interface CreateProductRequest {
+  sku: string;
+  barcode: string;
+  brand: string;
+  name: string;
+  scale: ModelScale;
+  spec?: string;
+  imageUrl?: string;
+  listPrice: number;
+  note?: string;
+}
+
+export interface UpdateProductRequest {
+  sku?: string;
+  barcode?: string;
+  brand?: string;
+  name?: string;
+  scale?: ModelScale;
+  spec?: string;
+  imageUrl?: string;
+  listPrice?: number;
+  note?: string;
+}
+

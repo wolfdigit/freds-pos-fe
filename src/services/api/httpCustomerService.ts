@@ -15,14 +15,6 @@ export class HttpCustomerService implements ICustomerService {
     }
   }
 
-  async getCustomerByPhone(phone: string): Promise<Customer | null> {
-    try {
-      return await httpClient.get<Customer>(`/customers/by-phone/${encodeURIComponent(phone)}`);
-    } catch {
-      return null;
-    }
-  }
-
   async createCustomer(customer: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer> {
     return httpClient.post<Customer>('/customers', customer);
   }

@@ -49,16 +49,23 @@ export function OrderDetailModal({
     switch (p.type) {
       case 'cash':
         return <Badge color="emerald">💵 現金</Badge>;
-      case 'credit_card':
-        return <Badge color="cyan">💳 信用卡</Badge>;
+      case 'bank_transfer_ctbc':
+        return <Badge color="purple">🏦 轉帳(中信)</Badge>;
+      case 'bank_transfer_ubot':
+        return <Badge color="purple">🏦 轉帳(聯邦)</Badge>;
+      case 'credit_card_physical':
+        return <Badge color="cyan">💳 信用卡(實體)</Badge>;
+      case 'credit_card_online':
+        return <Badge color="cyan">🌐 信用卡(網路)</Badge>;
       case 'line_pay':
         return <Badge color="amber">📱 LINE Pay</Badge>;
-      case 'bank_transfer':
-        return <Badge color="purple">🏦 銀行轉帳</Badge>;
+      case 'cod':
+        return <Badge color="zinc">📦 貨到付款</Badge>;
       default:
         return <Badge color="zinc">{p.name || p.type}</Badge>;
     }
   };
+
 
   return (
     <Modal

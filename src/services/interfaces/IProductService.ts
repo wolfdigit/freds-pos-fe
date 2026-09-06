@@ -1,4 +1,9 @@
-import type { Product, ProductSearchParams } from '@/types/product';
+import type {
+  Product,
+  ProductSearchParams,
+  CreateProductRequest,
+  UpdateProductRequest,
+} from '@/types/product';
 import type {
   InventoryTransferRequest,
   StockAdjustRequest,
@@ -12,9 +17,9 @@ export interface IProductService {
   /** 依 ID 取得單一商品 */
   getProductById(id: string): Promise<Product | null>;
   /** 新增商品建檔 */
-  createProduct(product: Omit<Product, 'id' | 'totalStock' | 'preOrderPendingCount' | 'normalizedSku'>): Promise<Product>;
+  createProduct(product: CreateProductRequest): Promise<Product>;
   /** 更新既有商品資訊 (品名、條碼、價格等) */
-  updateProduct(id: string, product: Partial<Product>): Promise<Product>;
+  updateProduct(id: string, product: UpdateProductRequest): Promise<Product>;
   /** 跨據點庫存調撥 (門市/倉庫/公司) */
   transferStock(request: InventoryTransferRequest): Promise<boolean>;
   /** 手動單一調整庫存數量 */

@@ -106,9 +106,10 @@ export function ProductTable({
                       {p.brand}
                     </span>
                     <Badge color="zinc">{p.scale}</Badge>
-                    {p.material && <span className="text-xs text-zinc-500">{p.material}</span>}
+                    {p.spec && <span className="text-xs text-zinc-400">{p.spec}</span>}
                   </div>
                 </td>
+
 
                 {/* 門市定價 (放大 text-xl 20px) */}
                 <td className="px-4 py-3.5 text-right font-mono text-xl font-bold text-zinc-100">

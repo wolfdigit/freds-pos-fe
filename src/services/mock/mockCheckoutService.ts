@@ -88,12 +88,9 @@ export class MockCheckoutService implements ICheckoutService {
       let unitPrice = item.unitPrice ?? product.listPrice;
 
       if (!item.isManualPrice) {
-        if (customer && product.vipPrice) {
-          unitPrice = product.vipPrice;
-        } else {
-          unitPrice = product.listPrice;
-        }
+        unitPrice = product.listPrice;
       }
+
 
       // 若為預購取貨
       if (item.preOrderId && item.preOrderItemId) {
@@ -275,24 +272,55 @@ export class MockCheckoutService implements ICheckoutService {
       return orders;
     }
 
+    const products = getProducts();
+    const productBarcodeMap = new Map(products.map((p) => [p.id, p.barcode]));
+
     return orders.filter((o) => {
       if (params.customerId && o.customerId !== params.customerId) return false;
       if (params.orderNumber && !o.orderNumber.toLowerCase().includes(params.orderNumber.toLowerCase())) return false;
       if (params.productId && !o.items.some((i) => i.productId === params.productId)) return false;
       if (params.status && params.status !== 'all' && o.status !== params.status) return false;
       if (params.startDate && o.createdAt < params.startDate) return false;
-      if (params.endDate && o.createdAt > `${params.endDate}T23:59:59.999Z`) return false;
+      if (params.endDate) {
+        // If endDate has time (e.g. YYYY-MM-DDTHH:mm), compare directly, otherwise append end of day
+        const endCompare = params.endDate.includes('T') ? params.endDate : `${params.endDate}T23:59:59.999Z`;
+        if (o.createdAt > endCompare) return false;
+      }
+      if (params.minAmount !== undefined && !isNaN(params.minAmount) && o.totalAmount < params.minAmount) return false;
+      if (params.maxAmount !== undefined && !isNaN(params.maxAmount) && o.totalAmount > params.maxAmount) return false;
+      if (params.productKeyword) {
+        const pkw = params.productKeyword.toLowerCase().trim();
+        const hasProduct = o.items.some((i) => {
+          const barcode = productBarcodeMap.get(i.productId) || '';
+          return (
+            i.name.toLowerCase().includes(pkw) ||
+            i.sku.toLowerCase().includes(pkw) ||
+            barcode.includes(pkw)
+          );
+        });
+        if (!hasProduct) return false;
+      }
       if (params.keyword) {
         const kw = params.keyword.toLowerCase().trim();
         const matchNumber = o.orderNumber.toLowerCase().includes(kw);
-        const matchCustomer = (o.customerName && o.customerName.toLowerCase().includes(kw)) ||
-                              (o.customerPhone && o.customerPhone.includes(kw));
-        const matchProduct = o.items.some((i) => i.name.toLowerCase().includes(kw) || i.sku.toLowerCase().includes(kw));
+        const matchCustomer =
+          (o.customerName && o.customerName.toLowerCase().includes(kw)) ||
+          (o.customerPhone && o.customerPhone.includes(kw));
+        const matchProduct = o.items.some((i) => {
+          const barcode = productBarcodeMap.get(i.productId) || '';
+          return (
+            i.name.toLowerCase().includes(kw) ||
+            i.sku.toLowerCase().includes(kw) ||
+            barcode.includes(kw)
+          );
+        });
         const matchInvoice = o.invoice?.taxId?.includes(kw) || o.invoice?.carrierCode?.includes(kw);
         if (!matchNumber && !matchCustomer && !matchProduct && !matchInvoice) return false;
       }
       return true;
     });
+
+
   }
 
   async getOrderById(orderId: string): Promise<CheckoutOrder | null> {
