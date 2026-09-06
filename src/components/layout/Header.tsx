@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
 import { Button } from '@/components/common/Button';
-import { resetDemoData } from '@/services';
+import { resetDemoData, isMockService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 
 const PRESET_STORES = ['台北旗艦店', '新竹巨城店', '台中中港店', '高雄巨蛋店', '線上官方門市'];
@@ -109,11 +109,22 @@ export function Header() {
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        {isMockService ? (
+          <span className="inline-flex items-center rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 ring-1 ring-inset ring-amber-500/20">
+            🧪 Mock 模式
+          </span>
+        ) : (
+          <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400 ring-1 ring-inset ring-emerald-500/20">
+            🌐 API 連線模式
+          </span>
+        )}
         <span className="font-mono text-sm text-zinc-400">{formatClock(now)}</span>
-        <Button size="sm" variant={confirmingReset ? 'danger' : 'ghost'} onClick={handleReset}>
-          ↻ 重置示範資料
-        </Button>
+        {isMockService && (
+          <Button size="sm" variant={confirmingReset ? 'danger' : 'ghost'} onClick={handleReset}>
+            ↻ 重置示範資料
+          </Button>
+        )}
       </div>
     </header>
   );
