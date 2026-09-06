@@ -44,10 +44,10 @@ paths:
     get:
       tags: [products]
       operationId: searchProducts
-      summary: Search products
       description: |
         Fuzzy search by barcode, SKU without dashes (normalized), product name, or brand.
         Maps to `IProductService.searchProducts`.
+        Default sort: `sku ASC`.
       parameters:
         - name: keyword
           in: query
@@ -80,8 +80,12 @@ paths:
     post:
       tags: [products]
       operationId: createProduct
-      summary: Create product
-      description: Maps to `IProductService.createProduct`. Server assigns `id` and computes `normalizedSku` and `totalStock`.
+      description: |
+        Maps to `IProductService.createProduct`.
+        Server assigns `id` as `prod-{uuid4}` (no dashes), computes `normalizedSku`,
+        and always creates four stock rows at quantity `0` with fixed location names.
+        Does not write `product_pre_order_pending` (response `preOrderPendingCount` is `0`).
+        Initial / ongoing stock quantities use future inventory APIs.
       requestBody:
         required: true
         content:
@@ -95,6 +99,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Product'
+        '409':
+          description: Duplicate SKU
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessError'
+              example:
+                code: PRODUCT_SKU_DUPLICATE
+                message: 貨號已存在
 
   /products/{productId}:
     get:
@@ -116,7 +129,10 @@ paths:
       tags: [products]
       operationId: updateProduct
       summary: Update product information
-      description: Maps to `IProductService.updateProduct`.
+      description: |
+        Maps to `IProductService.updateProduct`.
+        Metadata only — does not mutate stock rows or `product_pre_order_pending`.
+        On SKU change, server recomputes `normalizedSku`; duplicate SKU returns 409.
       parameters:
         - $ref: '#/components/parameters/ProductId'
       requestBody:
@@ -124,8 +140,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              description: Partial product update properties
+              $ref: '#/components/schemas/UpdateProductRequest'
       responses:
         '200':
           description: Updated product
@@ -135,6 +150,15 @@ paths:
                 $ref: '#/components/schemas/Product'
         '404':
           $ref: '#/components/responses/NotFound'
+        '409':
+          description: Duplicate SKU
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BusinessError'
+              example:
+                code: PRODUCT_SKU_DUPLICATE
+                message: 貨號已存在
 
   /inventory/transfers:
     post:
@@ -676,6 +700,7 @@ components:
         - INSUFFICIENT_POINTS
         - PAYMENT_INSUFFICIENT
         - PRODUCT_NOT_FOUND
+        - PRODUCT_SKU_DUPLICATE
         - ORDER_NOT_FOUND
         - STORAGE_CORRUPTED
 
@@ -777,21 +802,15 @@ components:
       type: object
       required:
         - sku
-        - normalizedSku
         - barcode
         - brand
         - name
         - scale
         - listPrice
         - costPrice
-        - stocks
-        - totalStock
-        - preOrderPendingCount
         - status
       properties:
         sku:
-          type: string
-        normalizedSku:
           type: string
         barcode:
           type: string
@@ -809,18 +828,47 @@ components:
           type: string
         listPrice:
           type: integer
+          minimum: 0
         costPrice:
           type: integer
+          minimum: 0
         vipPrice:
           type: integer
-        stocks:
-          type: array
-          items:
-            $ref: '#/components/schemas/LocationStock'
-        totalStock:
+          minimum: 0
+        note:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+
+    UpdateProductRequest:
+      type: object
+      description: Partial metadata update. Excludes stocks, totals, id, and normalizedSku.
+      properties:
+        sku:
+          type: string
+        barcode:
+          type: string
+        brand:
+          type: string
+        name:
+          type: string
+        scale:
+          $ref: '#/components/schemas/ModelScale'
+        material:
+          type: string
+        color:
+          type: string
+        imageUrl:
+          type: string
+        listPrice:
           type: integer
-        preOrderPendingCount:
+          minimum: 0
+        costPrice:
           type: integer
+          minimum: 0
+        vipPrice:
+          type: integer
+          minimum: 0
         note:
           type: string
         status:

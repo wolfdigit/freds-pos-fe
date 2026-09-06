@@ -35,3 +35,35 @@ export interface ProductSearchParams {
   brand?: string | 'ALL';
   inStockOnly?: boolean;
 }
+
+export interface CreateProductRequest {
+  sku: string;
+  barcode: string;
+  brand: string;
+  name: string;
+  scale: ModelScale;
+  material?: string;
+  color?: string;
+  imageUrl?: string;
+  listPrice: number;
+  costPrice: number;
+  vipPrice?: number;
+  note?: string;
+  status: 'active' | 'discontinued';
+}
+
+export interface UpdateProductRequest {
+  sku?: string;
+  barcode?: string;
+  brand?: string;
+  name?: string;
+  scale?: ModelScale;
+  material?: string;
+  color?: string;
+  imageUrl?: string;
+  listPrice?: number;
+  costPrice?: number;
+  vipPrice?: number;
+  note?: string;
+  status?: 'active' | 'discontinued';
+}

@@ -1,5 +1,11 @@
 import type { IProductService } from '@/services/interfaces/IProductService';
-import type { Product, ProductSearchParams, StockLocation } from '@/types/product';
+import type {
+  Product,
+  ProductSearchParams,
+  StockLocation,
+  CreateProductRequest,
+  UpdateProductRequest,
+} from '@/types/product';
 import type {
   InventoryTransferRequest,
   StockAdjustRequest,
@@ -43,30 +49,54 @@ export class MockProductService implements IProductService {
     return products.find((p) => p.id === id) ?? null;
   }
 
-  async createProduct(
-    product: Omit<Product, 'id' | 'totalStock' | 'preOrderPendingCount' | 'normalizedSku'>
-  ): Promise<Product> {
+  async createProduct(product: CreateProductRequest): Promise<Product> {
     await simulateDelay();
     const products = getProducts();
+    const normalized = normalizeSku(product.sku);
+    const exists = products.some(
+      (p) => p.normalizedSku === normalized || p.sku.toLowerCase() === product.sku.trim().toLowerCase()
+    );
+    if (exists) {
+      throw new BusinessError('PRODUCT_SKU_DUPLICATE', '貨號已存在');
+    }
+
     const newProduct: Product = {
       ...product,
       id: `prod-${Date.now()}`,
-      normalizedSku: normalizeSku(product.sku),
+      normalizedSku: normalized,
       preOrderPendingCount: 0,
       totalStock: 0,
+      stocks: [
+        { location: 'store', locationName: '門市現貨', quantity: 0 },
+        { location: 'warehouse', locationName: '後方倉庫', quantity: 0 },
+        { location: 'company', locationName: '公司總倉', quantity: 0 },
+        { location: 'other', locationName: '調度暫存', quantity: 0 },
+      ],
     };
-    const finalProduct = recalcTotalStock(newProduct);
-    setProducts([...products, finalProduct]);
-    return finalProduct;
+    setProducts([...products, newProduct]);
+    return newProduct;
   }
 
-  async updateProduct(id: string, updates: Partial<Product>): Promise<Product> {
+  async updateProduct(id: string, updates: UpdateProductRequest): Promise<Product> {
     await simulateDelay();
     const products = getProducts();
     const idx = products.findIndex((p) => p.id === id);
     if (idx === -1) throw new BusinessError('PRODUCT_NOT_FOUND', '找不到指定商品');
 
     const orig = products[idx];
+
+    if (updates.sku && updates.sku.trim() !== orig.sku) {
+      const nextNormalized = normalizeSku(updates.sku);
+      const duplicate = products.some(
+        (p) =>
+          p.id !== id &&
+          (p.normalizedSku === nextNormalized || p.sku.toLowerCase() === updates.sku!.trim().toLowerCase())
+      );
+      if (duplicate) {
+        throw new BusinessError('PRODUCT_SKU_DUPLICATE', '貨號已存在');
+      }
+    }
+
     const updated: Product = {
       ...orig,
       ...updates,
