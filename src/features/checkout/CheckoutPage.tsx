@@ -10,12 +10,15 @@ import { CustomerBindCard } from './components/CustomerBindCard';
 import { PaymentModal } from './components/PaymentModal';
 import { ReceiptModal } from './components/ReceiptModal';
 import { ProductDetailModal } from './components/ProductDetailModal';
+import { ReturnOrderModal } from './components/ReturnOrderModal';
+import { OrderDetailModal } from './components/OrderDetailModal';
 import { useCartStore } from '@/store/cartStore';
 import { useUiStore } from '@/store/uiStore';
 import { useToastStore } from '@/components/feedback/toastStore';
-import { productService, preOrderService } from '@/services';
+import { productService, preOrderService, checkoutService } from '@/services';
 import { formatCurrency } from '@/utils/currency';
 import type { Product } from '@/types/product';
+import type { CheckoutOrder } from '@/types/checkout';
 
 export function CheckoutPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -28,6 +31,10 @@ export function CheckoutPage() {
   const [detailSource, setDetailSource] = useState<'catalog' | 'cart' | 'overstock'>('catalog');
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isReturnMode, setIsReturnMode] = useState(false);
+  const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+  const [returnModalPrefill, setReturnModalPrefill] = useState<{ productId?: string; keyword?: string }>({});
+  const [inspectedOrder, setInspectedOrder] = useState<CheckoutOrder | null>(null);
+  const [inspectedReturnItem, setInspectedReturnItem] = useState<(typeof cart.items)[number] | null>(null);
 
   const salesItems = cart.items.filter((i) => i.quantity > 0);
   const returnItems = cart.items.filter((i) => i.quantity < 0);
@@ -106,8 +113,9 @@ export function CheckoutPage() {
 
   const handleAddProduct = (product: Product) => {
     if (isReturnMode) {
-      cart.addItem(product, -1);
-      showToast(`已於【退貨模式】新增瑕疵退貨品項：${product.name}`, 'info');
+      setReturnModalPrefill({ productId: product.id, keyword: product.sku });
+      setIsReturnModalOpen(true);
+      showToast(`請選擇【${product.name}】售出的原始單據以辦理退換貨`, 'info');
       return;
     }
 
@@ -133,7 +141,17 @@ export function CheckoutPage() {
   };
 
   const handleUpdateQuantity = (item: (typeof cart.items)[number], newQty: number) => {
-    if (!item.preOrderId && newQty > 0) {
+    if (item.quantity < 0 || newQty < 0) {
+      const absNewQty = Math.abs(newQty);
+      if (item.maxReturnableQty !== undefined && absNewQty > item.maxReturnableQty) {
+        showToast(
+          `警示：「${item.name}」退貨數量 (${absNewQty} 件) 超過原單剩餘可退上限 (${item.maxReturnableQty} 件)，已自動限制為最大上限`,
+          'warning'
+        );
+        cart.updateItemQuantity(item.productId, -item.maxReturnableQty);
+        return;
+      }
+    } else if (!item.preOrderId && newQty > 0) {
       const storeStock = item.storeStock ?? 0;
       const totalStock = item.totalStock ?? storeStock;
       const reservedPreOrder = item.preOrderPendingCount ?? 0;
@@ -155,6 +173,15 @@ export function CheckoutPage() {
   };
 
   const handleStartCheckout = () => {
+    // 檢查退貨數量是否超過原單上限
+    const overReturnItems = cart.items.filter(
+      (i) => i.quantity < 0 && i.maxReturnableQty !== undefined && Math.abs(i.quantity) > i.maxReturnableQty
+    );
+    if (overReturnItems.length > 0) {
+      showToast(`清單中「${overReturnItems[0].name}」退貨數量超出原單上限，請調整後再結帳`, 'error');
+      return;
+    }
+
     const overStockItems = cart.items.filter((i) => {
       if (i.preOrderId || i.quantity < 0) return false;
       const storeStock = i.storeStock ?? 0;
@@ -203,6 +230,25 @@ export function CheckoutPage() {
         } as unknown as Product);
       }
     }
+  };
+
+  const handleViewReturnOriginalOrder = async (item: (typeof cart.items)[number]) => {
+    if (item.originalOrderId) {
+      try {
+        const originalOrder = await checkoutService.getOrderById(item.originalOrderId);
+        if (originalOrder) {
+          setInspectedOrder(originalOrder);
+          setInspectedReturnItem(item);
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to fetch original order:', err);
+      }
+      showToast(`查無原始訂單 (${item.originalOrderId}) 之資料`, 'warning');
+    }
+    // 若未關聯原單或查無，開啟查原單退貨 Modal
+    setReturnModalPrefill({ productId: item.productId, keyword: item.sku });
+    setIsReturnModalOpen(true);
   };
 
   return (
@@ -261,7 +307,7 @@ export function CheckoutPage() {
               <div className="space-y-0.5">
                 {salesItems.map((item, idx) => (
                   <CartItemRow
-                    key={`${item.productId}-${item.preOrderItemId ?? 'direct'}`}
+                    key={`sales-${item.productId}-${item.preOrderItemId ?? 'direct'}-${idx}`}
                     item={item}
                     index={idx + 1}
                     onUpdateQuantity={(q) => handleUpdateQuantity(item, q)}
@@ -308,13 +354,37 @@ export function CheckoutPage() {
               </div>
 
               {returnItems.length > 0 ? (
-                <span className="font-mono text-sm font-bold text-rose-400">
-                  折抵小計 {formatCurrency(returnSubtotal)}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm font-bold text-rose-400">
+                    折抵小計 {formatCurrency(returnSubtotal)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsReturnModalOpen(true);
+                    }}
+                    className="rounded bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs px-2 py-0.5 border border-rose-700 font-bold transition-all shadow-sm"
+                  >
+                    🔍 查原單退貨
+                  </button>
+                </div>
               ) : (
-                <span className="text-xs text-zinc-400 font-medium">
-                  {isReturnMode ? '點擊上方銷售區可離開退貨模式' : '點擊此區進入退貨模式'}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-zinc-400 font-medium">
+                    {isReturnMode ? '點擊上方銷售區可離開退貨模式' : '點擊此區進入退貨模式'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsReturnModalOpen(true);
+                    }}
+                    className="rounded bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs px-2 py-0.5 border border-rose-700 font-bold transition-all shadow-sm"
+                  >
+                    🔍 查原單退貨
+                  </button>
+                </div>
               )}
             </div>
 
@@ -323,24 +393,19 @@ export function CheckoutPage() {
               <div className="space-y-1">
                 {returnItems.map((item, idx) => (
                   <ReturnCartItemRow
-                    key={`${item.productId}-${item.preOrderItemId ?? 'direct'}`}
+                    key={`return-${item.productId}-${item.originalOrderId ?? item.preOrderItemId ?? 'return'}-${idx}`}
                     item={item}
                     index={idx + 1}
                     onUpdateQuantity={(q) => handleUpdateQuantity(item, q)}
                     onUpdatePrice={(p) => cart.updateItemPrice(item.productId, p, '瑕疵退貨改價')}
                     onRemove={() => cart.removeItem(item.productId)}
-                    onViewDetail={() => {
-                      setDetailSource('cart');
-                      handleViewCartItemDetail(item.productId);
-                    }}
+                    onViewDetail={() => handleViewReturnOriginalOrder(item)}
                   />
                 ))}
               </div>
             ) : (
-              <div className="py-2 px-1 text-center text-xs text-rose-400/80 font-medium select-none">
-                {isReturnMode
-                  ? '⬅️ 正在退貨模式中！請點擊左側商品新增瑕疵退貨項目'
-                  : '點擊此處進入【退貨模式】，加入的商品將直接列為退貨'}
+              <div className="py-2 px-1 text-center text-xs text-rose-400/80 font-medium select-none flex items-center justify-center gap-2">
+                <span>點擊【查原單退貨】或進入退貨模式挑選品項</span>
               </div>
             )}
           </div>
@@ -408,6 +473,42 @@ export function CheckoutPage() {
           />
         );
       })()}
+
+      {/* 辦理退換貨（選擇原始售出單據）Modal */}
+      <ReturnOrderModal
+        open={isReturnModalOpen}
+        onClose={() => {
+          setIsReturnModalOpen(false);
+          setReturnModalPrefill({});
+        }}
+        prefillProductId={returnModalPrefill.productId}
+        prefillKeyword={returnModalPrefill.keyword}
+      />
+
+      {/* 原始銷售單據完整明細 Modal */}
+      <OrderDetailModal
+        open={Boolean(inspectedOrder)}
+        order={inspectedOrder}
+        currentReturnItem={inspectedReturnItem}
+        onClose={() => {
+          setInspectedOrder(null);
+          setInspectedReturnItem(null);
+        }}
+        onSelectAnotherOrder={() => {
+          if (inspectedReturnItem) {
+            setReturnModalPrefill({
+              productId: inspectedReturnItem.productId,
+              keyword: inspectedReturnItem.sku,
+            });
+          }
+          setInspectedOrder(null);
+          setInspectedReturnItem(null);
+          setIsReturnModalOpen(true);
+        }}
+        onViewReceipt={(ord) => {
+          setReceipt({ order: ord, receiptPrintHtml: '' });
+        }}
+      />
 
       {/* 收據 Modal */}
       <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />

@@ -180,16 +180,24 @@ export interface CheckoutOrderItem {
   isManualPrice: boolean;  // 是否為店員手動改價
   priceDiffReason?: string;
   quantity: number;        // 銷售數量 (負數代表瑕疵退換貨)
-  subtotal: number;        // unitPrice * quantity
+  subtotal: number;        // unitPrice * quantity (後端權威計算)
+  returnedQuantity?: number; // 累計已退貨數量 (供售後退貨可退上限校驗)
   preOrderId?: string;     // 關聯預購單號 (若為預購取貨)
   preOrderItemId?: string;
+  originalOrderId?: string; // 關聯原銷售單號 (若為退換貨)
+  originalOrderItemId?: string;
+  restock?: boolean;       // 退貨時是否回補門市庫存
+  returnReason?: string;
 }
+
+export type OrderStatus = 'completed' | 'partially_refunded' | 'refunded';
 
 export interface CheckoutOrder {
   id: string;
   orderNumber: string;     // 結帳單號 (例如: SO-20260830-0088)
   cashierId: string;
   cashierName: string;
+  status: OrderStatus;     // 訂單狀態 (完成 / 部分退款 / 全額退款)
   customerId?: string;
   customerName?: string;
   customerPhone?: string;
@@ -206,13 +214,38 @@ export interface CheckoutOrder {
   createdAt: string;
 }
 
+export interface CreateOrderItemPayload {
+  productId: string;
+  quantity: number;        // 購買為正數，退換貨為負數
+  unitPrice?: number;      // 店員設定之單價 (後端校驗或依改價原因記錄)
+  isManualPrice?: boolean;
+  priceDiffReason?: string;
+  preOrderId?: string;
+  preOrderItemId?: string;
+  originalOrderId?: string; // 退換貨時必填
+  originalOrderItemId?: string; // 退換貨時必填
+  restock?: boolean;       // 預設 true (是否加回門市現貨)
+  returnReason?: string;
+}
+
 export interface CreateOrderPayload {
   customerId?: string;
-  items: CheckoutOrderItem[];
+  usedPoints?: number;     // 欲折抵的會員點數
+  items: CreateOrderItemPayload[];
   shippingFee: number;
   payments: PaymentTender[];
   invoice: InvoiceInfo;
   note?: string;
+}
+
+export interface OrderSearchParams {
+  customerId?: string;
+  orderNumber?: string;
+  productId?: string;
+  keyword?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: OrderStatus | 'all';
 }
 
 export interface CheckoutReceipt {

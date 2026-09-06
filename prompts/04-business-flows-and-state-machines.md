@@ -95,39 +95,43 @@ function derivePreOrderStatus(items: PreOrderItem[]): PreOrderStatus {
 | 預購取貨 | 同樣扣減 `store` 庫存（預購到貨後應已入庫至門市） |
 | `totalStock` | 扣減後同步重算所有 location 加總 |
 
-### 2.2 退換貨（負數品項）
+### 2.2 退換貨（負數品項與全鏈路原單關聯）
 
 | 規則 | 說明 |
 | :--- | :--- |
-| 庫存回補 | 負數品項結帳完成後，**加回 `store` 庫存** |
-| 數量 | `quantity = -1` 表示退回 1 件至門市 |
+| 原單關聯 | 退換貨（`quantity < 0`）**必須關聯原銷售單據**（`originalOrderId` + `originalOrderItemId`） |
+| 可退數量校驗 | 驗證 `abs(quantity) <= (qtySold - qtyReturned)`，防重複或超額退貨 |
+| 庫存回補 | 若 `restock: true`，結帳完成後**加回 `store` 庫存**；若為嚴重瑕疵報廢可設為 `false` |
+| 原單狀態推導 | 更新原單品項 `returnedQuantity`，全數退完轉為 `refunded`，部分退完轉為 `partially_refunded` |
 
 ### 2.3 結帳前置驗證 (Checkout Validation Gate)
 
-在 `createCheckoutOrder` 執行前，逐一檢查：
-1. 每個正數品項：`store.quantity >= item.quantity`
-2. 每個預購關聯品項：\( \Delta Q \le (\text{qtyArrived} - \text{qtyDelivered}) \)
-3. 支付總額：\( \sum \text{PaymentAmount} \ge \text{TotalOrderAmount} \)
+在 `createCheckoutOrder` 執行前，在單一 DB Transaction 內逐一檢查：
+1. 每個正數品項：`store.quantity >= item.quantity`（行鎖防超賣，不足拋出 `INSUFFICIENT_STORE_STOCK`）
+2. 每個預購關聯品項：\( \Delta Q \le (\text{qtyArrived} - \text{qtyDelivered}) \)（超額拋出 `PREORDER_QTY_EXCEEDED`）
+3. 每個退換貨品項：\( \text{abs}(Q) \le (Q_{\text{sold}} - Q_{\text{returned}}) \)（超額拋出 `RETURN_QTY_EXCEEDED`）
+4. 會員點數折抵：\( \text{usedPoints} \le \text{customer.rewardPoints} \)（不足拋出 `INSUFFICIENT_POINTS`）
+5. 支付總額：\( \sum \text{PaymentAmount} \ge \text{TotalOrderAmount} \)（不足拋出 `PAYMENT_INSUFFICIENT`）
 
-任一條件不滿足 → 拋出業務錯誤，UI 以 Toast 顯示，**不寫入任何資料**。
+任一條件不滿足 → 拋出業務錯誤，UI 以 Toast 顯示，**不寫入任何資料 (Rollback)**。
 
 ---
 
-## 3. 瑕疵換貨與負數單據邏輯 (Defect Exchange & Returns)
+## 3. 瑕疵換貨與統一退換貨單據管線 (Defect Exchange & Returns Pipeline)
 
-實體門市常有客人購買後發現車身水貼微歪、漆面刮傷，回門市進行「補差額換貨」或「退貨」。
+實體門市常有客人購買後發現車身水貼微歪、漆面刮傷，回門市進行「補差額換貨」或「純退款」。Fred's POS 採用**統一交易管線**：不設獨立退款 API，所有退換貨一律藉由帶入負數品項至購物車，透過 `POST /checkout/orders` 統一處理。
 
-### 3.1 購物車負數金額計算規則
+### 3.1 退換貨雙操作動線
 
-1. 購物車品項支援設定 `quantity = -1`（或由 UI 上的 `[退換貨]` 按鈕觸發）。
-2. **範例情境：退瑕疵車 $650，換新車 $880**：
-   - 購物車項目 1：`INNO-64-FD2-W`，數量 `-1`，單價 `$650` → 小計 `-$650`
-   - 購物車項目 2：`TLV-N234a`，數量 `+1`，單價 `$880` → 小計 `+$880`
-   - **應收總額** = `$880 + (-$650) = NT$ 230`（客人僅需補差價 $230）。
-3. **範例情境：純退貨（總額為負數）**：
-   - 應收總額為 `-$650`。
-   - 結帳介面自動切換為「門市退款」模式，收銀抽屜退還現金 $650 給顧客。
-4. **庫存連動**：見 §2.2。
+1. **動線 1（收銀台掃描退貨條碼）**：
+   * 店員在結帳櫃檯掃描瑕疵商品條碼。
+   * 呼叫 `GET /checkout/orders?productId=...` 彈窗列出近期售出該商品的單據。
+   * 勾選原單品項後帶入購物車（數量為負數，自動綁定 `originalOrderId` 與 `originalOrderItemId`）。
+   * 可繼續掃入新商品（如退 $650 車，換 $880 車，應付總額 $230 補差價出單）。
+2. **動線 2（歷史單據查詢發起退貨）**：
+   * 在客戶詳情或歷史訂單查詢畫面（支援會員電話、日期範圍、關鍵字反查散客單據）。
+   * 點選「辦理退換貨」，勾選退貨品項與數量。
+   * 一鍵傳送至購物車，進行純退款出單（應收總額為負數，開立折讓單/退款收據）或繼續加購換貨。
 
 ---
 
@@ -233,15 +237,19 @@ Service 層應拋出帶有 `code` 的業務錯誤，UI 層統一以 Toast 呈現
 | :--- | :--- | :--- |
 | `INSUFFICIENT_STORE_STOCK` | 門市現貨不足 | Toast 警告：「門市現貨不足，請先從倉庫調撥」 |
 | `PREORDER_QTY_EXCEEDED` | 預購可取數量超限 | 表單欄位紅框 + 「超過可取數量上限」 |
+| `RETURN_QTY_EXCEEDED` | 退貨數量超過原單剩餘可退上限 | Toast 警告：「退貨數量超過原單剩餘可退上限」 |
+| `INSUFFICIENT_POINTS` | 會員折抵點數不足 | 結帳彈窗紅字提示：「會員點數餘額不足」 |
 | `PAYMENT_INSUFFICIENT` | 支付總額不足 | 結帳彈窗內紅字提示，禁用確認按鈕 |
 | `PRODUCT_NOT_FOUND` | 搜尋無結果 | 空狀態卡片（見 `05` §5） |
+| `CUSTOMER_NOT_FOUND` | 會員不存在 | Toast 警告：「找不到指定會員」 |
+| `ORDER_NOT_FOUND` | 原銷售訂單不存在 | Toast 警告：「找不到原始銷售單據」 |
 | `STORAGE_CORRUPTED` | localStorage 解析失敗 | 自動 `resetDemoData()` + Toast：「示範資料已自動還原」 |
 
 ```typescript
 // src/utils/errors.ts
 export class BusinessError extends Error {
   constructor(
-    public code: string,
+    public code: BusinessErrorCode,
     message: string
   ) {
     super(message);
@@ -249,4 +257,4 @@ export class BusinessError extends Error {
 }
 ```
 
-**事務一致性**：`createCheckoutOrder` 內所有寫入（庫存、預購沖銷、訂單、會員點數）必須在同一邏輯區塊內完成；任一子步驟失敗則**全部回滾**，不產生半完成狀態。
+**事務一致性**：`createCheckoutOrder` 內所有寫入（庫存、預購沖銷、退貨可退計數、訂單、會員點數與消費額）必須在單一 DB Transaction / 邏輯區塊內完成；任一子步驟失敗則**全部回滾**，不產生半完成狀態。

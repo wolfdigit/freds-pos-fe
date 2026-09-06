@@ -31,15 +31,23 @@ export interface CheckoutOrderItem {
   priceDiffReason?: string;
   quantity: number;
   subtotal: number;
+  returnedQuantity?: number;
   preOrderId?: string;
   preOrderItemId?: string;
+  originalOrderId?: string;
+  originalOrderItemId?: string;
+  restock?: boolean;
+  returnReason?: string;
 }
+
+export type OrderStatus = 'completed' | 'partially_refunded' | 'refunded';
 
 export interface CheckoutOrder {
   id: string;
   orderNumber: string;
   cashierId: string;
   cashierName: string;
+  status: OrderStatus;
   customerId?: string;
   customerName?: string;
   customerPhone?: string;
@@ -56,13 +64,38 @@ export interface CheckoutOrder {
   createdAt: string;
 }
 
+export interface CreateOrderItemPayload {
+  productId: string;
+  quantity: number;
+  unitPrice?: number;
+  isManualPrice?: boolean;
+  priceDiffReason?: string;
+  preOrderId?: string;
+  preOrderItemId?: string;
+  originalOrderId?: string;
+  originalOrderItemId?: string;
+  restock?: boolean;
+  returnReason?: string;
+}
+
 export interface CreateOrderPayload {
   customerId?: string;
-  items: CheckoutOrderItem[];
+  usedPoints?: number;
+  items: CreateOrderItemPayload[];
   shippingFee: number;
   payments: PaymentTender[];
   invoice: InvoiceInfo;
   note?: string;
+}
+
+export interface OrderSearchParams {
+  customerId?: string;
+  orderNumber?: string;
+  productId?: string;
+  keyword?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: OrderStatus | 'all';
 }
 
 export interface CheckoutReceipt {

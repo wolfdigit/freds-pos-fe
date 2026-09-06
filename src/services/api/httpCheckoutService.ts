@@ -1,14 +1,41 @@
 import type { ICheckoutService } from '@/services/interfaces/ICheckoutService';
-import type { CheckoutOrder, CreateOrderPayload, CheckoutReceipt } from '@/types/checkout';
+import type {
+  CheckoutOrder,
+  CreateOrderPayload,
+  CheckoutReceipt,
+  OrderSearchParams,
+} from '@/types/checkout';
 import { httpClient } from './httpClient';
 
 export class HttpCheckoutService implements ICheckoutService {
-  async createCheckoutOrder(payload: CreateOrderPayload): Promise<CheckoutReceipt> {
-    return httpClient.post<CheckoutReceipt>('/checkout/orders', payload);
+  async createCheckoutOrder(payload: CreateOrderPayload, idempotencyKey?: string): Promise<CheckoutReceipt> {
+    const headers: Record<string, string> = {};
+    if (idempotencyKey) {
+      headers['X-Idempotency-Key'] = idempotencyKey;
+    }
+    return httpClient.post<CheckoutReceipt>('/checkout/orders', payload, { headers });
   }
 
-  async getOrderHistory(customerId?: string): Promise<CheckoutOrder[]> {
-    const query = customerId ? `?customerId=${encodeURIComponent(customerId)}` : '';
+  async getOrderHistory(params?: OrderSearchParams | string): Promise<CheckoutOrder[]> {
+    if (typeof params === 'string') {
+      const query = params ? `?customerId=${encodeURIComponent(params)}` : '';
+      return httpClient.get<CheckoutOrder[]>(`/checkout/orders${query}`);
+    }
+
+    if (!params) {
+      return httpClient.get<CheckoutOrder[]>('/checkout/orders');
+    }
+
+    const queryParts: string[] = [];
+    if (params.customerId) queryParts.push(`customerId=${encodeURIComponent(params.customerId)}`);
+    if (params.orderNumber) queryParts.push(`orderNumber=${encodeURIComponent(params.orderNumber)}`);
+    if (params.productId) queryParts.push(`productId=${encodeURIComponent(params.productId)}`);
+    if (params.keyword) queryParts.push(`keyword=${encodeURIComponent(params.keyword)}`);
+    if (params.startDate) queryParts.push(`startDate=${encodeURIComponent(params.startDate)}`);
+    if (params.endDate) queryParts.push(`endDate=${encodeURIComponent(params.endDate)}`);
+    if (params.status && params.status !== 'all') queryParts.push(`status=${encodeURIComponent(params.status)}`);
+
+    const query = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
     return httpClient.get<CheckoutOrder[]>(`/checkout/orders${query}`);
   }
 
@@ -18,10 +45,5 @@ export class HttpCheckoutService implements ICheckoutService {
     } catch {
       return null;
     }
-  }
-
-  async refundOrder(orderId: string, reason: string): Promise<boolean> {
-    const res = await httpClient.post<{ success: boolean }>(`/checkout/orders/${orderId}/refund`, { reason });
-    return res.success ?? true;
   }
 }

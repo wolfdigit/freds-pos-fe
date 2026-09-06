@@ -1,38 +1,43 @@
 openapi: 3.1.0
 info:
   title: Fred's POS API
-  version: 1.0.0
+  version: 1.1.0
   description: |
-    HTTP contract for Fred's POS, matching the frontend Service Adapter
-    (`src/services/interfaces/`). Mockup currently uses localStorage adapters;
-    a future FastAPI backend can implement these paths without changing UI.
+    HTTP contract for Fred's POS, matching the frontend Service Adapter (`src/services/interfaces/`).
+    Designed for high-performance model car specialty stores with unified checkout, multi-location stock,
+    item-level returns/exchanges, pre-order partial fulfillment, and cash drawer management.
+
+    **Core Architectural Principles**
+    - **Single Transaction Pipeline**: All sales, returns, and defect exchanges are unified under `POST /checkout/orders`.
+    - **Backend Pricing & Calculation Authority**: Frontend transmits purchase/return intents and cashier-adjusted `unitPrice`; backend calculates all line subtotals, discounts, taxes, and total amounts.
+    - **Line-Item Return Traceability**: Returns/exchanges (negative quantities) must reference `originalOrderId` and `originalOrderItemId`, with cumulative `returnedQuantity` tracking.
+    - **ACID Atomicity**: Checkout/return operations execute inside a single database transaction (locking store stock, updating pre-orders, updating customer spending/points, and creating orders).
+    - **Idempotency**: `POST /checkout/orders` supports `X-Idempotency-Key` to prevent double-charging or double stock deduction.
+    - **Authentication**: Cashier and branch identity are resolved from JWT Bearer tokens, bound at cashier login.
 
     **Conventions**
     - Amounts are TWD integers (no cents).
     - Timestamps are ISO 8601 strings.
     - Business failures use HTTP 4xx with `BusinessError` body (`code` + `message`).
-    - `updateCustomerSpending` and `fulfillPreOrderItems` are typically invoked
-      inside `POST /checkout/orders`, not by the cashier UI.
 
-    **Mockup UI payment methods:** `cash`, `credit_card`, `line_pay`, `bank_transfer`.
-    `cod` is reserved for future website imports and is not shown on the payment modal.
-  contact:
-    name: Fred's POS
 servers:
   - url: http://localhost:8000/api/v1
-    description: Local FastAPI (planned)
+    description: Local FastAPI Backend
   - url: /api/v1
     description: Relative (same origin)
 
+security:
+  - BearerAuth: []
+
 tags:
   - name: products
-    description: Product catalog and multi-location stock
+    description: Product catalog, multi-location stock, and transfers
   - name: checkout
-    description: Sales orders, receipts, refunds
+    description: Sales orders, receipts, item-level returns and exchanges
   - name: preorders
-    description: Pre-orders, partial arrival, fulfillment
+    description: Customer pre-orders and arrival management
   - name: customers
-    description: Members, VIP, points
+    description: Members, VIP tiers, and reward points
 
 paths:
   /products:
@@ -41,7 +46,7 @@ paths:
       operationId: searchProducts
       summary: Search products
       description: |
-        Fuzzy search by barcode, SKU without dashes, product name, or brand.
+        Fuzzy search by barcode, SKU without dashes (normalized), product name, or brand.
         Maps to `IProductService.searchProducts`.
       parameters:
         - name: keyword
@@ -76,7 +81,7 @@ paths:
       tags: [products]
       operationId: createProduct
       summary: Create product
-      description: Maps to `IProductService.createProduct`. Server assigns `id` and may recompute `normalizedSku` / `totalStock`.
+      description: Maps to `IProductService.createProduct`. Server assigns `id` and computes `normalizedSku` and `totalStock`.
       requestBody:
         required: true
         content:
@@ -131,13 +136,13 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-
   /inventory/transfers:
     post:
       tags: [products]
       operationId: transferStock
       summary: Transfer stock between locations
-      description: Maps to `IProductService.transferStock`.
+      description: |
+        Maps to `IProductService.transferStock`. Executes atomically: deducts from `fromLocation` and adds to `toLocation`.
       requestBody:
         required: true
         content:
@@ -183,7 +188,7 @@ paths:
       tags: [products]
       operationId: batchAdjustStock
       summary: Batch adjust stock quantities and log operation history
-      description: Maps to `IProductService.batchAdjustStock`.
+      description: Maps to `IProductService.batchAdjustStock`. Writes inventory updates and audit log atomically.
       requestBody:
         required: true
         content:
@@ -216,22 +221,55 @@ paths:
                 items:
                   $ref: '#/components/schemas/StockAdjustmentLog'
 
-
-
   /checkout/orders:
     get:
       tags: [checkout]
       operationId: getOrderHistory
       summary: List checkout orders
-      description: Maps to `ICheckoutService.getOrderHistory`. Optional customer filter.
+      description: |
+        Maps to `ICheckoutService.getOrderHistory`. Supports searching by customer, order number,
+        product ID (for finding original sales order during return), date range, or keyword.
       parameters:
         - name: customerId
           in: query
           schema:
             type: string
+          description: Filter by customer ID
+        - name: orderNumber
+          in: query
+          schema:
+            type: string
+          description: Filter by exact or partial order number
+        - name: productId
+          in: query
+          schema:
+            type: string
+          description: Filter orders containing this product (used for counter return lookup)
+        - name: keyword
+          in: query
+          schema:
+            type: string
+          description: Search by customer phone, name, tax ID, carrier code, or order number
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Start date (YYYY-MM-DD)
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+          description: End date (YYYY-MM-DD)
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [all, completed, partially_refunded, refunded]
       responses:
         '200':
-          description: Order list (newest-first recommended)
+          description: Order list (newest-first)
           content:
             application/json:
               schema:
@@ -241,17 +279,39 @@ paths:
     post:
       tags: [checkout]
       operationId: createCheckoutOrder
-      summary: Create checkout order
+      summary: Create checkout order (Sales, Exchanges, and Returns)
       description: |
         Maps to `ICheckoutService.createCheckoutOrder`.
 
-        Server must validate then write atomically:
-        1. Positive lines: store stock >= quantity
-        2. Pre-order lines: qty <= qtyArrived - qtyDelivered
-        3. Sum of payment amounts >= order total
-        Then deduct/restore store stock, fulfill pre-order items, persist order,
-        and update member spending/points. `discountAmount` is derived on the server
-        from `(originalPrice - unitPrice) * quantity`.
+        **Backend Atomic Lifecycle (Single DB Transaction)**:
+        1. **Identity & Branch Resolution**: Extract `cashierId`, `cashierName`, and active `storeId` from `BearerAuth` JWT token.
+        2. **Item Pricing & Subtotals**:
+           - For positive purchases: verify `unitPrice` against `listPrice` or customer `vipPrice` unless `isManualPrice: true` (which requires `priceDiffReason`).
+           - For pre-order items: verify `unitPrice` matches `quotedPrice` and `quantity <= qtyArrived - qtyDelivered`.
+           - For return/exchange items (`quantity < 0`): verify `originalOrderId` & `originalOrderItemId`, ensuring `abs(quantity) <= (qtySold - qtyReturned)`. Also enforce member ownership: if the checkout is bound to customer A, the original order cannot belong to customer B (`customerId` mismatch raises `INVALID_RETURN_CUSTOMER`; unattached guest original orders are permitted).
+           - Compute `subtotal = unitPrice * quantity` for each line.
+        3. **Order Total & Points**:
+           - `itemsSubtotal = sum(subtotals)`
+           - `discountAmount = sum((originalPrice - unitPrice) * quantity)`
+           - Validate `usedPoints <= customer.rewardPoints` and calculate final `totalAmount = itemsSubtotal + shippingFee - usedPoints`.
+           - Validate `sum(payments.amount) == totalAmount` (or `payments >= totalAmount` with cash change).
+        4. **Inventory & Pre-Order Atomicity**:
+           - Positive items: lock and deduct `store` stock with row lock (`WHERE quantity >= :qty`).
+           - Negative items: if `restock: true`, increment `store` stock; increment `returnedQuantity` on original order.
+           - Pre-order items: increment `qtyDelivered` and update pre-order status.
+        5. **Member Asset Update**:
+           - Update `customer.totalSpent += totalAmount`
+           - Update `customer.rewardPoints += (earnedPoints - usedPoints)`
+        6. **Receipt & Persistence**:
+           - Persist `CheckoutOrder` and return `CheckoutReceipt` with thermal print HTML.
+      parameters:
+        - name: X-Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            format: uuid
+          description: Optional UUID to guarantee idempotent order creation and prevent double-billing.
       requestBody:
         required: true
         content:
@@ -274,7 +334,7 @@ paths:
     get:
       tags: [checkout]
       operationId: getOrderById
-      summary: Get order (reprint receipt)
+      summary: Get order by ID (reprint receipt / check return status)
       parameters:
         - $ref: '#/components/parameters/OrderId'
       responses:
@@ -284,30 +344,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CheckoutOrder'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /checkout/orders/{orderId}/refund:
-    post:
-      tags: [checkout]
-      operationId: refundOrder
-      summary: Refund / void order
-      description: Maps to `ICheckoutService.refundOrder`. Mockup may only acknowledge existence.
-      parameters:
-        - $ref: '#/components/parameters/OrderId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RefundOrderRequest'
-      responses:
-        '200':
-          description: Refund processed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OkResponse'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -339,7 +375,7 @@ paths:
       tags: [preorders]
       operationId: createPreOrder
       summary: Create pre-order
-      description: Maps to `IPreOrderService.createPreOrder`. Server assigns `id`, `orderNumber`, `status`, `updatedAt` if omitted.
+      description: Maps to `IPreOrderService.createPreOrder`. Server assigns `id`, `orderNumber`, `status`, and `updatedAt`.
       requestBody:
         required: true
         content:
@@ -411,43 +447,12 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-
-  /preorders/{preOrderId}/fulfill:
-    post:
-      tags: [preorders]
-      operationId: fulfillPreOrderItems
-      summary: Fulfill pre-order line quantities
-      description: |
-        Maps to `IPreOrderService.fulfillPreOrderItems`.
-        Usually called from checkout, not the cashier UI. Identify lines by `preOrderItemId`.
-      parameters:
-        - $ref: '#/components/parameters/PreOrderId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FulfillPreOrderRequest'
-      responses:
-        '200':
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OkResponse'
-        '400':
-          $ref: '#/components/responses/BusinessError'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
   /preorders/{preOrderId}/arrived:
     post:
       tags: [preorders]
       operationId: markItemsArrived
-      summary: Mark items arrived (Phase 2)
-      description: |
-        Maps to optional `IPreOrderService.markItemsArrived`.
-        Mockup Phase 1 seeds `qtyArrived`; this endpoint is for a later UI.
+      summary: Mark pre-order items arrived (Phase 2)
+      description: Updates `qtyArrived` for specified products and re-derives pre-order status.
       parameters:
         - $ref: '#/components/parameters/PreOrderId'
       requestBody:
@@ -545,7 +550,6 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-
   /customers/by-phone/{phone}:
     get:
       tags: [customers]
@@ -569,33 +573,14 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /customers/{customerId}/spending:
-    post:
-      tags: [customers]
-      operationId: updateCustomerSpending
-      summary: Add spending and points
-      description: |
-        Maps to `ICustomerService.updateCustomerSpending`.
-        Intended for checkout service internals, not cashier UI.
-      parameters:
-        - $ref: '#/components/parameters/CustomerId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateCustomerSpendingRequest'
-      responses:
-        '200':
-          description: Updated
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/OkResponse'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Authenticated cashier / store staff token containing cashierId, name, and active store branch.
+
   parameters:
     ProductId:
       name: productId
@@ -635,7 +620,7 @@ components:
             $ref: '#/components/schemas/BusinessError'
           example:
             code: PRODUCT_NOT_FOUND
-            message: 找不到指定商品
+            message: 找不到指定資源
     BusinessError:
       description: Business rule failed (no partial writes)
       content:
@@ -651,6 +636,14 @@ components:
               value:
                 code: PREORDER_QTY_EXCEEDED
                 message: 超過可取數量上限
+            returnQty:
+              value:
+                code: RETURN_QTY_EXCEEDED
+                message: 退貨數量超過原單剩餘可退上限
+            insufficientPoints:
+              value:
+                code: INSUFFICIENT_POINTS
+                message: 會員點數餘額不足
             payment:
               value:
                 code: PAYMENT_INSUFFICIENT
@@ -679,8 +672,11 @@ components:
       enum:
         - INSUFFICIENT_STORE_STOCK
         - PREORDER_QTY_EXCEEDED
+        - RETURN_QTY_EXCEEDED
+        - INSUFFICIENT_POINTS
         - PAYMENT_INSUFFICIENT
         - PRODUCT_NOT_FOUND
+        - ORDER_NOT_FOUND
         - STORAGE_CORRUPTED
 
     ModelScale:
@@ -797,7 +793,6 @@ components:
           type: string
         normalizedSku:
           type: string
-          description: Server may overwrite from SKU
         barcode:
           type: string
         brand:
@@ -824,7 +819,6 @@ components:
             $ref: '#/components/schemas/LocationStock'
         totalStock:
           type: integer
-          description: Server may recompute from stocks
         preOrderPendingCount:
           type: integer
         note:
@@ -933,12 +927,9 @@ components:
         note:
           type: string
 
-
-
     PaymentMethodType:
       type: string
       enum: [cash, credit_card, line_pay, bank_transfer, cod]
-      description: UI omits `cod` in mockup
 
     PaymentTender:
       type: object
@@ -1010,10 +1001,27 @@ components:
           description: Negative = return / exchange
         subtotal:
           type: integer
+        returnedQuantity:
+          type: integer
+          description: Cumulative quantity returned against this line item
+          default: 0
         preOrderId:
           type: string
         preOrderItemId:
           type: string
+        originalOrderId:
+          type: string
+        originalOrderItemId:
+          type: string
+        restock:
+          type: boolean
+          default: true
+        returnReason:
+          type: string
+
+    OrderStatus:
+      type: string
+      enum: [completed, partially_refunded, refunded]
 
     CheckoutOrder:
       type: object
@@ -1022,6 +1030,7 @@ components:
         - orderNumber
         - cashierId
         - cashierName
+        - status
         - items
         - itemsSubtotal
         - discountAmount
@@ -1042,6 +1051,8 @@ components:
           type: string
         cashierName:
           type: string
+        status:
+          $ref: '#/components/schemas/OrderStatus'
         customerId:
           type: string
         customerName:
@@ -1076,19 +1087,58 @@ components:
           type: string
           format: date-time
 
+    CreateOrderItemPayload:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId:
+          type: string
+        quantity:
+          type: integer
+          description: Positive for purchase, negative for return/exchange
+        unitPrice:
+          type: integer
+          description: Cashier-set unit price (re-validated by server unless isManualPrice is true)
+        isManualPrice:
+          type: boolean
+          default: false
+        priceDiffReason:
+          type: string
+        preOrderId:
+          type: string
+        preOrderItemId:
+          type: string
+        originalOrderId:
+          type: string
+          description: Required when quantity < 0 (links return to original sales order)
+        originalOrderItemId:
+          type: string
+          description: Required when quantity < 0 (links return to original item line)
+        restock:
+          type: boolean
+          default: true
+          description: For returns, whether returned item is restocked to store inventory
+        returnReason:
+          type: string
+
     CreateOrderPayload:
       type: object
-      required: [items, shippingFee, payments, invoice]
+      required: [items, payments, invoice]
       properties:
         customerId:
           type: string
+        usedPoints:
+          type: integer
+          default: 0
+          description: Points to redeem on this checkout
         items:
           type: array
           minItems: 1
           items:
-            $ref: '#/components/schemas/CheckoutOrderItem'
+            $ref: '#/components/schemas/CreateOrderItemPayload'
         shippingFee:
           type: integer
+          default: 0
         payments:
           type: array
           minItems: 1
@@ -1107,14 +1157,7 @@ components:
           $ref: '#/components/schemas/CheckoutOrder'
         receiptPrintHtml:
           type: string
-          description: Thermal-style receipt HTML for preview
-
-    RefundOrderRequest:
-      type: object
-      required: [reason]
-      properties:
-        reason:
-          type: string
+          description: Thermal-style receipt HTML for printing and preview
 
     PreOrderStatus:
       type: string
@@ -1258,23 +1301,6 @@ components:
         operatorName:
           type: string
 
-
-    FulfillPreOrderRequest:
-      type: object
-      required: [fulfilledItems]
-      properties:
-        fulfilledItems:
-          type: array
-          items:
-            type: object
-            required: [preOrderItemId, qty]
-            properties:
-              preOrderItemId:
-                type: string
-              qty:
-                type: integer
-                minimum: 1
-
     MarkItemsArrivedRequest:
       type: object
       required: [arrivedItems]
@@ -1377,15 +1403,3 @@ components:
           type: integer
         note:
           type: string
-
-    UpdateCustomerSpendingRequest:
-      type: object
-      required: [amount, earnedPoints]
-      properties:
-        amount:
-          type: integer
-          description: Amount added to totalSpent (may be negative on refund)
-        earnedPoints:
-          type: integer
-          description: Points added to rewardPoints
-
