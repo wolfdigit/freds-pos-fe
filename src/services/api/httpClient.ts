@@ -121,7 +121,17 @@ export class HttpClient {
       const status = response.status;
       let userFriendlyMsg = '';
 
-      if (status === 404) {
+      const bodyMessage =
+        typeof responseBody === 'object' && responseBody !== null
+          ? (responseBody as any).message ||
+            (typeof (responseBody as any).detail === 'string'
+              ? (responseBody as any).detail
+              : (responseBody as any).detail?.message)
+          : undefined;
+
+      if (bodyMessage && typeof bodyMessage === 'string') {
+        userFriendlyMsg = bodyMessage;
+      } else if (status === 404) {
         userFriendlyMsg = `API 端點不存在 (404)：${endpoint}`;
       } else if (status === 401 || status === 403) {
         userFriendlyMsg = `權限不足或未授權 (${status})：${endpoint}`;

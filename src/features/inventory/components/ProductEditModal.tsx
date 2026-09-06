@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
-import type { ModelScale, Product } from '@/types/product';
+import type { ModelScale, Product, UpdateProductRequest } from '@/types/product';
 import { productService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
+import { BusinessError } from '@/utils/errors';
+import { ApiError } from '@/services/api/httpClient';
 
 interface ProductEditModalProps {
   product: Product | null;
@@ -66,7 +68,7 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
 
     setIsSubmitting(true);
     try {
-      await productService.updateProduct(product.id, {
+      const updates: UpdateProductRequest = {
         sku: sku.trim(),
         barcode: barcode.trim(),
         brand: brand.trim(),
@@ -79,13 +81,21 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
         vipPrice: vipPrice ? Number(vipPrice) : undefined,
         note: note.trim() || undefined,
         status,
-      });
+      };
+
+      await productService.updateProduct(product.id, updates);
 
       showToast('🎉 商品資訊已成功更新！', 'success');
       onSuccess();
       onClose();
     } catch (err) {
-      showToast('編輯儲存失敗，請重試', 'error');
+      if (err instanceof BusinessError) {
+        showToast(err.message, 'error');
+      } else if (err instanceof ApiError && (err.responseBody as any)?.message) {
+        showToast((err.responseBody as any).message, 'error');
+      } else {
+        showToast('編輯儲存失敗，請重試', 'error');
+      }
     } finally {
       setIsSubmitting(false);
     }

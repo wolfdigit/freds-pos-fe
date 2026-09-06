@@ -2,9 +2,11 @@ import { useState, useEffect } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
-import type { ModelScale, Product, StockLocation } from '@/types/product';
+import type { ModelScale, Product, StockLocation, CreateProductRequest } from '@/types/product';
 import { productService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
+import { BusinessError } from '@/utils/errors';
+import { ApiError } from '@/services/api/httpClient';
 
 interface CreateProductModalProps {
   open: boolean;
@@ -79,8 +81,8 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
       const warehouseQty = Math.max(0, Number(warehouseStock) || 0);
       const companyQty = Math.max(0, Number(companyStock) || 0);
 
-      // 新商品建立時庫存預設為 0，初始數量寫入待存檔草稿
-      const payload: Omit<Product, 'id' | 'totalStock' | 'preOrderPendingCount' | 'normalizedSku'> = {
+      // 新商品建立時不傳 stocks (由伺服器自動初始化為 0)，初始數量寫入待存檔草稿
+      const payload: CreateProductRequest = {
         sku: sku.trim(),
         barcode: barcode.trim() || `${Date.now()}`,
         brand: brand.trim(),
@@ -93,11 +95,6 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
         vipPrice: vipPrice ? Number(vipPrice) : undefined,
         note: note.trim() || undefined,
         status,
-        stocks: [
-          { location: 'store', locationName: '門市現貨', quantity: 0 },
-          { location: 'warehouse', locationName: '後方倉庫', quantity: 0 },
-          { location: 'company', locationName: '公司總倉', quantity: 0 },
-        ],
       };
 
       const created = await productService.createProduct(payload);
@@ -116,7 +113,13 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
       onSuccess(created, initialDrafts);
       onClose();
     } catch (err) {
-      showToast('建檔失敗，請再試一次', 'error');
+      if (err instanceof BusinessError) {
+        showToast(err.message, 'error');
+      } else if (err instanceof ApiError && (err.responseBody as any)?.message) {
+        showToast((err.responseBody as any).message, 'error');
+      } else {
+        showToast('建檔失敗，請再試一次', 'error');
+      }
     } finally {
       setIsSubmitting(false);
     }
