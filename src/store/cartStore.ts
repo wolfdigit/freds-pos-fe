@@ -11,7 +11,7 @@ export interface CartItem {
   sku: string;
   barcode?: string;
   name: string;
-  scale: ModelScale;
+  scale?: ModelScale | string;
   brand: string;
   spec?: string;
   originalPrice: number;

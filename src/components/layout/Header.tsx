@@ -24,7 +24,7 @@ function formatClock(date: Date): string {
 }
 
 export function Header() {
-  const { storeName, cashierName, setStoreName } = useSessionStore();
+  const { storeName, stores, cashierName, setStoreName } = useSessionStore();
   const setActiveTab = useUiStore((s) => s.setActiveTab);
   const now = useClock();
   const showToast = useToastStore((s) => s.showToast);
@@ -43,17 +43,19 @@ export function Header() {
     setTimeout(() => window.location.reload(), 800);
   };
 
+  const availableStores = stores && stores.length > 0 ? stores : PRESET_STORES;
+
   const handleStoreChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     if (val === '__CUSTOM__') {
-      const custom = window.prompt('請輸入新門市名稱：', storeName);
+      const custom = window.prompt('請輸入新登入門市名稱：', storeName);
       if (custom && custom.trim()) {
         setStoreName(custom.trim());
-        showToast(`已成功更換門市為：「${custom.trim()}」`, 'success');
+        showToast(`已成功更換登入門市為：「${custom.trim()}」`, 'success');
       }
     } else {
       setStoreName(val);
-      showToast(`已成功更換門市為：「${val}」`, 'success');
+      showToast(`已成功更換登入門市為：「${val}」`, 'success');
     }
   };
 
@@ -73,21 +75,21 @@ export function Header() {
         </button>
         <span className="text-zinc-600">|</span>
 
-        {/* 可更改門市選單 */}
+        {/* 可更改登入門市選單 */}
         <div className="flex items-center gap-1.5 text-zinc-300 font-medium">
-          <span>門市:</span>
+          <span className="text-zinc-400 text-xs">登入門市:</span>
           <select
-            value={PRESET_STORES.includes(storeName) ? storeName : '__CUSTOM__'}
+            value={availableStores.includes(storeName) ? storeName : '__CUSTOM__'}
             onChange={handleStoreChange}
             className="rounded-lg bg-zinc-800/90 border border-zinc-700/80 px-2.5 py-1 text-sm font-semibold text-cyan-300 focus:border-cyan-400 focus:outline-none cursor-pointer hover:border-zinc-500 hover:bg-zinc-800 transition-all shadow-sm"
-            title="點擊更改門市"
+            title="點擊更改登入門市"
           >
-            {PRESET_STORES.map((s) => (
+            {availableStores.map((s) => (
               <option key={s} value={s}>
                 🏢 {s}
               </option>
             ))}
-            {!PRESET_STORES.includes(storeName) && (
+            {!availableStores.includes(storeName) && (
               <option value="__CUSTOM__">🏢 {storeName}</option>
             )}
             <option value="__CUSTOM__">✏️ 自訂其他門市...</option>
@@ -96,9 +98,12 @@ export function Header() {
 
         <span className="text-zinc-600">|</span>
 
-        {/* 使用者名稱與登出按鈕 */}
+        {/* 使用者名稱、OAuth 角色與登出按鈕 */}
         <div className="flex items-center gap-2 text-zinc-300 font-medium">
-          <span>收銀員: {cashierName}</span>
+          <span>{cashierName}</span>
+          <span className="rounded bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 text-[11px] font-mono text-cyan-300 font-semibold">
+            {useSessionStore((s) => s.userRole === 'admin' ? '👑 管理員' : '👤 店員')}
+          </span>
           <button
             onClick={handleLogoutClick}
             title="未開放此功能"

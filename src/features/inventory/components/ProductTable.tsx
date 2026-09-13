@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import type { Product, StockLocation } from '@/types/product';
 import { Badge } from '@/components/common/Badge';
 import { formatCurrency } from '@/utils/currency';
 import { Spinner } from '@/components/feedback/Spinner';
+import { useLocations } from '../hooks/useLocations';
 
 interface ProductTableProps {
   products: Product[];
@@ -24,6 +26,56 @@ export function ProductTable({
   onTransfer,
   onSelectProduct,
 }: ProductTableProps) {
+  const { locations: apiLocations } = useLocations();
+
+  // 動態彙整所有商品所擁有的庫存據點清單 (API 優先 + 商品 stocks 動態擴充據點)
+  const availableLocations = useMemo(() => {
+    const map = new Map<string, string>();
+    const defaultOrder = ['store', 'warehouse', 'company', 'other'];
+    const defaultNames: Record<string, string> = {
+      store: '門市現貨',
+      warehouse: '後方倉庫',
+      company: '公司總倉',
+      other: '調度暫存',
+    };
+
+    if (apiLocations && apiLocations.length > 0) {
+      apiLocations.forEach((l) => {
+        if (l.isActive !== false) {
+          const locKey = l.id;
+          map.set(locKey, l.name);
+        }
+      });
+    }
+
+    products.forEach((p) => {
+      p.stocks?.forEach((s) => {
+        if (s.location && !map.has(s.location)) {
+          map.set(s.location, s.locationName || defaultNames[s.location] || s.location);
+        }
+      });
+    });
+
+    if (map.size === 0) {
+      defaultOrder.forEach((k) => map.set(k, defaultNames[k]));
+    }
+
+    const keys = Array.from(map.keys());
+    keys.sort((a, b) => {
+      const idxA = defaultOrder.indexOf(a);
+      const idxB = defaultOrder.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    return keys.map((k) => ({
+      key: k,
+      name: map.get(k) || k,
+    }));
+  }, [apiLocations, products]);
+
   if (isLoading) {
     return (
       <div className="flex h-52 items-center justify-center">
@@ -49,10 +101,11 @@ export function ProductTable({
             <th className="px-4 py-3.5 min-w-[160px] bg-zinc-900">商品貨號 (SKU) / 條碼</th>
             <th className="px-4 py-3.5 min-w-[280px] bg-zinc-900">車型與塗裝品名 (廠牌/比例)</th>
             <th className="px-4 py-3.5 text-right bg-zinc-900">門市定價</th>
-            <th className="px-4 py-3.5 text-center min-w-[120px] bg-zinc-900">門市現貨</th>
-            <th className="px-4 py-3.5 text-center min-w-[120px] bg-zinc-900">後方倉庫</th>
-            <th className="px-4 py-3.5 text-center min-w-[120px] bg-zinc-900">公司總倉</th>
-            <th className="px-4 py-3.5 text-center min-w-[120px] bg-zinc-900">調度暫存</th>
+            {availableLocations.map((loc) => (
+              <th key={loc.key} className="px-4 py-3.5 text-center min-w-[120px] bg-zinc-900">
+                {loc.name}
+              </th>
+            ))}
             <th className="px-4 py-3.5 text-right font-bold bg-zinc-900">預估總計</th>
             <th className="px-4 py-3.5 text-right font-bold bg-zinc-900">預購未交</th>
             <th className="px-4 py-3.5 text-right min-w-[90px] bg-zinc-900">操作</th>
@@ -61,22 +114,12 @@ export function ProductTable({
         <tbody className="divide-y divide-zinc-800/80">
           {products.map((p) => {
             const pDraft = draftStocks[p.id] || {};
-            const storeQty = pDraft.store ?? getOrigStock(p, 'store');
-            const warehouseQty = pDraft.warehouse ?? getOrigStock(p, 'warehouse');
-            const companyQty = pDraft.company ?? getOrigStock(p, 'company');
-            const otherQty = pDraft.other ?? getOrigStock(p, 'other');
 
-            const storeOrig = getOrigStock(p, 'store');
-            const warehouseOrig = getOrigStock(p, 'warehouse');
-            const companyOrig = getOrigStock(p, 'company');
-            const otherOrig = getOrigStock(p, 'other');
-
-            const totalCalculated = storeQty + warehouseQty + companyQty + otherQty;
-
-            const isStoreModified = storeQty !== storeOrig;
-            const isWarehouseModified = warehouseQty !== warehouseOrig;
-            const isCompanyModified = companyQty !== companyOrig;
-            const isOtherModified = otherQty !== otherOrig;
+            // 動態計算預估總計
+            const totalCalculated = availableLocations.reduce((sum, loc) => {
+              const q = pDraft[loc.key] ?? getOrigStock(p, loc.key);
+              return sum + q;
+            }, 0);
 
             return (
               <tr
@@ -105,155 +148,58 @@ export function ProductTable({
                     <span className="rounded-md border border-zinc-700 bg-zinc-800 px-2.5 py-0.5 text-sm font-bold text-zinc-200 shadow-sm">
                       {p.brand}
                     </span>
-                    <Badge color="zinc">{p.scale}</Badge>
+                    {p.scale && <Badge color="zinc">{p.scale}</Badge>}
                     {p.spec && <span className="text-xs text-zinc-400">{p.spec}</span>}
                   </div>
                 </td>
-
 
                 {/* 門市定價 (放大 text-xl 20px) */}
                 <td className="px-4 py-3.5 text-right font-mono text-xl font-bold text-zinc-100">
                   {formatCurrency(p.listPrice)}
                 </td>
 
-                {/* 1. 門市現貨 (直編 & 放大 text-xl 20px，紅減綠增高亮，固定位置) */}
-                <td className="px-4 py-2.5 text-center align-top">
-                  <div className="flex flex-col items-center justify-start h-16 pt-1">
-                    <div className="relative" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="number"
-                        min={0}
-                        value={storeQty}
-                        onChange={(e) => onStockChange(p.id, 'store', Math.max(0, Number(e.target.value) || 0))}
-                        className={`w-20 rounded-xl border px-2 py-1.5 text-center font-mono text-xl font-bold transition-all ${
-                          storeQty > storeOrig
-                            ? 'border-emerald-500 bg-emerald-950/40 text-emerald-300 ring-2 ring-emerald-500'
-                            : storeQty < storeOrig
-                            ? 'border-rose-500 bg-rose-950/40 text-rose-300 ring-2 ring-rose-500'
-                            : storeQty > 0
-                            ? 'border-zinc-700 bg-zinc-900 text-emerald-400 focus:border-cyan-400'
-                            : 'border-zinc-800 bg-zinc-900 text-rose-400 focus:border-cyan-400'
-                        }`}
-                      />
-                    </div>
-                    <div className="h-5 flex items-center justify-center mt-1">
-                      {isStoreModified && (
-                        <span
-                          className={`text-xs font-mono font-bold ${
-                            storeQty - storeOrig > 0 ? 'text-emerald-400' : 'text-rose-400'
-                          }`}
-                        >
-                          {storeQty - storeOrig > 0 ? `+${storeQty - storeOrig}` : storeQty - storeOrig}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </td>
+                {/* 各動態庫存地點直編欄位 */}
+                {availableLocations.map((loc) => {
+                  const qty = pDraft[loc.key] ?? getOrigStock(p, loc.key);
+                  const origQty = getOrigStock(p, loc.key);
+                  const isModified = qty !== origQty;
+                  const diff = qty - origQty;
 
-                {/* 2. 後方倉庫 (直編 & 放大 text-xl 20px，紅減綠增高亮，固定位置) */}
-                <td className="px-4 py-2.5 text-center align-top">
-                  <div
-                    className="flex flex-col items-center justify-start h-16 pt-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <input
-                      type="number"
-                      min={0}
-                      value={warehouseQty}
-                      onChange={(e) => onStockChange(p.id, 'warehouse', Math.max(0, Number(e.target.value) || 0))}
-                      className={`w-20 rounded-xl border px-2 py-1.5 text-center font-mono text-xl font-bold transition-all ${
-                        warehouseQty > warehouseOrig
-                          ? 'border-emerald-500 bg-emerald-950/40 text-emerald-300 ring-2 ring-emerald-500'
-                          : warehouseQty < warehouseOrig
-                          ? 'border-rose-500 bg-rose-950/40 text-rose-300 ring-2 ring-rose-500'
-                          : 'border-zinc-700 bg-zinc-900 text-zinc-200 focus:border-cyan-400'
-                      }`}
-                    />
-                    <div className="h-5 flex items-center justify-center mt-1">
-                      {isWarehouseModified && (
-                        <span
-                          className={`text-xs font-mono font-bold ${
-                            warehouseQty - warehouseOrig > 0 ? 'text-emerald-400' : 'text-rose-400'
-                          }`}
-                        >
-                          {warehouseQty - warehouseOrig > 0
-                            ? `+${warehouseQty - warehouseOrig}`
-                            : warehouseQty - warehouseOrig}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </td>
-
-                {/* 3. 公司總倉 (直編 & 放大 text-xl 20px，紅減綠增高亮，固定位置) */}
-                <td className="px-4 py-2.5 text-center align-top">
-                  <div
-                    className="flex flex-col items-center justify-start h-16 pt-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <input
-                      type="number"
-                      min={0}
-                      value={companyQty}
-                      onChange={(e) => onStockChange(p.id, 'company', Math.max(0, Number(e.target.value) || 0))}
-                      className={`w-20 rounded-xl border px-2 py-1.5 text-center font-mono text-xl font-bold transition-all ${
-                        companyQty > companyOrig
-                          ? 'border-emerald-500 bg-emerald-950/40 text-emerald-300 ring-2 ring-emerald-500'
-                          : companyQty < companyOrig
-                          ? 'border-rose-500 bg-rose-950/40 text-rose-300 ring-2 ring-rose-500'
-                          : 'border-zinc-700 bg-zinc-900 text-zinc-300 focus:border-cyan-400'
-                      }`}
-                    />
-                    <div className="h-5 flex items-center justify-center mt-1">
-                      {isCompanyModified && (
-                        <span
-                          className={`text-xs font-mono font-bold ${
-                            companyQty - companyOrig > 0 ? 'text-emerald-400' : 'text-rose-400'
-                          }`}
-                        >
-                          {companyQty - companyOrig > 0
-                            ? `+${companyQty - companyOrig}`
-                            : companyQty - companyOrig}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </td>
-
-                {/* 4. 調度暫存 (直編 & 放大 text-xl 20px，紅減綠增高亮，固定位置) */}
-                <td className="px-4 py-2.5 text-center align-top">
-                  <div
-                    className="flex flex-col items-center justify-start h-16 pt-1"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <input
-                      type="number"
-                      min={0}
-                      value={otherQty}
-                      onChange={(e) => onStockChange(p.id, 'other', Math.max(0, Number(e.target.value) || 0))}
-                      className={`w-20 rounded-xl border px-2 py-1.5 text-center font-mono text-xl font-bold transition-all ${
-                        otherQty > otherOrig
-                          ? 'border-emerald-500 bg-emerald-950/40 text-emerald-300 ring-2 ring-emerald-500'
-                          : otherQty < otherOrig
-                          ? 'border-rose-500 bg-rose-950/40 text-rose-300 ring-2 ring-rose-500'
-                          : 'border-zinc-700 bg-zinc-900 text-zinc-400 focus:border-cyan-400'
-                      }`}
-                    />
-                    <div className="h-5 flex items-center justify-center mt-1">
-                      {isOtherModified && (
-                        <span
-                          className={`text-xs font-mono font-bold ${
-                            otherQty - otherOrig > 0 ? 'text-emerald-400' : 'text-rose-400'
-                          }`}
-                        >
-                          {otherQty - otherOrig > 0
-                            ? `+${otherQty - otherOrig}`
-                            : otherQty - otherOrig}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </td>
+                  return (
+                    <td key={loc.key} className="px-4 py-2.5 text-center align-top">
+                      <div className="flex flex-col items-center justify-start h-16 pt-1">
+                        <div className="relative" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="number"
+                            min={0}
+                            value={qty}
+                            onChange={(e) => onStockChange(p.id, loc.key, Math.max(0, Number(e.target.value) || 0))}
+                            className={`w-20 rounded-xl border px-2 py-1.5 text-center font-mono text-xl font-bold transition-all ${
+                              qty > origQty
+                                ? 'border-emerald-500 bg-emerald-950/40 text-emerald-300 ring-2 ring-emerald-500'
+                                : qty < origQty
+                                ? 'border-rose-500 bg-rose-950/40 text-rose-300 ring-2 ring-rose-500'
+                                : qty > 0
+                                ? 'border-zinc-700 bg-zinc-900 text-zinc-100 focus:border-cyan-400'
+                                : 'border-zinc-800 bg-zinc-900 text-zinc-500 focus:border-cyan-400'
+                            }`}
+                          />
+                        </div>
+                        <div className="h-5 flex items-center justify-center mt-1">
+                          {isModified && (
+                            <span
+                              className={`text-xs font-mono font-bold ${
+                                diff > 0 ? 'text-emerald-400' : 'text-rose-400'
+                              }`}
+                            >
+                              {diff > 0 ? `+${diff}` : diff}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                  );
+                })}
 
                 {/* 預估總計 (放大 text-xl 20px) */}
                 <td className="px-4 py-3.5 text-right font-mono font-extrabold text-xl text-cyan-300">

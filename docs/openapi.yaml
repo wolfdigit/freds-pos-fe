@@ -38,6 +38,8 @@ tags:
     description: Customer pre-orders and arrival management
   - name: customers
     description: Members, VIP tiers, and reward points
+  - name: system
+    description: System configurations, store branches, and Google OAuth access control whitelist
 
 paths:
   /products:
@@ -244,6 +246,106 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/StockAdjustmentLog'
+
+  /inventory/locations:
+    get:
+      tags: [products]
+      operationId: getLocations
+      summary: Get all stock locations
+      description: |
+        Maps to `ILocationService.getLocations`. Retrieves all active stock locations in the system.
+      responses:
+        '200':
+          description: List of stock locations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StockLocationDto'
+    post:
+      tags: [products]
+      operationId: createLocation
+      summary: Create a new stock location
+      description: |
+        Maps to `ILocationService.createLocation`. Adds a new custom inventory location to the system.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStockLocationRequest'
+      responses:
+        '201':
+          description: Created stock location
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockLocationDto'
+
+  /inventory/locations/{locationId}:
+    put:
+      tags: [products]
+      operationId: updateLocation
+      summary: Update a stock location
+      description: |
+        Maps to `ILocationService.updateLocation`. Updates name, icon, display order, or active state of a location.
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique Primary Key (UUID) of the location to update
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStockLocationRequest'
+      responses:
+        '200':
+          description: Updated stock location
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockLocationDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags: [products]
+      operationId: deleteLocation
+      summary: Delete a stock location and migrate its inventory
+      description: |
+        Maps to `ILocationService.deleteLocation`. Removes the specified location from active stock locations
+        and atomically transfers all existing inventory quantities from this location to `transferToLocation`.
+      parameters:
+        - name: locationId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Unique Primary Key (UUID) of the location to delete
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteStockLocationRequest'
+      responses:
+        '200':
+          description: Location deleted and stock migrated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteStockLocationResponse'
+        '400':
+          $ref: '#/components/responses/BusinessError'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /checkout/orders:
     get:
@@ -580,6 +682,185 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /system/stores:
+    get:
+      tags: [system]
+      operationId: getStores
+      summary: Get all store branches
+      description: |
+        Retrieves all configured store branches (登入門市清單).
+      responses:
+        '200':
+          description: List of store branches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StoreDto'
+    post:
+      tags: [system]
+      operationId: createStore
+      summary: Add a new store branch
+      description: |
+        Adds a new store branch to the system.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStoreRequest'
+      responses:
+        '201':
+          description: Created store branch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StoreDto'
+        '400':
+          $ref: '#/components/responses/BusinessError'
+
+  /system/stores/{storeName}:
+    delete:
+      tags: [system]
+      operationId: deleteStore
+      summary: Delete a store branch
+      description: |
+        Removes a store branch from the system. System requires at least one store branch to remain active.
+      parameters:
+        - name: storeName
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Name of the store branch to delete
+      responses:
+        '200':
+          description: Store branch deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  deletedStore:
+                    type: string
+                    example: 台中一中店
+        '400':
+          $ref: '#/components/responses/BusinessError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /system/oauth/accounts:
+    get:
+      tags: [system]
+      operationId: getOAuthAccounts
+      summary: Get Google OAuth authorized accounts whitelist
+      description: |
+        Retrieves all authorized Google accounts for admin and staff roles, including display names, roles, and notes.
+      parameters:
+        - name: role
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/OAuthRole'
+          description: Optional filter by role (`admin` or `staff`)
+      responses:
+        '200':
+          description: List of authorized OAuth accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OAuthAccountDto'
+    post:
+      tags: [system]
+      operationId: createOAuthAccount
+      summary: Add an authorized Google OAuth account
+      description: |
+        Adds a new authorized Google account to the whitelist with role, display name, and optional note.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOAuthAccountRequest'
+      responses:
+        '201':
+          description: Created OAuth account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthAccountDto'
+        '400':
+          $ref: '#/components/responses/BusinessError'
+
+  /system/oauth/accounts/{email}:
+    put:
+      tags: [system]
+      operationId: updateOAuthAccount
+      summary: Update an authorized Google OAuth account
+      description: |
+        Updates the display name, note, or role of an existing authorized Google OAuth account.
+      parameters:
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+            format: email
+          description: Google account Gmail address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateOAuthAccountRequest'
+      responses:
+        '200':
+          description: Updated OAuth account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthAccountDto'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [system]
+      operationId: deleteOAuthAccount
+      summary: Remove a Google OAuth account from whitelist
+      description: |
+        Removes an authorized Google account from the whitelist.
+      parameters:
+        - name: email
+          in: path
+          required: true
+          schema:
+            type: string
+            format: email
+          description: Google account Gmail address to remove
+      responses:
+        '200':
+          description: Account removed from whitelist
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  deletedEmail:
+                    type: string
+                    example: clerk01@gmail.com
+        '400':
+          $ref: '#/components/responses/BusinessError'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -685,6 +966,9 @@ components:
         - PRODUCT_NOT_FOUND
         - PRODUCT_SKU_DUPLICATE
         - ORDER_NOT_FOUND
+        - LOCATION_NOT_FOUND
+        - INVALID_LOCATION_TRANSFER
+        - TARGET_LOCATION_NOT_FOUND
         - STORAGE_CORRUPTED
 
     ModelScale:
@@ -705,7 +989,98 @@ components:
 
     StockLocation:
       type: string
-      enum: [store, warehouse, company, other]
+      description: Stock location identifier (UUID or default location identifier)
+      example: e1a10002-0000-4000-8000-000000000002
+
+    StockLocationDto:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique Primary Key (UUID)
+          example: e1a10001-0000-4000-8000-000000000001
+        name:
+          type: string
+          example: 後方倉庫
+        icon:
+          type: string
+          example: 📦
+        isDefault:
+          type: boolean
+          default: false
+        displayOrder:
+          type: integer
+          default: 1
+        isActive:
+          type: boolean
+          default: true
+
+    CreateStockLocationRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: 高雄巨蛋門市
+        icon:
+          type: string
+          example: 🏬
+        displayOrder:
+          type: integer
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateStockLocationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: 門市展示區
+        icon:
+          type: string
+          example: 🏪
+        displayOrder:
+          type: integer
+          example: 1
+        isActive:
+          type: boolean
+          example: true
+
+    DeleteStockLocationRequest:
+      type: object
+      required: [transferToLocation]
+      properties:
+        transferToLocation:
+          $ref: '#/components/schemas/StockLocation'
+        reason:
+          type: string
+          example: 撤點整併至後方倉庫
+
+    DeleteStockLocationResponse:
+      type: object
+      required: [success, deletedLocation, transferredToLocation, affectedProductsCount, totalQuantityTransferred]
+      properties:
+        success:
+          type: boolean
+          example: true
+        deletedLocation:
+          type: string
+          example: store_2
+        transferredToLocation:
+          type: string
+          example: warehouse
+        affectedProductsCount:
+          type: integer
+          example: 15
+        totalQuantityTransferred:
+          type: integer
+          example: 42
+        message:
+          type: string
+          example: 成功刪除地點並將 15 項商品共 42 台庫存轉移至後方倉庫
 
     LocationStock:
       type: object
@@ -732,7 +1107,6 @@ components:
         - barcode
         - brand
         - name
-        - scale
         - listPrice
         - costPrice
         - stocks
@@ -750,12 +1124,17 @@ components:
           example: AA79121
         barcode:
           type: string
+          example: '471000000001'
         brand:
           type: string
         name:
           type: string
         scale:
           $ref: '#/components/schemas/ModelScale'
+          description: Model scale (optional)
+        spec:
+          type: string
+          description: Specification / edition / variant note
         material:
           type: string
         color:
@@ -788,7 +1167,6 @@ components:
         - barcode
         - brand
         - name
-        - scale
         - listPrice
         - costPrice
         - status
@@ -797,12 +1175,17 @@ components:
           type: string
         barcode:
           type: string
+          example: '471000000001'
         brand:
           type: string
         name:
           type: string
         scale:
           $ref: '#/components/schemas/ModelScale'
+          description: Model scale (optional)
+        spec:
+          type: string
+          description: Specification / edition / variant note
         material:
           type: string
         color:
@@ -831,12 +1214,17 @@ components:
           type: string
         barcode:
           type: string
+          example: '471000000001'
         brand:
           type: string
         name:
           type: string
         scale:
           $ref: '#/components/schemas/ModelScale'
+          description: Model scale (optional)
+        spec:
+          type: string
+          description: Specification / edition / variant note
         material:
           type: string
         color:
@@ -926,6 +1314,8 @@ components:
         productId:
           type: string
         sku:
+          type: string
+        barcode:
           type: string
         name:
           type: string
@@ -1434,3 +1824,77 @@ components:
           type: integer
         note:
           type: string
+
+    StoreDto:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: 台北旗艦店
+        isDefault:
+          type: boolean
+          default: false
+
+    CreateStoreRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          example: 高雄巨蛋店
+
+    OAuthRole:
+      type: string
+      enum: [admin, staff]
+      description: Access control role for Google OAuth accounts
+      example: admin
+
+    OAuthAccountDto:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+          example: fred@gmail.com
+        role:
+          $ref: '#/components/schemas/OAuthRole'
+        name:
+          type: string
+          example: 店長 Fred
+          description: Display name / cashier name
+        note:
+          type: string
+          example: 系統最高管理員 / 總部
+          description: Optional note / job title / shift info
+
+    CreateOAuthAccountRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+          example: clerk01@gmail.com
+        role:
+          $ref: '#/components/schemas/OAuthRole'
+        name:
+          type: string
+          example: 王小美
+        note:
+          type: string
+          example: 台北店早班店員
+
+    UpdateOAuthAccountRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/OAuthRole'
+        name:
+          type: string
+          example: 王小美
+        note:
+          type: string
+          example: 台北店早班主管
+

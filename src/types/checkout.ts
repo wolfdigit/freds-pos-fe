@@ -30,7 +30,7 @@ export interface CheckoutOrderItem {
   productId: string;
   sku: string;
   name: string;
-  scale: ModelScale;
+  scale?: ModelScale | string;
   originalPrice: number;
   unitPrice: number;
   isManualPrice: boolean;

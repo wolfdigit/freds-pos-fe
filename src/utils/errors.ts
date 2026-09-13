@@ -11,6 +11,9 @@ export type BusinessErrorCode =
   | 'CUSTOMER_EMAIL_DUPLICATE'
   | 'CUSTOMER_HAS_UNFINISHED_ORDERS'
   | 'ORDER_NOT_FOUND'
+  | 'LOCATION_NOT_FOUND'
+  | 'INVALID_LOCATION_TRANSFER'
+  | 'TARGET_LOCATION_NOT_FOUND'
   | 'STORAGE_CORRUPTED';
 
 export class BusinessError extends Error {

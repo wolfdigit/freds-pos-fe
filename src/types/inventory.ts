@@ -1,5 +1,43 @@
 import type { StockLocation } from './product';
 
+/** 庫存地點主檔 DTO (使用 UUID 作為 Primary Key) */
+export interface StockLocationDto {
+  id: string; // UUID Primary Key
+  name: string;
+  icon?: string;
+  isDefault?: boolean;
+  displayOrder?: number;
+  isActive?: boolean;
+}
+
+export interface CreateStockLocationRequest {
+  name: string;
+  icon?: string;
+  displayOrder?: number;
+  isActive?: boolean;
+}
+
+export interface UpdateStockLocationRequest {
+  name?: string;
+  icon?: string;
+  displayOrder?: number;
+  isActive?: boolean;
+}
+
+export interface DeleteStockLocationRequest {
+  transferToLocation: StockLocation;
+  reason?: string;
+}
+
+export interface DeleteStockLocationResponse {
+  success: boolean;
+  deletedLocation: StockLocation;
+  transferredToLocation: StockLocation;
+  affectedProductsCount: number;
+  totalQuantityTransferred: number;
+  message?: string;
+}
+
 /** 跨據點庫存調撥請求 */
 export interface InventoryTransferRequest {
   productId: string;
@@ -31,6 +69,7 @@ export interface StockItemAdjustment {
   sku: string;
   name: string;
   brand: string;
+  barcode?: string;
   changes: StockLocationChange[];
   summaryText: string;
 }

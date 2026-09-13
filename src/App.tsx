@@ -4,6 +4,7 @@ import { useUiStore } from '@/store/uiStore';
 import { CheckoutPage } from '@/features/checkout/CheckoutPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { CustomersPage } from '@/features/customers/CustomersPage';
+import { SettingsPage } from '@/features/settings/SettingsPage';
 import { getStateFromHash, getHashFromState } from '@/utils/hashRouter';
 
 export function App() {
@@ -72,6 +73,16 @@ export function App() {
                 </div>
                 <span className="text-zinc-500 text-sm font-mono">前往 →</span>
               </button>
+              <button
+                onClick={() => setActiveTab('settings')}
+                className="flex items-center justify-between rounded-xl border border-zinc-700 bg-zinc-800/80 px-5 py-3.5 text-base font-semibold text-zinc-100 hover:border-cyan-500 hover:bg-cyan-950/30 hover:text-cyan-300 transition-all shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">⚙️</span>
+                  <span>系統設定 (管理員)</span>
+                </div>
+                <span className="text-zinc-500 text-sm font-mono">前往 →</span>
+              </button>
             </div>
           </div>
         </div>
@@ -79,6 +90,7 @@ export function App() {
       {activeTab === 'checkout' && <CheckoutPage />}
       {activeTab === 'inventory' && <InventoryPage />}
       {activeTab === 'customers' && <CustomersPage />}
+      {activeTab === 'settings' && <SettingsPage />}
     </MainLayout>
   );
 }

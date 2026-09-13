@@ -23,7 +23,7 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
   const [sku, setSku] = useState('');
   const [barcode, setBarcode] = useState('');
   const [name, setName] = useState('');
-  const [scale, setScale] = useState<ModelScale>('1:18');
+  const [scale, setScale] = useState<string>('');
   const [spec, setSpec] = useState('');
   const [listPrice, setListPrice] = useState('');
   const [note, setNote] = useState('');
@@ -36,7 +36,7 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
       setSku(product.sku || '');
       setBarcode(product.barcode || '');
       setName(product.name || '');
-      setScale(product.scale || '1:18');
+      setScale(product.scale || '');
       setSpec(product.spec || '');
       setListPrice(String(product.listPrice ?? ''));
       setNote(product.note || '');
@@ -49,6 +49,11 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
     e.preventDefault();
     if (!sku.trim() || !name.trim() || !brand.trim()) {
       showToast('請填寫廠牌、貨號與商品品名', 'error');
+      return;
+    }
+
+    if (!barcode.trim()) {
+      showToast('請填寫國際條碼 (Barcode)', 'error');
       return;
     }
 
@@ -65,7 +70,7 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
         barcode: barcode.trim(),
         brand: brand.trim(),
         name: name.trim(),
-        scale,
+        scale: scale || undefined,
         spec: spec.trim() || undefined,
         listPrice: price,
         note: note.trim() || undefined,
@@ -104,12 +109,13 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">模型比例 *</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-300">模型比例 (選填)</label>
             <select
               value={scale}
-              onChange={(e) => setScale(e.target.value as ModelScale)}
+              onChange={(e) => setScale(e.target.value)}
               className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-400 focus:outline-none"
             >
+              <option value="">-- 無 / 未指定比例 --</option>
               {SCALE_OPTIONS.map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -132,12 +138,13 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">國際條碼 (Barcode)</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-300">國際條碼 (Barcode) *</label>
             <Input
               monospace
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}
-              placeholder="條碼"
+              placeholder="國際條碼"
+              required
             />
           </div>
         </div>

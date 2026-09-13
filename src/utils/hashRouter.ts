@@ -58,6 +58,11 @@ export function getStateFromHash(hash: string): RouteState {
     return { activeTab: 'customers', selectedCustomerId: customerId || null };
   }
 
+  // 例如 settings
+  if (raw.startsWith('settings')) {
+    return { activeTab: 'settings', selectedCustomerId: null };
+  }
+
   return { activeTab: null, selectedCustomerId: null };
 }
 

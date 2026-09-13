@@ -11,14 +11,18 @@ export function normalizeSku(input: string): string {
  * 模糊搜尋匹配函式：支援去 dash 貨號比對與條碼比對
  */
 export function isSkuMatch(query: string, productSku: string, productBarcode?: string): boolean {
-  const normalizedQuery = normalizeSku(query);
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) return true;
+
+  const normalizedQuery = normalizeSku(trimmedQuery);
   const normalizedTarget = normalizeSku(productSku);
 
-  if (!normalizedQuery) return true;
+  if (normalizedQuery && normalizedTarget.includes(normalizedQuery)) return true;
 
-  if (normalizedTarget.includes(normalizedQuery)) return true;
-
-  if (productBarcode && productBarcode.includes(query.trim())) return true;
+  if (productBarcode) {
+    if (productBarcode.toLowerCase().includes(trimmedQuery.toLowerCase())) return true;
+    if (normalizedQuery && normalizeSku(productBarcode).includes(normalizedQuery)) return true;
+  }
 
   return false;
 }
