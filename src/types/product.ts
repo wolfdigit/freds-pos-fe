@@ -55,4 +55,3 @@ export interface UpdateProductRequest {
   listPrice?: number;
   note?: string;
 }
-

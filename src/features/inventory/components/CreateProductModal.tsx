@@ -100,7 +100,11 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
       onClose();
     } catch (err: any) {
       console.error(err);
-      if (err instanceof BusinessError || err instanceof ApiError) {
+      if (err instanceof BusinessError) {
+        showToast(err.message, 'error');
+      } else if (err instanceof ApiError && (err.responseBody as any)?.message) {
+        showToast((err.responseBody as any).message, 'error');
+      } else if (err instanceof ApiError) {
         showToast(err.message, 'error');
       } else {
         showToast('建立商品失敗，請檢查資料', 'error');
