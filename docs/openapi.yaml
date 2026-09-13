@@ -506,7 +506,13 @@ paths:
           in: query
           schema:
             type: string
-          description: Phone or name fragment
+          description: Phone, name, or tax ID fragment for fuzzy matching
+        - name: phone
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Optional exact phone filter
       responses:
         '200':
           description: Customers
@@ -567,29 +573,6 @@ paths:
       responses:
         '200':
           description: Updated customer
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Customer'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /customers/by-phone/{phone}:
-    get:
-      tags: [customers]
-      operationId: getCustomerByPhone
-      summary: Get customer by exact phone
-      description: Maps to `ICustomerService.getCustomerByPhone` (checkout member bind).
-      parameters:
-        - name: phone
-          in: path
-          required: true
-          schema:
-            type: string
-          example: '0912345678'
-      responses:
-        '200':
-          description: Customer
           content:
             application/json:
               schema:

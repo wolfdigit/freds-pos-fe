@@ -1,8 +1,14 @@
 import type { ModelScale } from './product';
 
-// Mockup 階段 UI 僅實作：cash | credit_card | line_pay | bank_transfer
-// 'cod'（取貨付款）保留於型別供未來官網訂單匯入，結帳彈窗不顯示此選項
-export type PaymentMethodType = 'cash' | 'credit_card' | 'line_pay' | 'bank_transfer' | 'cod';
+export type PaymentMethodType =
+  | 'cash'
+  | 'bank_transfer_ctbc'
+  | 'bank_transfer_ubot'
+  | 'credit_card_physical'
+  | 'credit_card_online'
+  | 'line_pay'
+  | 'cod';
+
 
 export interface PaymentTender {
   type: PaymentMethodType;
@@ -93,10 +99,14 @@ export interface OrderSearchParams {
   orderNumber?: string;
   productId?: string;
   keyword?: string;
+  productKeyword?: string;
   startDate?: string;
   endDate?: string;
+  minAmount?: number;
+  maxAmount?: number;
   status?: OrderStatus | 'all';
 }
+
 
 export interface CheckoutReceipt {
   order: CheckoutOrder;

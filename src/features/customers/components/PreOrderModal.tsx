@@ -75,11 +75,12 @@ export function PreOrderModal({ open, onClose, customer, preOrder, onSaved }: Pr
         productName: prod.name,
         scale: prod.scale,
         brand: prod.brand,
-        quotedPrice: prod.vipPrice || prod.listPrice,
+        quotedPrice: prod.listPrice,
         qtyOrdered: 1,
         qtyArrived: 0,
         qtyDelivered: 0,
       };
+
       setItems([...items, newItem]);
     }
     setSelectedProductId('');
@@ -243,9 +244,10 @@ export function PreOrderModal({ open, onClose, customer, preOrder, onSaved }: Pr
               <option value="">-- 請選擇欲預訂之商品 --</option>
               {availableProducts.map((p) => (
                 <option key={p.id} value={p.id}>
-                  [{p.sku}] {p.brand} {p.name} (定價 ${p.listPrice} / VIP ${p.vipPrice || p.listPrice})
+                  [{p.sku}] {p.brand} {p.name} (定價 ${p.listPrice})
                 </option>
               ))}
+
             </select>
             <Button type="button" size="sm" variant="secondary" onClick={handleAddProduct}>
               + 加入品項

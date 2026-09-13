@@ -16,17 +16,13 @@ export interface Product {
   brand: string;
   name: string;
   scale: ModelScale;
-  material?: string;
-  color?: string;
+  spec?: string;
   imageUrl?: string;
   listPrice: number;
-  costPrice: number;
-  vipPrice?: number;
   stocks: LocationStock[];
   totalStock: number;
   preOrderPendingCount: number;
   note?: string;
-  status: 'active' | 'discontinued';
 }
 
 export interface ProductSearchParams {
@@ -42,14 +38,10 @@ export interface CreateProductRequest {
   brand: string;
   name: string;
   scale: ModelScale;
-  material?: string;
-  color?: string;
+  spec?: string;
   imageUrl?: string;
   listPrice: number;
-  costPrice: number;
-  vipPrice?: number;
   note?: string;
-  status: 'active' | 'discontinued';
 }
 
 export interface UpdateProductRequest {
@@ -58,12 +50,8 @@ export interface UpdateProductRequest {
   brand?: string;
   name?: string;
   scale?: ModelScale;
-  material?: string;
-  color?: string;
+  spec?: string;
   imageUrl?: string;
   listPrice?: number;
-  costPrice?: number;
-  vipPrice?: number;
   note?: string;
-  status?: 'active' | 'discontinued';
 }

@@ -29,11 +29,11 @@ export function ReceiptModal({ receipt, onClose }: ReceiptModalProps) {
                 <p className="truncate font-sans font-medium text-zinc-200 text-sm">{item.name}</p>
                 <p className="text-xs text-zinc-500 font-mono">@{formatCurrency(item.unitPrice)}</p>
               </div>
-              {/* 數量 (獨立欄位) */}
+              {/* 數量 */}
               <div className="shrink-0 text-center font-mono font-bold text-zinc-300 w-12">
                 x{item.quantity}
               </div>
-              {/* 小計 (獨立欄位靠右) */}
+              {/* 小計 */}
               <div className="shrink-0 text-right font-mono font-bold text-cyan-300 w-24">
                 {formatCurrency(item.subtotal)}
               </div>
@@ -58,30 +58,18 @@ export function ReceiptModal({ receipt, onClose }: ReceiptModalProps) {
             </div>
           )}
           <div className="flex justify-between text-base font-bold text-cyan-300 pt-1 border-t border-zinc-800">
-            <span>應收總額</span>
+            <span>{order.totalAmount < 0 ? '退款總額' : '結帳總額'}</span>
             <span>{formatCurrency(order.totalAmount)}</span>
           </div>
         </div>
         <div className="border-t border-dashed border-zinc-700 pt-2 space-y-1 text-zinc-400">
           {order.payments.map((p, i) => (
             <div key={i} className="flex justify-between">
-              <span>{p.name}</span>
-              <span>{formatCurrency(p.amount)}</span>
+              <span>支付方式：{p.name}</span>
+              <span className="font-bold text-zinc-200">{formatCurrency(p.amount)}</span>
             </div>
           ))}
-          {order.payments[0]?.changeAmount !== undefined && (
-            <div className="flex justify-between text-emerald-400">
-              <span>找零</span>
-              <span>{formatCurrency(order.payments[0].changeAmount)}</span>
-            </div>
-          )}
         </div>
-        {order.invoice.type !== 'none' && (
-          <div className="border-t border-dashed border-zinc-700 pt-2 text-xs text-zinc-500">
-            {order.invoice.type === 'carrier' && `載具: ${order.invoice.carrierCode}`}
-            {order.invoice.type === 'tax_id' && `統編: ${order.invoice.taxId} (${order.invoice.buyerTitle})`}
-          </div>
-        )}
       </div>
       <div className="mt-4 flex justify-end">
         <Button variant="primary" onClick={onClose}>

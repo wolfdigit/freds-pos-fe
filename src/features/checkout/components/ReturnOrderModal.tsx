@@ -17,37 +17,65 @@ interface ReturnOrderModalProps {
   prefillKeyword?: string;
 }
 
+interface SelectedReturnItemEntry {
+  order: CheckoutOrder;
+  item: CheckoutOrderItem;
+  returnQty: number;
+  returnReason: string;
+  restock: boolean;
+}
+
 export function ReturnOrderModal({
   open,
   onClose,
   prefillProductId,
   prefillKeyword,
 }: ReturnOrderModalProps) {
-  const [keyword, setKeyword] = useState(prefillKeyword || '');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  // 搜尋條件欄位
+  const [productKeyword, setProductKeyword] = useState(prefillKeyword || '');
+  const [startDateTime, setStartDateTime] = useState('');
+  const [endDateTime, setEndDateTime] = useState('');
+  const [amountInput, setAmountInput] = useState('');
+  const [orderNumber, setOrderNumber] = useState('');
+  const [customerKeyword, setCustomerKeyword] = useState('');
+
   const [orders, setOrders] = useState<CheckoutOrder[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<CheckoutOrder | null>(null);
-  const [selectedItem, setSelectedItem] = useState<CheckoutOrderItem | null>(null);
-  const [returnQty, setReturnQty] = useState(1);
-  const [restock, setRestock] = useState(true);
-  const [returnReason, setReturnReason] = useState('商品外觀微瑕疵退貨');
+
+  // 複選品項狀態：key 為 `${order.id}_${item.productId || (item as any).id}_${item.sku}`
+  const [selectedItems, setSelectedItems] = useState<Record<string, SelectedReturnItemEntry>>({});
 
   const { importReturnItem, attachedCustomer } = useCartStore();
   const showToast = useToastStore((s) => s.showToast);
 
+  const getItemKey = (order: CheckoutOrder, item: CheckoutOrderItem) => {
+    return `${order.id}_${item.productId || (item as any).id}_${item.sku}`;
+  };
+
   const fetchOrders = async () => {
     setIsLoading(true);
     try {
+      const parsedAmount = Number(amountInput);
+      const minAmount = !isNaN(parsedAmount) && parsedAmount > 0 ? parsedAmount : undefined;
+      const maxAmount = !isNaN(parsedAmount) && parsedAmount > 0 ? parsedAmount : undefined;
+
       const results = await checkoutService.getOrderHistory({
-        keyword: keyword.trim() || undefined,
+        productKeyword: productKeyword.trim() || undefined,
         productId: prefillProductId || undefined,
-        startDate: startDate || undefined,
-        endDate: endDate || undefined,
+        startDate: startDateTime ? new Date(startDateTime).toISOString() : undefined,
+        endDate: endDateTime ? new Date(endDateTime).toISOString() : undefined,
+        orderNumber: orderNumber.trim() || undefined,
+        keyword: customerKeyword.trim() || undefined,
+        minAmount,
+        maxAmount,
       });
+
       // 依時間倒序
-      setOrders(results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      setOrders(
+        results.sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+      );
     } catch (err) {
       console.error(err);
       showToast('查詢歷史訂單失敗', 'error');
@@ -58,14 +86,24 @@ export function ReturnOrderModal({
 
   useEffect(() => {
     if (open) {
-      setKeyword(prefillKeyword || '');
-      setSelectedOrder(null);
-      setSelectedItem(null);
+      setProductKeyword(prefillKeyword || '');
+      setSelectedItems({});
       fetchOrders();
     }
   }, [open, prefillProductId, prefillKeyword]);
 
-  const handleSelectItem = (order: CheckoutOrder, item: CheckoutOrderItem) => {
+  // 單獨品項勾選 / 取消勾選 (支援複選)
+  const handleToggleItem = (order: CheckoutOrder, item: CheckoutOrderItem) => {
+    const key = getItemKey(order, item);
+    if (selectedItems[key]) {
+      // 取消選取
+      const updated = { ...selectedItems };
+      delete updated[key];
+      setSelectedItems(updated);
+      return;
+    }
+
+    // 檢查會員歸屬限制
     if (attachedCustomer && order.customerId && order.customerId !== attachedCustomer.id) {
       showToast(
         `原單屬於會員【${order.customerName || order.customerId}】，不可在當前會員【${attachedCustomer.name}】之結帳中退貨`,
@@ -80,266 +118,478 @@ export function ReturnOrderModal({
       showToast('此商品於該訂單已無可退數量', 'warning');
       return;
     }
-    setSelectedOrder(order);
-    setSelectedItem(item);
-    setReturnQty(1);
+
+    // 加入選取
+    setSelectedItems({
+      ...selectedItems,
+      [key]: {
+        order,
+        item,
+        returnQty: 1,
+        returnReason: '門市退換貨',
+        restock: true,
+      },
+    });
   };
 
+  // 修改單一已選品項的數量
+  const handleQtyChange = (key: string, qty: number, maxQty: number) => {
+    if (!selectedItems[key]) return;
+    const validQty = Math.max(1, Math.min(maxQty, qty));
+    setSelectedItems({
+      ...selectedItems,
+      [key]: {
+        ...selectedItems[key],
+        returnQty: validQty,
+      },
+    });
+  };
+
+  // 修改單一已選品項的退貨原因
+  const handleReasonChange = (key: string, reason: string) => {
+    if (!selectedItems[key]) return;
+    setSelectedItems({
+      ...selectedItems,
+      [key]: {
+        ...selectedItems[key],
+        returnReason: reason,
+      },
+    });
+  };
+
+  // 修改單一已選品項的是否回庫
+  const handleRestockToggle = (key: string, restock: boolean) => {
+    if (!selectedItems[key]) return;
+    setSelectedItems({
+      ...selectedItems,
+      [key]: {
+        ...selectedItems[key],
+        restock,
+      },
+    });
+  };
+
+  // 移除單一已選項目
+  const handleRemoveSelectedItem = (key: string) => {
+    const updated = { ...selectedItems };
+    delete updated[key];
+    setSelectedItems(updated);
+  };
+
+  // 批量確認帶入退貨
   const handleConfirmReturn = () => {
-    if (!selectedOrder || !selectedItem) return;
-    if (attachedCustomer && selectedOrder.customerId && selectedOrder.customerId !== attachedCustomer.id) {
-      showToast(
-        `原單屬於會員【${selectedOrder.customerName || selectedOrder.customerId}】，不可在當前會員【${attachedCustomer.name}】之結帳中退貨`,
-        'error'
-      );
-      return;
+    const selectedList = Object.values(selectedItems);
+    if (selectedList.length === 0) return;
+
+    let successCount = 0;
+    for (const entry of selectedList) {
+      try {
+        importReturnItem(
+          entry.order,
+          entry.item,
+          entry.returnQty,
+          entry.returnReason,
+          entry.restock
+        );
+        successCount++;
+      } catch (err: any) {
+        showToast(err.message || `品項【${entry.item.name}】帶入退貨失敗`, 'error');
+      }
     }
 
-    const returned = selectedItem.returnedQuantity ?? 0;
-    const remaining = selectedItem.quantity - returned;
-
-    if (returnQty > remaining || returnQty <= 0) {
-      showToast(`退貨數量不可超過剩餘可退數量 (${remaining} 件)`, 'warning');
-      return;
-    }
-
-    try {
-      importReturnItem(selectedOrder, selectedItem, returnQty, returnReason, restock);
-      showToast(
-        `已將【${selectedItem.name}】(${returnQty}件) 帶入退換貨購物車 (原單號: ${selectedOrder.orderNumber})`,
-        'success'
-      );
+    if (successCount > 0) {
+      showToast(`已成功將 ${successCount} 個退貨品項帶入結帳清單`, 'success');
       onClose();
-    } catch (err: any) {
-      showToast(err.message || '帶入退貨失敗', 'error');
     }
   };
+
+  const handleResetFilters = () => {
+    setProductKeyword('');
+    setStartDateTime('');
+    setEndDateTime('');
+    setAmountInput('');
+    setOrderNumber('');
+    setCustomerKeyword('');
+  };
+
+  const selectedEntries = Object.entries(selectedItems);
+  const totalSelectedCount = selectedEntries.length;
+  const totalSelectedQty = selectedEntries.reduce((sum, [, e]) => sum + e.returnQty, 0);
+  const totalRefundAmount = selectedEntries.reduce(
+    (sum, [, e]) => sum + e.item.unitPrice * e.returnQty,
+    0
+  );
 
   return (
-    <Modal open={open} onClose={onClose} title="🔄 辦理退換貨（選擇原始售出單據）" widthClassName="max-w-4xl">
-      <div className="space-y-4 text-base">
-        {/* 搜尋條件過濾列 */}
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex-1 min-w-[240px]">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="🔄 辦理退換貨（選擇原始售出單據商品）"
+      widthClassName="max-w-5xl"
+    >
+      <div className="space-y-3.5 text-base">
+        {/* 搜尋條件過濾列 (排版寬敞不重疊，時間區間與金額欄位分立) */}
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4 space-y-3">
+          {/* 第一排：商品品名/貨號/條碼、原單總金額、銷售單號 */}
+          <div className="grid grid-cols-12 gap-3 items-end">
+            <div className="col-span-12 md:col-span-6">
+              <label className="mb-1 block text-xs font-semibold text-zinc-300">
+                商品品名 / 貨號 (SKU) / 條碼
+              </label>
               <Input
-                placeholder="搜尋單號 / 商品品名 / 條碼 / 會員電話 / 統編"
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
+                placeholder="輸入品名、貨號或條碼..."
+                value={productKeyword}
+                onChange={(e) => setProductKeyword(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && fetchOrders()}
               />
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono text-zinc-400">日期:</span>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-mono focus:border-cyan-400 focus:outline-none"
-              />
-              <span className="text-zinc-500">~</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1.5 text-xs text-zinc-200 font-mono focus:border-cyan-400 focus:outline-none"
+
+            <div className="col-span-12 sm:col-span-6 md:col-span-3">
+              <label className="mb-1 block text-xs font-semibold text-zinc-300">
+                原單總金額 ($)
+              </label>
+              <Input
+                monospace
+                placeholder="例如: 7450"
+                value={amountInput}
+                onChange={(e) => setAmountInput(e.target.value.replace(/[^0-9]/g, ''))}
+                onKeyDown={(e) => e.key === 'Enter' && fetchOrders()}
               />
             </div>
-            <Button size="md" variant="primary" onClick={fetchOrders} disabled={isLoading}>
-              {isLoading ? '查詢中...' : '🔍 查詢單據'}
-            </Button>
+
+            <div className="col-span-12 sm:col-span-6 md:col-span-3">
+              <label className="mb-1 block text-xs font-semibold text-zinc-400">銷售單號</label>
+              <Input
+                monospace
+                placeholder="例如: SO-20260825-0076"
+                value={orderNumber}
+                onChange={(e) => setOrderNumber(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && fetchOrders()}
+              />
+            </div>
           </div>
-          <p className="text-xs text-zinc-400">
-            {attachedCustomer ? (
-              <span>
-                💡 目前結帳已綁定會員【<strong className="text-cyan-300 font-bold">{attachedCustomer.name}</strong>】。可辦理退貨之原單包括：<strong>該會員之歷史訂單</strong> 或 <strong>現場散客（未綁定會員）訂單</strong>。
-              </span>
-            ) : (
-              <span>
-                💡 支援會員與未連結會員之散客訂單。若選取會員訂單，系統將自動於購物車綁定該會員。
-              </span>
-            )}
-          </p>
+
+          {/* 第二排：原單時間區間 (獨立足夠空間)、會員姓名/電話、操作按鈕 */}
+          <div className="grid grid-cols-12 gap-3 items-end pt-2 border-t border-zinc-900">
+            <div className="col-span-12 lg:col-span-6">
+              <label className="mb-1 block text-xs font-semibold text-zinc-300">
+                原單時間區間 (年月日時分)
+              </label>
+              <div className="grid grid-cols-2 gap-2 items-center">
+                <input
+                  type="datetime-local"
+                  value={startDateTime}
+                  onChange={(e) => setStartDateTime(e.target.value)}
+                  className="w-full min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 font-mono focus:border-cyan-400 focus:outline-none"
+                  title="起始時間"
+                />
+                <input
+                  type="datetime-local"
+                  value={endDateTime}
+                  onChange={(e) => setEndDateTime(e.target.value)}
+                  className="w-full min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 font-mono focus:border-cyan-400 focus:outline-none"
+                  title="結束時間"
+                />
+              </div>
+            </div>
+
+            <div className="col-span-12 sm:col-span-8 lg:col-span-4">
+              <label className="mb-1 block text-xs font-semibold text-zinc-400">會員姓名 / 手機電話</label>
+              <Input
+                placeholder="例如: 陳冠宇 或 0912..."
+                value={customerKeyword}
+                onChange={(e) => setCustomerKeyword(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && fetchOrders()}
+              />
+            </div>
+
+            <div className="col-span-12 sm:col-span-4 lg:col-span-2 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleResetFilters}
+                className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors shrink-0"
+              >
+                重置
+              </button>
+              <Button size="md" variant="primary" onClick={fetchOrders} disabled={isLoading} className="font-bold flex-1">
+                {isLoading ? '查詢中...' : '🔍 查詢'}
+              </Button>
+            </div>
+          </div>
         </div>
 
-        {/* 訂單與品項列表 */}
+        {/* 歷史訂單列表與品項分項勾選 */}
         <div className="max-h-[360px] overflow-y-auto space-y-3 pr-1">
-          {orders.length === 0 && !isLoading && (
-            <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-8 text-center text-zinc-400">
-              <p className="text-3xl mb-1">🔍</p>
-              <p className="font-medium">找不到符合條件的歷史銷售單據</p>
+          {orders.length === 0 ? (
+            <div className="py-12 text-center text-zinc-500 rounded-xl border border-dashed border-zinc-800">
+              <p className="text-2xl mb-1">🔍</p>
+              <p className="text-sm">查無符合條件之歷史訂單，請調整搜尋條件</p>
             </div>
-          )}
+          ) : (
+            orders.map((order) => {
+              const orderHasSelected = order.items.some((item) => !!selectedItems[getItemKey(order, item)]);
 
-          {orders.map((order) => {
-            const isForbidden = Boolean(
-              attachedCustomer && order.customerId && order.customerId !== attachedCustomer.id
-            );
-
-            return (
-              <div
-                key={order.id}
-                className={`rounded-xl border p-4 transition-all ${
-                  isForbidden
-                    ? 'border-zinc-800/60 bg-zinc-950/40 opacity-75'
-                    : selectedOrder?.id === order.id
-                    ? 'border-cyan-500 bg-cyan-950/20 shadow-md ring-1 ring-cyan-500/40'
-                    : 'border-zinc-800 bg-zinc-900/60 hover:border-zinc-700'
-                }`}
-              >
-                {/* 訂單頭資訊 */}
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 pb-2.5">
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono text-base font-bold text-zinc-100">{order.orderNumber}</span>
-                    {isForbidden ? (
-                      <Badge color="rose">⛔ 會員【{order.customerName}】(非當前會員)</Badge>
-                    ) : order.customerId ? (
-                      <Badge color="cyan">👤 {order.customerName} ({order.customerPhone})</Badge>
-                    ) : (
-                      <Badge color="zinc">現場散客 (非會員)</Badge>
-                    )}
-                    {order.status === 'refunded' ? (
-                      <Badge color="rose">已全額退款</Badge>
-                    ) : order.status === 'partially_refunded' ? (
-                      <Badge color="amber">部分已退款</Badge>
-                    ) : (
-                      <Badge color="emerald">正常完成</Badge>
-                    )}
+              return (
+                <div
+                  key={order.id}
+                  className={`rounded-xl border transition-all ${
+                    orderHasSelected
+                      ? 'border-rose-800/80 bg-rose-950/10 shadow-md ring-1 ring-rose-500/30'
+                      : 'border-zinc-800 bg-zinc-900/40 hover:border-zinc-700'
+                  }`}
+                >
+                  {/* 訂單頂部資訊 */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-800/80 p-3 bg-zinc-900/60 rounded-t-xl text-xs">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                      <span className="font-mono font-bold text-cyan-300 text-sm">{order.orderNumber}</span>
+                      <span className="font-mono text-zinc-400">{formatDateTime(order.createdAt)}</span>
+                      {order.customerName && (
+                        <span className="rounded bg-zinc-800 px-2 py-0.5 text-zinc-200">
+                          👤 {order.customerName} ({order.customerPhone})
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono font-bold text-zinc-200 text-sm">
+                        原單總額 {formatCurrency(order.totalAmount)}
+                      </span>
+                      {order.status === 'refunded' ? (
+                        <Badge color="rose">已全額退款</Badge>
+                      ) : order.status === 'partially_refunded' ? (
+                        <Badge color="amber">部分已退款</Badge>
+                      ) : (
+                        <Badge color="emerald">正常完成</Badge>
+                      )}
+                    </div>
                   </div>
-                  <div className="font-mono text-xs text-zinc-400">
-                    售出時間：{formatDateTime(order.createdAt)} · 實收：{formatCurrency(order.totalAmount)}
-                  </div>
-                </div>
 
-                {/* 品項清單 */}
-                <div className="mt-3 space-y-2">
-                  {order.items
-                    .filter((item) => item.quantity > 0)
-                    .map((item, idx) => {
+                  {/* 訂單內商品列表 (每個品項獨立選取與設定) */}
+                  <div className="divide-y divide-zinc-800/40 p-1.5">
+                    {order.items.map((item, idx) => {
+                      const key = getItemKey(order, item);
+                      const isSelected = !!selectedItems[key];
                       const returned = item.returnedQuantity ?? 0;
                       const remaining = item.quantity - returned;
-                      const isSelected = selectedOrder?.id === order.id && selectedItem?.productId === item.productId;
-                      const isDisabled = isForbidden || remaining <= 0;
+                      const isSelectable = remaining > 0;
 
                       return (
                         <div
-                          key={`${item.productId}-${idx}`}
-                          className={`flex items-center justify-between rounded-lg px-3.5 py-2.5 text-sm border transition-all ${
-                            isSelected
-                              ? 'border-cyan-400 bg-cyan-900/30'
-                              : isDisabled
-                              ? 'border-zinc-800/40 bg-zinc-950/30 opacity-60'
-                              : 'border-zinc-800/60 bg-zinc-950/60 hover:border-zinc-700'
+                          key={idx}
+                          className={`p-2.5 rounded-lg transition-all ${
+                            !isSelectable
+                              ? 'opacity-40 bg-zinc-950/20'
+                              : isSelected
+                              ? 'bg-rose-950/30 border border-rose-600/50'
+                              : 'hover:bg-zinc-800/40'
                           }`}
                         >
-                          <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                            <span className="font-mono text-sm font-bold text-cyan-400 shrink-0">{item.sku}</span>
-                            <span className="truncate font-medium text-zinc-200">{item.name}</span>
-                            {returned > 0 && (
-                              <span className="shrink-0 rounded bg-amber-950 px-1.5 py-0.5 text-xs font-mono font-bold text-amber-300 border border-amber-800">
-                                已退 {returned} 件
-                              </span>
-                            )}
-                          </div>
+                          {/* 品項基本列 */}
+                          <div className="flex items-center justify-between gap-3">
+                            {/* Checkbox 與 品名貨號 */}
+                            <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                              <input
+                                type="checkbox"
+                                disabled={!isSelectable}
+                                checked={isSelected}
+                                onChange={() => handleToggleItem(order, item)}
+                                className="mt-1 h-4 w-4 rounded border-zinc-700 bg-zinc-900 text-rose-500 focus:ring-rose-400 cursor-pointer disabled:cursor-not-allowed"
+                              />
+                              <div
+                                className="cursor-pointer flex-1 min-w-0"
+                                onClick={() => isSelectable && handleToggleItem(order, item)}
+                              >
+                                <p className="font-semibold text-zinc-100 text-sm truncate">{item.name}</p>
+                                <p className="text-xs text-zinc-400 font-mono">
+                                  貨號: <span className="text-zinc-300 font-bold">{item.sku}</span> · 原售單價:{' '}
+                                  <span className="text-zinc-200">{formatCurrency(item.unitPrice)}</span>
+                                  {item.isManualPrice && <span className="text-amber-400 ml-1 font-sans">(改價)</span>}
+                                </p>
+                              </div>
+                            </div>
 
-                          <div className="flex items-center gap-4 shrink-0 font-mono text-sm">
-                            <span className="text-zinc-400">
-                              原售價 {formatCurrency(item.unitPrice)} · 購買 {item.quantity} 件 (剩餘可退:{' '}
-                              <strong className="text-cyan-300 font-bold">{remaining}</strong>)
-                            </span>
+                            {/* 數量與操作按鈕 */}
+                            <div className="flex items-center gap-4 shrink-0">
+                              <div className="text-xs font-mono text-right">
+                                <span className="text-zinc-400 block">原購: {item.quantity} 件</span>
+                                <span className={remaining > 0 ? 'text-emerald-400 font-bold' : 'text-zinc-500'}>
+                                  可退: {remaining} 件
+                                </span>
+                              </div>
 
-                            <Button
-                              size="sm"
-                              variant={isSelected ? 'primary' : 'secondary'}
-                              disabled={isDisabled}
-                              onClick={() => handleSelectItem(order, item)}
-                              className="px-2.5 py-1 text-xs font-bold"
-                            >
-                              {isForbidden
-                                ? '不可跨會員退貨'
-                                : remaining <= 0
-                                ? '已退清'
-                                : isSelected
-                                ? '✓ 已選中'
-                                : '選取退貨'}
-                            </Button>
+                              <button
+                                type="button"
+                                disabled={!isSelectable}
+                                onClick={() => handleToggleItem(order, item)}
+                                className={`rounded px-3 py-1.5 text-xs font-bold transition-all ${
+                                  !isSelectable
+                                    ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
+                                    : isSelected
+                                    ? 'bg-rose-900 text-rose-100 border border-rose-500 hover:bg-rose-800'
+                                    : 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700'
+                                }`}
+                              >
+                                {isSelected ? '✓ 已選取' : '+ 選取品項'}
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
                     })}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
 
-        {/* 底部操作與退貨設定區 */}
-        {selectedOrder && selectedItem && (
-          <div className="rounded-xl border border-cyan-700/60 bg-cyan-950/30 p-4 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-cyan-800/60 pb-2">
-              <span className="font-bold text-cyan-300">
-                📦 已選退貨品項：【{selectedItem.name}】
-              </span>
-              <span className="font-mono text-xs text-zinc-300">
-                原單號：{selectedOrder.orderNumber} · 原售價：{formatCurrency(selectedItem.unitPrice)}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-center text-sm font-medium">
-              {/* 退貨數量 */}
+        {/* 底部已勾選退貨品項清單列表 (依需求 3：改為完整清單呈現) */}
+        {totalSelectedCount > 0 && (
+          <div className="rounded-xl border border-rose-600/80 bg-rose-950/40 p-3.5 space-y-3 shadow-lg">
+            {/* 列表標題與總計統計 */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-rose-900/60 pb-2">
               <div className="flex items-center gap-2">
-                <label className="text-zinc-300 shrink-0">退貨數量：</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={selectedItem.quantity - (selectedItem.returnedQuantity ?? 0)}
-                  value={returnQty}
-                  onChange={(e) => setReturnQty(Math.max(1, Number(e.target.value)))}
-                  className="w-20 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1 text-center font-mono text-base font-bold text-zinc-100 focus:border-cyan-400 focus:outline-none"
-                />
-                <span className="text-xs text-zinc-400">
-                  (最多 {selectedItem.quantity - (selectedItem.returnedQuantity ?? 0)} 件)
+                <span className="font-bold text-rose-200 text-sm">
+                  📋 已勾選退貨品項清單 ({totalSelectedCount} 項，共 {totalSelectedQty} 件商品)
+                </span>
+                <Badge color="rose">退貨折抵</Badge>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-rose-300">總退款折抵金額：</span>
+                <span className="font-mono text-xl font-extrabold text-rose-300">
+                  -{formatCurrency(totalRefundAmount)}
                 </span>
               </div>
-
-              {/* 庫存回補 */}
-              <div className="flex items-center gap-2">
-                <label className="text-zinc-300 shrink-0">庫存處理：</label>
-                <label className="flex items-center gap-1.5 cursor-pointer text-zinc-200">
-                  <input
-                    type="checkbox"
-                    checked={restock}
-                    onChange={(e) => setRestock(e.target.checked)}
-                    className="rounded border-zinc-700 bg-zinc-900 text-cyan-500 focus:ring-cyan-400"
-                  />
-                  <span>回補至門市現貨</span>
-                </label>
-              </div>
-
-              {/* 退貨原因 */}
-              <div className="flex items-center gap-2">
-                <label className="text-zinc-300 shrink-0">原因：</label>
-                <select
-                  value={returnReason}
-                  onChange={(e) => setReturnReason(e.target.value)}
-                  className="rounded-lg border border-zinc-700 bg-zinc-900 px-2.5 py-1 text-xs text-zinc-200 focus:border-cyan-400 focus:outline-none"
-                >
-                  <option value="商品外觀微瑕疵退貨">商品外觀微瑕疵退貨</option>
-                  <option value="零件脫落或缺件">零件脫落或缺件</option>
-                  <option value="水貼/漆面溢色不良">水貼/漆面溢色不良</option>
-                  <option value="門市七天更換/猶豫期">門市七天更換/猶豫期</option>
-                  <option value="其他原因特批">其他原因特批</option>
-                </select>
-              </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-2">
-              <Button size="md" variant="ghost" onClick={() => setSelectedItem(null)}>
-                取消選取
-              </Button>
-              <Button size="md" variant="primary" onClick={handleConfirmReturn} className="px-6 font-bold">
-                ↩️ 帶入退換貨 (以 -{returnQty} 件加入購物車)
-              </Button>
+            {/* 已選品項詳細列表 */}
+            <div className="max-h-48 overflow-y-auto space-y-2 pr-1 divide-y divide-rose-900/30">
+              {selectedEntries.map(([key, entry], idx) => {
+                const returned = entry.item.returnedQuantity ?? 0;
+                const remaining = entry.item.quantity - returned;
+                const subtotal = entry.item.unitPrice * entry.returnQty;
+
+                return (
+                  <div key={key} className="pt-2 first:pt-0 flex flex-wrap items-center justify-between gap-3 text-xs">
+                    {/* 品名、貨號與原單號 */}
+                    <div className="flex-1 min-w-[240px]">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono text-rose-400 font-bold">{idx + 1}.</span>
+                        <span className="rounded bg-zinc-800 px-1.5 py-0.2 font-mono text-[11px] text-zinc-300">
+                          原單: {entry.order.orderNumber}
+                        </span>
+                        <span className="font-semibold text-rose-100 text-sm">{entry.item.name}</span>
+                      </div>
+                      <p className="text-[11px] text-rose-300/70 font-mono mt-0.5">
+                        貨號: {entry.item.sku} · 原售單價: {formatCurrency(entry.item.unitPrice)} · 上限: {remaining} 件
+                      </p>
+                    </div>
+
+                    {/* 退貨參數設定：數量、原因、回庫 */}
+                    <div className="flex items-center gap-3 flex-wrap shrink-0">
+                      {/* 數量控制 */}
+                      <div className="flex items-center gap-1">
+                        <span className="text-zinc-400 font-medium">退貨數量:</span>
+                        <div className="flex items-center">
+                          <button
+                            type="button"
+                            disabled={entry.returnQty <= 1}
+                            onClick={() => handleQtyChange(key, entry.returnQty - 1, remaining)}
+                            className="h-6 w-6 rounded-l bg-zinc-800 text-zinc-200 hover:bg-zinc-700 disabled:opacity-40 font-bold"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            min={1}
+                            max={remaining}
+                            value={entry.returnQty}
+                            onChange={(e) => handleQtyChange(key, Number(e.target.value) || 1, remaining)}
+                            className="h-6 w-12 border-y border-zinc-700 bg-zinc-900 text-center font-mono font-bold text-rose-100 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            disabled={entry.returnQty >= remaining}
+                            onClick={() => handleQtyChange(key, entry.returnQty + 1, remaining)}
+                            className="h-6 w-6 rounded-r bg-zinc-800 text-zinc-200 hover:bg-zinc-700 disabled:opacity-40 font-bold"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* 退貨原因 */}
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="text"
+                          value={entry.returnReason}
+                          onChange={(e) => handleReasonChange(key, e.target.value)}
+                          placeholder="退貨原因..."
+                          className="rounded border border-zinc-700 bg-zinc-900 px-2 py-1 text-xs text-zinc-100 w-28 focus:border-rose-400 focus:outline-none"
+                        />
+                      </div>
+
+                      {/* 回庫勾選 */}
+                      <label className="flex items-center gap-1 text-zinc-300 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={entry.restock}
+                          onChange={(e) => handleRestockToggle(key, e.target.checked)}
+                          className="rounded border-zinc-700 bg-zinc-900 text-rose-500 focus:ring-rose-400 h-3.5 w-3.5"
+                        />
+                        <span>回庫</span>
+                      </label>
+
+                      {/* 小計折抵金額 */}
+                      <div className="w-20 text-right font-mono font-bold text-rose-300 text-sm">
+                        -{formatCurrency(subtotal)}
+                      </div>
+
+                      {/* 移除單項按鈕 */}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSelectedItem(key)}
+                        className="text-zinc-400 hover:text-rose-400 p-1 text-sm transition-colors"
+                        title="取消此品項退貨"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 底部操作按鈕 */}
+            <div className="flex items-center justify-between gap-3 pt-2 border-t border-rose-900/60">
+              <button
+                type="button"
+                onClick={() => setSelectedItems({})}
+                className="text-xs text-zinc-400 hover:text-zinc-200 underline"
+              >
+                ✕ 清空全部已選 ({totalSelectedCount} 項)
+              </button>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={onClose}
+                  className="text-zinc-400 hover:text-zinc-200"
+                >
+                  取消
+                </Button>
+
+                <Button
+                  size="md"
+                  variant="danger"
+                  onClick={handleConfirmReturn}
+                  className="font-bold px-5 text-sm"
+                >
+                  ↩️ 確認帶入退貨清單 ({totalSelectedCount} 項，折抵 -{formatCurrency(totalRefundAmount)})
+                </Button>
+              </div>
             </div>
           </div>
         )}

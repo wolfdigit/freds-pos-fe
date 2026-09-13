@@ -294,12 +294,13 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
                   <span>廠牌: <strong className="text-zinc-200">{matchedProducts[0].brand}</strong></span>
                   <span>|</span>
                   <span>比例: <strong className="text-zinc-200">{matchedProducts[0].scale}</strong></span>
-                  {matchedProducts[0].material && (
+                  {matchedProducts[0].spec && (
                     <>
                       <span>|</span>
-                      <span>材質: <strong className="text-zinc-200">{matchedProducts[0].material}</strong></span>
+                      <span>規格: <strong className="text-zinc-200">{matchedProducts[0].spec}</strong></span>
                     </>
                   )}
+
                 </p>
               </div>
               <div className="flex items-center justify-between text-xs font-mono text-zinc-400 pt-2 border-t border-zinc-800/80">

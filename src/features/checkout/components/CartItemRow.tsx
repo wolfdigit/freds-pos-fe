@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { CartItem } from '@/store/cartStore';
+import { useCartStore } from '@/store/cartStore';
+import type { Product } from '@/types/product';
 import { formatCurrency } from '@/utils/currency';
 
 interface CartItemRowProps {
@@ -9,6 +11,8 @@ interface CartItemRowProps {
   onUpdatePrice: (price: number) => void;
   onRemove: () => void;
   onViewDetail?: () => void;
+  siblingProducts?: Product[];
+  onSwitchSku?: (newProduct: Product) => void;
 }
 
 export function CartItemRow({
@@ -18,9 +22,26 @@ export function CartItemRow({
   onUpdatePrice,
   onRemove,
   onViewDetail,
+  siblingProducts = [],
+  onSwitchSku,
 }: CartItemRowProps) {
   const [priceInput, setPriceInput] = useState(String(item.unitPrice));
   const [qtyInput, setQtyInput] = useState(String(item.quantity));
+  const [isHighlighted, setIsHighlighted] = useState(false);
+
+  const highlightedProductId = useCartStore((s) => s.highlightedProductId);
+  const setHighlightedProductId = useCartStore((s) => s.setHighlightedProductId);
+
+  useEffect(() => {
+    if (highlightedProductId && highlightedProductId === item.productId) {
+      setIsHighlighted(true);
+      const timer = setTimeout(() => {
+        setIsHighlighted(false);
+        setHighlightedProductId(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [highlightedProductId, item.productId, setHighlightedProductId]);
 
   useEffect(() => {
     setPriceInput(String(item.unitPrice));
@@ -71,11 +92,15 @@ export function CartItemRow({
   const isOverTotalSellable = !item.preOrderId && currentQuantity > sellableTotal;
   const isOverStock = isOverStoreStock || isOverTotalSellable;
 
+  const hasMultipleSkus = siblingProducts.length > 1;
+
   return (
     <div
-      className={`group flex items-center justify-between gap-2.5 border-b py-2 text-base transition-colors px-2 rounded ${
-        isOverStock
-          ? 'border-amber-700/80 bg-amber-950/20 hover:bg-amber-950/30'
+      className={`group flex items-center justify-between gap-2.5 border-b py-2 text-base transition-all duration-300 px-2 rounded ${
+        isHighlighted
+          ? 'border-amber-400 bg-amber-500/20 ring-2 ring-amber-400/80 shadow-lg shadow-amber-500/25 animate-pulse'
+          : isOverStock
+          ? 'border-amber-700/60 bg-amber-950/15 hover:bg-amber-950/25'
           : 'border-zinc-800/70 hover:bg-zinc-800/30'
       }`}
     >
@@ -83,38 +108,69 @@ export function CartItemRow({
       <div
         onClick={onViewDetail}
         className="min-w-0 flex-1 cursor-pointer select-none rounded p-1 -m-1 hover:bg-zinc-800/50 transition-colors"
-        title="點擊查看此商品詳細資訊"
+        title="點擊查看此商品詳細資訊與庫存分佈"
       >
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span className="font-mono text-zinc-500 text-sm shrink-0">{index}.</span>
+
+          {/* 合併高亮標籤 (持續 3 秒) */}
+          {isHighlighted && (
+            <span className="inline-flex items-center gap-0.5 rounded bg-amber-400 text-zinc-950 px-1.5 py-0.2 text-xs font-black shadow-md shrink-0">
+              ✨ 數量已合併
+            </span>
+          )}
+
+          {/* 簡化為圖示的庫存警示標記 (點入詳情才看數量) */}
+          {isOverTotalSellable ? (
+            <span
+              className="inline-flex items-center justify-center rounded bg-rose-500/20 border border-rose-500/60 text-xs px-1 text-rose-300 animate-pulse shrink-0"
+              title="⚠️ 全域庫存不足 (點入詳情查看具體數量)"
+            >
+              ⚠️
+            </span>
+          ) : isOverStoreStock ? (
+            <span
+              className="inline-flex items-center justify-center rounded bg-amber-500/20 border border-amber-500/60 text-xs px-1 text-amber-300 shrink-0"
+              title="⚠️ 門市現貨不足 (點入詳情查看具體數量)"
+            >
+              ⚠️
+            </span>
+          ) : null}
+
           <p className="font-semibold text-zinc-100 text-base group-hover:text-cyan-300 transition-colors truncate">
             {item.name}
           </p>
         </div>
 
-        {/* 庫存不足警示標籤 */}
-        {isOverTotalSellable ? (
-          <div className="mt-1">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-rose-500/20 border border-rose-500/60 px-2 py-0.5 text-xs font-bold text-rose-300 animate-pulse whitespace-nowrap">
-              <span>⚠️ 全域庫存不足</span>
-              <span className="font-mono text-rose-200">（總可售僅 {sellableTotal} 台）</span>
-            </span>
-          </div>
-        ) : isOverStoreStock ? (
-          <div className="mt-1">
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/20 border border-amber-500/60 px-2 py-0.5 text-xs font-bold text-amber-300 whitespace-nowrap">
-              <span>⚠️ 門市現貨不足</span>
-              <span className="font-mono text-amber-200">（門市僅 {storeStock} 台，需調撥）</span>
-            </span>
-          </div>
-        ) : null}
+        {/* 貨號、多貨號切換下拉與標籤資訊 */}
+        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-zinc-400">
+          {hasMultipleSkus ? (
+            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+              <select
+                value={item.productId}
+                onChange={(e) => {
+                  const target = siblingProducts.find((p) => p.id === e.target.value);
+                  if (target && onSwitchSku) onSwitchSku(target);
+                }}
+                className="rounded border border-cyan-800/80 bg-zinc-900 px-1.5 py-0.5 text-xs font-mono font-semibold text-cyan-200 focus:border-cyan-400 focus:outline-none"
+                title="同條碼切換不同貨號"
+              >
+                {siblingProducts.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    [{p.sku}] {p.spec ? `${p.spec} - ` : ''}
+                    {formatCurrency(p.listPrice)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <span className="font-mono text-zinc-400 font-medium">{item.sku}</span>
+          )}
 
-        {/* 貨號與標籤資訊 */}
-        <div className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-400">
-          <span className="font-mono text-zinc-400 font-medium">{item.sku}</span>
-          <span>· {item.brand}</span>
+          {item.brand && <span>· {item.brand}</span>}
+          {item.spec && !hasMultipleSkus && <span className="text-zinc-500">({item.spec})</span>}
           {item.preOrderId && (
-            <span className="rounded bg-cyan-950 px-1.5 py-0.5 text-[11px] font-semibold text-cyan-300 border border-cyan-800/60 shrink-0">
+            <span className="rounded bg-cyan-950 px-1.5 py-0.2 text-[11px] font-semibold text-cyan-300 border border-cyan-800/60 shrink-0">
               預購取貨
             </span>
           )}
@@ -212,16 +268,10 @@ export function ReturnCartItemRow({
   item,
   index,
   onUpdateQuantity,
-  onUpdatePrice,
   onRemove,
   onViewDetail,
 }: CartItemRowProps) {
-  const [priceInput, setPriceInput] = useState(String(item.unitPrice));
   const [qtyInput, setQtyInput] = useState(String(Math.abs(item.quantity)));
-
-  useEffect(() => {
-    setPriceInput(String(item.unitPrice));
-  }, [item.unitPrice]);
 
   useEffect(() => {
     setQtyInput(String(Math.abs(item.quantity)));
@@ -251,15 +301,6 @@ export function ReturnCartItemRow({
       }
     } else {
       setQtyInput(String(Math.abs(item.quantity)));
-    }
-  };
-
-  const handlePriceBlur = () => {
-    const val = Number(priceInput);
-    if (!isNaN(val) && val >= 0 && val !== item.unitPrice) {
-      onUpdatePrice(val);
-    } else {
-      setPriceInput(String(item.unitPrice));
     }
   };
 
@@ -316,19 +357,15 @@ export function ReturnCartItemRow({
         </div>
       </div>
 
-      {/* 單價輸入框 */}
-      <div className="flex items-center gap-1 shrink-0">
-        <span className="text-xs text-rose-400">$</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          title="修改退貨對應單價"
-          value={priceInput}
-          onChange={(e) => setPriceInput(e.target.value.replace(/[^0-9]/g, ''))}
-          onBlur={handlePriceBlur}
-          onKeyDown={(e) => e.key === 'Enter' && handlePriceBlur()}
-          className="w-20 rounded-lg border border-rose-800 bg-rose-950 px-1.5 py-1 text-right font-mono text-sm font-bold text-rose-200 focus:border-rose-400 focus:outline-none"
-        />
+      {/* 退貨單價（依需求 3：不可編輯，依照原購買單價格，鎖定唯讀） */}
+      <div className="flex items-center gap-1 shrink-0 px-2">
+        <span className="text-xs text-rose-400/80">$</span>
+        <span
+          className="w-16 text-right font-mono text-sm font-bold text-rose-200 select-all"
+          title="退貨單價依照原購買單價格（不可編輯）"
+        >
+          {item.unitPrice}
+        </span>
       </div>
 
       {/* 乘號 */}
@@ -343,7 +380,11 @@ export function ReturnCartItemRow({
             step="1"
             min="1"
             max={item.maxReturnableQty}
-            title={item.maxReturnableQty !== undefined ? `修改退貨數量 (上限 ${item.maxReturnableQty} 件)` : '修改退貨數量'}
+            title={
+              item.maxReturnableQty !== undefined
+                ? `修改退貨數量 (上限 ${item.maxReturnableQty} 件)`
+                : '修改退貨數量'
+            }
             value={qtyInput}
             onChange={handleQtyChange}
             onBlur={handleQtyBlur}
@@ -365,7 +406,11 @@ export function ReturnCartItemRow({
                   ? 'text-zinc-600 bg-zinc-900/80 cursor-not-allowed'
                   : 'text-rose-300 hover:bg-rose-800'
               }`}
-              title={isMaxReturnReached ? `已達原單剩餘可退上限 (${item.maxReturnableQty} 件)` : '增加退貨數量 (+1)'}
+              title={
+                isMaxReturnReached
+                  ? `已達原單剩餘可退上限 (${item.maxReturnableQty} 件)`
+                  : '增加退貨數量 (+1)'
+              }
             >
               ▲
             </button>

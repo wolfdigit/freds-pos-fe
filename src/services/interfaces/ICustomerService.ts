@@ -5,8 +5,6 @@ export interface ICustomerService {
   searchCustomers(query: string): Promise<Customer[]>;
   /** 依 ID 取得單一會員 */
   getCustomerById(id: string): Promise<Customer | null>;
-  /** 依電話精確查詢（結帳櫃檯綁定會員用） */
-  getCustomerByPhone(phone: string): Promise<Customer | null>;
   /** 新增會員 */
   createCustomer(customer: Omit<Customer, 'id' | 'createdAt'>): Promise<Customer>;
   /** 更新會員基本資料 */

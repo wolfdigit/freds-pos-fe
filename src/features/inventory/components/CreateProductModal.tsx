@@ -24,13 +24,9 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
   const [barcode, setBarcode] = useState('');
   const [name, setName] = useState('');
   const [scale, setScale] = useState<ModelScale>('1:18');
-  const [material, setMaterial] = useState('合金 Diecast');
-  const [color, setColor] = useState('');
+  const [spec, setSpec] = useState('');
   const [listPrice, setListPrice] = useState('');
-  const [costPrice, setCostPrice] = useState('');
-  const [vipPrice, setVipPrice] = useState('');
   const [note, setNote] = useState('');
-  const [status, setStatus] = useState<'active' | 'discontinued'>('active');
 
   // Initial stock quantities
   const [storeStock, setStoreStock] = useState('0');
@@ -47,13 +43,9 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
       setBarcode('');
       setName('');
       setScale('1:18');
-      setMaterial('合金 Diecast');
-      setColor('');
+      setSpec('');
       setListPrice('');
-      setCostPrice('');
-      setVipPrice('');
       setNote('');
-      setStatus('active');
       setStoreStock('0');
       setWarehouseStock('0');
       setCompanyStock('0');
@@ -65,7 +57,7 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!sku.trim() || !name.trim() || !brand.trim()) {
-      showToast('請填寫廠牌、貨號與車型品名', 'error');
+      showToast('請填寫廠牌、貨號與商品品名', 'error');
       return;
     }
 
@@ -81,20 +73,15 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
       const warehouseQty = Math.max(0, Number(warehouseStock) || 0);
       const companyQty = Math.max(0, Number(companyStock) || 0);
 
-      // 新商品建立時不傳 stocks (由伺服器自動初始化為 0)，初始數量寫入待存檔草稿
       const payload: CreateProductRequest = {
         sku: sku.trim(),
         barcode: barcode.trim() || `${Date.now()}`,
         brand: brand.trim(),
         name: name.trim(),
         scale,
-        material: material.trim() || undefined,
-        color: color.trim() || undefined,
+        spec: spec.trim() || undefined,
         listPrice: price,
-        costPrice: Number(costPrice) || Math.floor(price * 0.6),
-        vipPrice: vipPrice ? Number(vipPrice) : undefined,
         note: note.trim() || undefined,
-        status,
       };
 
       const created = await productService.createProduct(payload);
@@ -109,16 +96,18 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
       } else {
         showToast('🎉 新商品建檔成功！', 'success');
       }
-
       onSuccess(created, initialDrafts);
       onClose();
-    } catch (err) {
+    } catch (err: any) {
+      console.error(err);
       if (err instanceof BusinessError) {
         showToast(err.message, 'error');
       } else if (err instanceof ApiError && (err.responseBody as any)?.message) {
         showToast((err.responseBody as any).message, 'error');
+      } else if (err instanceof ApiError) {
+        showToast(err.message, 'error');
       } else {
-        showToast('建檔失敗，請再試一次', 'error');
+        showToast('建立商品失敗，請檢查資料', 'error');
       }
     } finally {
       setIsSubmitting(false);
@@ -126,25 +115,25 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="✨ 建立新商品建檔">
-      <form onSubmit={handleSubmit} className="space-y-4 text-base">
+    <Modal open={open} onClose={onClose} title="✨ 新增模型商品建檔" widthClassName="max-w-2xl">
+      <form onSubmit={handleSubmit} className="space-y-4 text-left">
         {/* 1. 廠牌與比例 */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">廠牌 / 品牌 *</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-300">商品廠牌 (Brand) *</label>
             <Input
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
-              placeholder="例如: AutoArt, Spark"
+              placeholder="例如: AutoArt, Spark, Mini GT"
               required
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">車型比例 *</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-300">模型比例 *</label>
             <select
               value={scale}
               onChange={(e) => setScale(e.target.value as ModelScale)}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-base text-zinc-100 focus:border-cyan-400 focus:outline-none"
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-400 focus:outline-none"
             >
               {SCALE_OPTIONS.map((s) => (
                 <option key={s} value={s}>
@@ -178,9 +167,9 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
           </div>
         </div>
 
-        {/* 3. 車型與塗裝品名 */}
+        {/* 3. 商品品名 */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-zinc-300">車型與塗裝品名 *</label>
+          <label className="mb-1 block text-sm font-medium text-zinc-300">商品品名 *</label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -189,22 +178,18 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
           />
         </div>
 
-        {/* 4. 車身材質與原廠塗裝顏色 */}
+        {/* 4. 規格與定價 */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">車身材質</label>
-            <Input value={material} onChange={(e) => setMaterial(e.target.value)} placeholder="合金 / 樹脂" />
+            <label className="mb-1 block text-sm font-medium text-zinc-300">規格 (材質/顏色/變體)</label>
+            <Input
+              value={spec}
+              onChange={(e) => setSpec(e.target.value)}
+              placeholder="例如: 灣岸藍 / 合金全開 / 限量版"
+            />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">原廠塗裝顏色</label>
-            <Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="例如: Bayside Blue" />
-          </div>
-        </div>
-
-        {/* 5. 門市定價、VIP 優惠價與進貨成本價 */}
-        <div className="grid grid-cols-3 gap-3 rounded-lg border border-zinc-800 bg-zinc-900/60 p-3">
-          <div>
-            <label className="mb-1 block text-xs text-zinc-400">門市定價 (TWD) *</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-300">門市定價 (TWD) *</label>
             <Input
               monospace
               type="number"
@@ -215,54 +200,19 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
               required
             />
           </div>
-          <div>
-            <label className="mb-1 block text-xs text-zinc-400">VIP 優惠價</label>
-            <Input
-              monospace
-              type="number"
-              min={0}
-              value={vipPrice}
-              onChange={(e) => setVipPrice(e.target.value)}
-              placeholder="6200"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-zinc-400">進貨成本價</label>
-            <Input
-              monospace
-              type="number"
-              min={0}
-              value={costPrice}
-              onChange={(e) => setCostPrice(e.target.value)}
-              placeholder="4000"
-            />
-          </div>
         </div>
 
-        {/* 6. 販售狀態與備註說明 */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-xs text-zinc-400">販售狀態</label>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as 'active' | 'discontinued')}
-              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-400 focus:outline-none"
-            >
-              <option value="active">🟢 在庫販售</option>
-              <option value="discontinued">🔴 已停產</option>
-            </select>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-zinc-400">備註說明 (選填)</label>
-            <Input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="例如: 限量 500 台、首批附專屬卡..."
-            />
-          </div>
+        {/* 5. 備註說明 */}
+        <div>
+          <label className="mb-1 block text-xs text-zinc-400">備註說明 (選填)</label>
+          <Input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="例如: 限量 500 台、附壓克力展示盒..."
+          />
         </div>
 
-        {/* 7. 初始各地點進貨庫存數量 (僅建檔彈窗包含，存檔走儲存庫存變更流程) */}
+        {/* 6. 初始各地點進貨庫存數量 */}
         <div>
           <label className="mb-2 block text-sm font-medium text-cyan-400">
             📍 初始各地點進貨庫存數量 (建檔後寫入暫存草稿)

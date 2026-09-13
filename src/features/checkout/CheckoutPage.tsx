@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { useProductSearch } from './hooks/useProductSearch';
 import { useCheckoutWorkflow } from './hooks/useCheckoutWorkflow';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -35,6 +35,13 @@ export function CheckoutPage() {
   const [returnModalPrefill, setReturnModalPrefill] = useState<{ productId?: string; keyword?: string }>({});
   const [inspectedOrder, setInspectedOrder] = useState<CheckoutOrder | null>(null);
   const [inspectedReturnItem, setInspectedReturnItem] = useState<(typeof cart.items)[number] | null>(null);
+
+  // 全域商品快取，用於同條碼貨號關聯
+  const [allCatalogProducts, setAllCatalogProducts] = useState<Product[]>([]);
+
+  useEffect(() => {
+    productService.searchProducts({}).then(setAllCatalogProducts).catch(console.error);
+  }, []);
 
   const salesItems = cart.items.filter((i) => i.quantity > 0);
   const returnItems = cart.items.filter((i) => i.quantity < 0);
@@ -111,6 +118,25 @@ export function CheckoutPage() {
     },
   });
 
+  const handleSearchSubmit = () => {
+    if (!keyword.trim()) return;
+    if (results.length > 0) {
+      const exact =
+        results.find(
+          (p) =>
+            p.barcode === keyword.trim() ||
+            p.sku.toLowerCase() === keyword.trim().toLowerCase() ||
+            p.normalizedSku.toLowerCase() === keyword.trim().toLowerCase()
+        ) || results[0];
+
+      handleAddProduct(exact);
+      showToast(`已帶入【${exact.name}】(${exact.sku})`, 'success');
+      setKeyword('');
+    } else {
+      showToast('查無符合之商品，請確認條碼或貨號', 'warning');
+    }
+  };
+
   const handleAddProduct = (product: Product) => {
     if (isReturnMode) {
       setReturnModalPrefill({ productId: product.id, keyword: product.sku });
@@ -128,7 +154,7 @@ export function CheckoutPage() {
 
     if (newQty > sellableTotal) {
       showToast(
-        `警示：「${product.name}」結帳數量 (${newQty}台) 超過全店可售總存量 (${sellableTotal}台，總現貨: ${product.totalStock}台，預購保留: ${reservedPreOrder}台)`,
+        `警示：「${product.name}」結帳數量 (${newQty}台) 超過全店可售總存量 (${sellableTotal}台，總現貨: ${product.totalStock}台，預購未取保留: ${reservedPreOrder}台)`,
         'warning'
       );
     } else if (newQty > storeStock) {
@@ -159,7 +185,7 @@ export function CheckoutPage() {
 
       if (newQty > sellableTotal) {
         showToast(
-          `警示：「${item.name}」數量 (${newQty}台) 超過全店扣除預購保留後之可售現貨 (${sellableTotal}台)，需緊急進貨`,
+          `警示：「${item.name}」數量 (${newQty}台) 超過全店扣除預購未取保留後之可售現貨 (${sellableTotal}台)，需緊急進貨`,
           'warning'
         );
       } else if (newQty > storeStock) {
@@ -171,6 +197,7 @@ export function CheckoutPage() {
     }
     cart.updateItemQuantity(item.productId, newQty);
   };
+
 
   const handleStartCheckout = () => {
     // 檢查退貨數量是否超過原單上限
@@ -211,23 +238,20 @@ export function CheckoutPage() {
           id: item.productId,
           sku: item.sku,
           normalizedSku: item.sku.replace(/-/g, ''),
-          barcode: '',
+          barcode: item.barcode || '',
           name: item.name,
           brand: item.brand,
           scale: item.scale,
+          spec: item.spec,
           listPrice: item.originalPrice,
-          costPrice: 0,
-          vipPrice: item.vipPrice,
           totalStock: item.storeStock ?? 0,
           stocks: [
             { location: 'store', locationName: '門市現貨', quantity: item.storeStock ?? 0 },
             { location: 'warehouse', locationName: '後方倉庫', quantity: 0 },
             { location: 'company', locationName: '公司總倉', quantity: 0 },
           ],
-          status: 'active',
           preOrderPendingCount: 0,
-          createdAt: new Date().toISOString(),
-        } as unknown as Product);
+        });
       }
     }
   };
@@ -246,22 +270,24 @@ export function CheckoutPage() {
       }
       showToast(`查無原始訂單 (${item.originalOrderId}) 之資料`, 'warning');
     }
-    // 若未關聯原單或查無，開啟查原單退貨 Modal
     setReturnModalPrefill({ productId: item.productId, keyword: item.sku });
     setIsReturnModalOpen(true);
   };
 
   return (
-    <div className="grid h-full grid-cols-[58fr_42fr] gap-5">
+    /* 依需求 1：擴大右半邊 (待結帳清單) 為主要操作區 (比例改為 38fr : 62fr) */
+    <div className="grid h-full grid-cols-[38fr_62fr] gap-4">
       {/* 左欄：商品速查與廠牌篩選 */}
-      <section className="flex flex-col gap-3 overflow-hidden pr-1 h-full min-h-0">
+      <section className="flex flex-col gap-2.5 overflow-hidden pr-1 h-full min-h-0">
         <ProductSearchBar
           ref={searchInputRef}
           keyword={keyword}
           onKeywordChange={setKeyword}
           brand={brand}
           onBrandChange={setBrand}
+          onEnter={handleSearchSubmit}
         />
+
         <div className="flex-1 min-h-0 flex flex-col">
           <ProductResultTable
             results={results}
@@ -276,18 +302,18 @@ export function CheckoutPage() {
         </div>
       </section>
 
-      {/* 右欄：會員綁定、當前結帳單、運費與結帳操作 */}
+      {/* 右欄：會員綁定、當前待結帳單、運費與結帳操作 (主要操作區) */}
       <section className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5 overflow-hidden">
         <CustomerBindCard />
 
         {/* 購物車與退貨區塊 container */}
-        <div className="mt-2.5 flex-1 flex flex-col justify-between overflow-y-auto pr-1 space-y-3">
+        <div className="mt-2 flex-1 flex flex-col justify-between overflow-y-auto pr-1 space-y-2.5">
           {/* 上半部：銷售商品清單與整體清單區塊 (點擊任意處退出退貨模式) */}
           <div
             onClick={() => {
               if (isReturnMode) setIsReturnMode(false);
             }}
-            className={`flex-1 space-y-2 rounded-xl p-2 transition-all cursor-pointer ${
+            className={`flex-1 space-y-1.5 rounded-xl p-2 transition-all cursor-pointer ${
               isReturnMode
                 ? 'bg-zinc-950/40 border border-dashed border-zinc-700/60 opacity-85 hover:opacity-100'
                 : 'border border-transparent'
@@ -305,20 +331,28 @@ export function CheckoutPage() {
               </div>
             ) : (
               <div className="space-y-0.5">
-                {salesItems.map((item, idx) => (
-                  <CartItemRow
-                    key={`sales-${item.productId}-${item.preOrderItemId ?? 'direct'}-${idx}`}
-                    item={item}
-                    index={idx + 1}
-                    onUpdateQuantity={(q) => handleUpdateQuantity(item, q)}
-                    onUpdatePrice={(p) => cart.updateItemPrice(item.productId, p, '現場改價')}
-                    onRemove={() => cart.removeItem(item.productId)}
-                    onViewDetail={() => {
-                      setDetailSource('cart');
-                      handleViewCartItemDetail(item.productId);
-                    }}
-                  />
-                ))}
+                {salesItems.map((item, idx) => {
+                  const siblingProducts = item.barcode
+                    ? allCatalogProducts.filter((p) => p.barcode === item.barcode)
+                    : [];
+
+                  return (
+                    <CartItemRow
+                      key={`sales-${item.productId}-${item.preOrderItemId ?? 'direct'}-${idx}`}
+                      item={item}
+                      index={idx + 1}
+                      siblingProducts={siblingProducts}
+                      onSwitchSku={(newP) => cart.switchItemSku(item.productId, newP)}
+                      onUpdateQuantity={(q) => handleUpdateQuantity(item, q)}
+                      onUpdatePrice={(p) => cart.updateItemPrice(item.productId, p, '現場改價')}
+                      onRemove={() => cart.removeItem(item.productId)}
+                      onViewDetail={() => {
+                        setDetailSource('cart');
+                        handleViewCartItemDetail(item.productId);
+                      }}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
@@ -411,6 +445,7 @@ export function CheckoutPage() {
           </div>
         </div>
 
+        {/* 待結統計與按鈕 (依需求 10：傳遞銷售件數與退貨件數分開統計) */}
         <CartSummary
           subtotal={subtotal}
           salesSubtotal={salesSubtotal}
@@ -420,6 +455,8 @@ export function CheckoutPage() {
           onShippingFeeChange={cart.setShippingFee}
           totalAmount={totalAmount}
           itemCount={cart.items.length}
+          salesItemCount={cart.getSalesItemsCount()}
+          returnItemCount={cart.getReturnItemsCount()}
           boundCustomerName={cart.attachedCustomer?.name}
           hasPreOrderItems={cart.items.some((i) => Boolean(i.preOrderId))}
           onClear={cart.clearCart}
@@ -466,9 +503,6 @@ export function CheckoutPage() {
             onConfirm={(payments, invoice) => {
               setIsPaymentOpen(false);
               submitCheckout(payments, invoice);
-            }}
-            onViewProductDetail={(productId) => {
-              handleViewCartItemDetail(productId);
             }}
           />
         );
@@ -517,6 +551,7 @@ export function CheckoutPage() {
       <ProductDetailModal
         open={Boolean(detailProduct)}
         product={detailProduct}
+        allProducts={allCatalogProducts}
         onClose={() => setDetailProduct(null)}
         onAddToCart={
           detailSource === 'catalog'
