@@ -27,10 +27,10 @@ export function CustomerBindCard() {
     }
 
     const timer = setTimeout(() => {
-      customerService.searchCustomers(trimmed).then((results) => {
+      customerService.searchCustomers({ keyword: trimmed }).then((results) => {
         if (!cancelled) {
-          setSuggestions(results);
-          setIsDropdownOpen(results.length > 0);
+          setSuggestions(results.items);
+          setIsDropdownOpen(results.items.length > 0);
         }
       });
     }, 150);
@@ -129,7 +129,7 @@ export function CustomerBindCard() {
               <Badge color="cyan">{attachedCustomer.vipTierName}</Badge>
             </div>
             <p className="font-mono text-base text-zinc-300 mt-0.5">
-              {attachedCustomer.phone} · 點數 <span className="font-bold text-cyan-300">{attachedCustomer.rewardPoints}</span>
+              {attachedCustomer.phone}
             </p>
           </div>
           <button
@@ -203,7 +203,7 @@ export function CustomerBindCard() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => query.trim() && suggestions.length > 0 && setIsDropdownOpen(true)}
-          placeholder="🔍 輸入電話或姓名查詢會員 (即時自動展開清單)"
+          placeholder="🔍 輸入電話、姓名或信箱查詢會員 (即時自動展開清單)"
           className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2.5 pr-10 font-mono text-base text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
         />
         {query && (
@@ -236,7 +236,6 @@ export function CustomerBindCard() {
               </div>
               <div className="flex items-center gap-2">
                 <Badge color="cyan">{cust.vipTierName}</Badge>
-                <span className="font-mono text-xs text-zinc-500">點數 {cust.rewardPoints}</span>
               </div>
             </div>
           ))}

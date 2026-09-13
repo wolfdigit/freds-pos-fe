@@ -4,10 +4,18 @@ import { customerService } from '@/services';
 import { useUiStore } from '@/store/uiStore';
 
 export function useCustomerSearch() {
-  const [keyword, setKeyword] = useState('');
+  const [keyword, setKeywordState] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [total, setTotal] = useState(0);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const { selectedCustomerId, setSelectedCustomerId } = useUiStore();
   const [selectedId, setSelectedIdState] = useState<string | null>(selectedCustomerId);
+
+  const setKeyword = useCallback((val: string) => {
+    setKeywordState(val);
+    setPage(1);
+  }, []);
 
   const selectCustomer = useCallback(
     (id: string | null) => {
@@ -19,21 +27,22 @@ export function useCustomerSearch() {
 
   const reload = useCallback(
     async (targetId?: string) => {
-      const results = await customerService.searchCustomers(keyword);
-      setCustomers(results);
+      const res = await customerService.searchCustomers({ keyword, page, pageSize });
+      setCustomers(res.items);
+      setTotal(res.total);
       const activeTarget = targetId ?? selectedCustomerId;
 
-      if (activeTarget && results.some((c) => c.id === activeTarget)) {
+      if (activeTarget && res.items.some((c) => c.id === activeTarget)) {
         setSelectedIdState(activeTarget);
-      } else if (!selectedId && results.length > 0) {
-        const defaultId = results[0].id;
+      } else if (!selectedId && res.items.length > 0) {
+        const defaultId = res.items[0].id;
         setSelectedIdState(defaultId);
-      } else if (selectedId && !results.some((c) => c.id === selectedId)) {
-        const fallbackId = results[0]?.id ?? null;
+      } else if (selectedId && !res.items.some((c) => c.id === selectedId)) {
+        const fallbackId = res.items[0]?.id ?? null;
         setSelectedIdState(fallbackId);
       }
     },
-    [keyword, selectedId, selectedCustomerId]
+    [keyword, page, pageSize, selectedId, selectedCustomerId]
   );
 
   useEffect(() => {
@@ -44,8 +53,22 @@ export function useCustomerSearch() {
 
   useEffect(() => {
     reload();
-  }, [keyword, selectedCustomerId]);
+  }, [keyword, page, pageSize, selectedCustomerId]);
 
-  return { keyword, setKeyword, customers, selectedId, setSelectedId: selectCustomer, reload };
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  return {
+    keyword,
+    setKeyword,
+    page,
+    setPage,
+    pageSize,
+    total,
+    totalPages,
+    customers,
+    selectedId,
+    setSelectedId: selectCustomer,
+    reload,
+  };
 }
 

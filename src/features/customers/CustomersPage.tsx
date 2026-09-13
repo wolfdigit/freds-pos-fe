@@ -6,7 +6,18 @@ import { CustomerModal } from './components/CustomerModal';
 import type { Customer } from '@/types/customer';
 
 export function CustomersPage() {
-  const { keyword, setKeyword, customers, selectedId, setSelectedId, reload } = useCustomerSearch();
+  const {
+    keyword,
+    setKeyword,
+    page,
+    setPage,
+    total,
+    totalPages,
+    customers,
+    selectedId,
+    setSelectedId,
+    reload,
+  } = useCustomerSearch();
   const [modalOpen, setModalOpen] = useState(false);
   const [modalCustomer, setModalCustomer] = useState<Customer | null>(null);
 
@@ -37,6 +48,10 @@ export function CustomersPage() {
         selectedId={selectedId}
         onSelect={setSelectedId}
         onAddClick={handleOpenAdd}
+        page={page}
+        totalPages={totalPages}
+        total={total}
+        onPageChange={setPage}
       />
 
       {selected ? (

@@ -1,8 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { formatCurrency } from '@/utils/currency';
-import { useCartStore } from '@/store/cartStore';
 import type { InvoiceInfo, PaymentMethodType, PaymentTender } from '@/types/checkout';
 
 export interface OverStockItemDetail {
@@ -49,18 +48,7 @@ export function PaymentModal({
   const [method, setMethod] = useState<PaymentMethodType>('cash');
   const [showOverStockConfirm, setShowOverStockConfirm] = useState(false);
 
-  const { attachedCustomer, usedPoints, setUsedPoints, getSubtotal, shippingFee } = useCartStore();
-
-  const customerPoints = attachedCustomer?.rewardPoints ?? 0;
   const isNegative = totalAmount < 0;
-
-  // 最大可折抵點數：不可超過顧客現有點數，且不可超過（商品小計 + 運費）
-  const maxRedeemablePoints = useMemo(() => {
-    if (isNegative || !attachedCustomer) return 0;
-    const orderPrePointsTotal = Math.max(0, getSubtotal() + shippingFee);
-    return Math.min(customerPoints, orderPrePointsTotal);
-  }, [isNegative, attachedCustomer, customerPoints, getSubtotal, shippingFee]);
-
   const selectedMethodObj = PAYMENT_METHODS.find((m) => m.type === method) || PAYMENT_METHODS[0];
 
   const proceedSubmit = () => {
@@ -91,71 +79,6 @@ export function PaymentModal({
       widthClassName="max-w-2xl"
     >
       <div className="space-y-4 text-base">
-        {/* 會員點數折抵區塊 (當有會員且非純退款時顯示) */}
-        {attachedCustomer && !isNegative && customerPoints > 0 && (
-          <div className="rounded-xl border border-amber-600/40 bg-amber-950/20 p-3 space-y-2">
-            <div className="flex items-center justify-between text-xs font-semibold">
-              <span className="text-amber-300 flex items-center gap-1.5">
-                <span>🎁 會員點數折抵</span>
-                <span className="font-mono text-zinc-400 font-normal">
-                  (現有 {customerPoints} pts · 1 點折 1 元)
-                </span>
-              </span>
-              <span className="font-mono text-amber-200">
-                已折抵：<strong className="text-sm text-amber-400 font-bold">{usedPoints}</strong> 元
-              </span>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <div className="flex-1 flex gap-1.5">
-                {[0, 50, 100, 200].map((pts) => (
-                  <button
-                    key={pts}
-                    type="button"
-                    disabled={pts > maxRedeemablePoints}
-                    onClick={() => setUsedPoints(pts)}
-                    className={`rounded-lg px-2.5 py-1 text-xs font-mono font-bold transition-all border ${
-                      usedPoints === pts
-                        ? 'border-amber-400 bg-amber-500 text-zinc-950 shadow-sm'
-                        : 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:bg-zinc-800 disabled:opacity-40 disabled:cursor-not-allowed'
-                    }`}
-                  >
-                    {pts === 0 ? '不折抵' : `折 $${pts}`}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  disabled={maxRedeemablePoints <= 0}
-                  onClick={() => setUsedPoints(maxRedeemablePoints)}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-mono font-bold transition-all border ${
-                    usedPoints === maxRedeemablePoints && maxRedeemablePoints > 0
-                      ? 'border-amber-400 bg-amber-500 text-zinc-950 shadow-sm'
-                      : 'border-amber-600/60 bg-amber-900/40 text-amber-200 hover:bg-amber-800/60 disabled:opacity-40'
-                  }`}
-                >
-                  全額折 (${maxRedeemablePoints})
-                </button>
-              </div>
-
-              <div className="flex items-center gap-1 text-xs">
-                <span className="text-zinc-400">自訂:</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={maxRedeemablePoints}
-                  value={usedPoints || ''}
-                  placeholder="0"
-                  onChange={(e) => {
-                    const val = Math.min(maxRedeemablePoints, Math.max(0, Number(e.target.value) || 0));
-                    setUsedPoints(val);
-                  }}
-                  className="w-16 rounded-md border border-zinc-700 bg-zinc-900 px-2 py-1 text-right font-mono text-xs font-bold text-amber-300 focus:border-amber-400 focus:outline-none"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* 金額顯示卡片 */}
         <div
           className={`rounded-xl border py-4 px-4 text-center transition-all ${

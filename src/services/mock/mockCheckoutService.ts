@@ -61,16 +61,8 @@ export class MockCheckoutService implements ICheckoutService {
       }
     }
 
-    // --- 1. 點數折抵驗證 ---
+    // --- 1. 折抵與前置運算 ---
     const usedPoints = payload.usedPoints ?? 0;
-    if (usedPoints > 0) {
-      if (!customer) {
-        throw new BusinessError('INSUFFICIENT_POINTS', '未綁定會員無法使用點數折抵');
-      }
-      if (customer.rewardPoints < usedPoints) {
-        throw new BusinessError('INSUFFICIENT_POINTS', `會員點數不足 (現有: ${customer.rewardPoints} 點，欲折抵: ${usedPoints} 點)`);
-      }
-    }
 
     // --- 2. 逐項運算與業務前置驗證 ---
     const calculatedItems: CheckoutOrderItem[] = [];
