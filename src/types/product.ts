@@ -1,6 +1,6 @@
 export type ModelScale = '1:18' | '1:43' | '1:64' | '1:24' | '1:12' | '配件周邊';
 
-export type StockLocation = 'store' | 'warehouse' | 'company' | 'other';
+export type StockLocation = 'store' | 'warehouse' | 'company' | 'other' | string;
 
 export interface LocationStock {
   location: StockLocation;
@@ -15,7 +15,7 @@ export interface Product {
   barcode: string;
   brand: string;
   name: string;
-  scale: ModelScale;
+  scale?: ModelScale | string;
   spec?: string;
   imageUrl?: string;
   listPrice: number;
@@ -27,7 +27,7 @@ export interface Product {
 
 export interface ProductSearchParams {
   keyword?: string;
-  scale?: ModelScale | 'ALL';
+  scale?: ModelScale | 'ALL' | string;
   brand?: string | 'ALL';
   inStockOnly?: boolean;
 }
@@ -37,7 +37,7 @@ export interface CreateProductRequest {
   barcode: string;
   brand: string;
   name: string;
-  scale: ModelScale;
+  scale?: ModelScale | string;
   spec?: string;
   imageUrl?: string;
   listPrice: number;
@@ -49,7 +49,7 @@ export interface UpdateProductRequest {
   barcode?: string;
   brand?: string;
   name?: string;
-  scale?: ModelScale;
+  scale?: ModelScale | string;
   spec?: string;
   imageUrl?: string;
   listPrice?: number;

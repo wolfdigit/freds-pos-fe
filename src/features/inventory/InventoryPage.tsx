@@ -44,7 +44,7 @@ const STOCK_FILTER_OPTIONS: { value: StockFilterType; label: string }[] = [
   { value: 'HAS_STOCK', label: '📦 任一據點有現貨 (> 0 台)' },
 ];
 
-const LOCATION_NAMES: Record<StockLocation, string> = {
+const DEFAULT_LOCATION_NAMES: Record<string, string> = {
   store: '門市現貨',
   warehouse: '後方倉庫',
   company: '公司總倉',
@@ -116,19 +116,18 @@ export function InventoryPage() {
     setDraftStocks({});
   };
 
-  // 根據庫存與預購狀況過濾商品
+  // 根據庫存與預購狀況過濾商品 (動態彙整據點總量)
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
-      const getQty = (loc: StockLocation) =>
+      const getQty = (loc: string) =>
         draftStocks[p.id]?.[loc] !== undefined
           ? draftStocks[p.id][loc]
           : p.stocks.find((s) => s.location === loc)?.quantity ?? 0;
 
       const storeQty = getQty('store');
       const warehouseQty = getQty('warehouse');
-      const companyQty = getQty('company');
-      const otherQty = getQty('other');
-      const totalQty = storeQty + warehouseQty + companyQty + otherQty;
+      const allLocKeys = Array.from(new Set([...p.stocks.map((s) => s.location), ...Object.keys(draftStocks[p.id] || {})]));
+      const totalQty = allLocKeys.reduce((sum, loc) => sum + getQty(loc), 0);
 
       if (stockFilter === 'PREORDER_EXCEEDS_STORE') {
         return p.preOrderPendingCount > storeQty;
@@ -155,7 +154,7 @@ export function InventoryPage() {
     });
   }, [products, stockFilter, draftStocks]);
 
-  // 計算並整理已修改的商品與動態分析明細
+  // 計算並整理已修改的商品與動態分析明細 (支援 DB 動態據點)
   const pendingAdjustments = useMemo<StockItemAdjustment[]>(() => {
     const list: StockItemAdjustment[] = [];
 
@@ -166,15 +165,24 @@ export function InventoryPage() {
       const changes: StockLocationChange[] = [];
       let totalDiff = 0;
 
-      for (const loc of ['store', 'warehouse', 'company', 'other'] as StockLocation[]) {
+      const allLocations = Array.from(
+        new Set([
+          ...p.stocks.map((s) => s.location),
+          ...Object.keys(pDraft),
+        ])
+      );
+
+      for (const loc of allLocations) {
         if (pDraft[loc] !== undefined) {
-          const origQty = p.stocks.find((s) => s.location === loc)?.quantity ?? 0;
+          const origStock = p.stocks.find((s) => s.location === loc);
+          const origQty = origStock?.quantity ?? 0;
+          const locName = origStock?.locationName || DEFAULT_LOCATION_NAMES[loc] || loc;
           const newQty = pDraft[loc];
           const diff = newQty - origQty;
           if (diff !== 0) {
             changes.push({
               location: loc,
-              locationName: LOCATION_NAMES[loc] || loc,
+              locationName: locName,
               oldQty: origQty,
               newQty,
               diff,
@@ -186,19 +194,13 @@ export function InventoryPage() {
 
       if (changes.length > 0) {
         let summaryText = '';
-        const storeChange = changes.find((c) => c.location === 'store');
-        const warehouseChange = changes.find((c) => c.location === 'warehouse');
-
-        if (
-          changes.length === 2 &&
-          storeChange &&
-          warehouseChange &&
-          storeChange.diff + warehouseChange.diff === 0
-        ) {
-          if (storeChange.diff > 0) {
-            summaryText = `倉庫 ➔ 門市調撥 ${storeChange.diff} 台`;
+        if (changes.length === 2 && changes[0].diff + changes[1].diff === 0) {
+          const fromLoc = changes.find((c) => c.diff < 0);
+          const toLoc = changes.find((c) => c.diff > 0);
+          if (fromLoc && toLoc) {
+            summaryText = `${fromLoc.locationName} ➔ ${toLoc.locationName} 調撥 ${toLoc.diff} 台`;
           } else {
-            summaryText = `門市 ➔ 倉庫調撥 ${warehouseChange.diff} 台`;
+            summaryText = `跨據點調撥 ${Math.abs(changes[0].diff)} 台`;
           }
         } else if (totalDiff > 0) {
           summaryText = `庫存增加 (進貨) +${totalDiff} 台`;
@@ -211,6 +213,7 @@ export function InventoryPage() {
         list.push({
           productId: p.id,
           sku: p.sku,
+          barcode: p.barcode,
           name: p.name,
           brand: p.brand,
           changes,

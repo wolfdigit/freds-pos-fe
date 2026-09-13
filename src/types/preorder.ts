@@ -12,7 +12,7 @@ export interface PreOrderItem {
   productId: string;
   sku: string;
   productName: string;
-  scale: ModelScale;
+  scale?: ModelScale | string;
   brand: string;
   quotedPrice: number;
   qtyOrdered: number;

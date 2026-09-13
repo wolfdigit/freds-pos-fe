@@ -2,17 +2,20 @@ import type { IProductService } from './interfaces/IProductService';
 import type { ICheckoutService } from './interfaces/ICheckoutService';
 import type { IPreOrderService } from './interfaces/IPreOrderService';
 import type { ICustomerService } from './interfaces/ICustomerService';
+import type { ILocationService } from './interfaces/ILocationService';
 
 import { MockProductService } from './mock/mockProductService';
 import { MockCheckoutService } from './mock/mockCheckoutService';
 import { MockPreOrderService } from './mock/mockPreOrderService';
 import { MockCustomerService } from './mock/mockCustomerService';
+import { MockLocationService } from './mock/mockLocationService';
 import { ensureInitialized, resetDemoData } from './mock/storageHelper';
 
 import { HttpProductService } from './api/httpProductService';
 import { HttpCheckoutService } from './api/httpCheckoutService';
 import { HttpPreOrderService } from './api/httpPreOrderService';
 import { HttpCustomerService } from './api/httpCustomerService';
+import { HttpLocationService } from './api/httpLocationService';
 
 /**
  * 讀取運行期設定檔（public/config.js -> window.__APP_CONFIG__）
@@ -41,5 +44,9 @@ export const preOrderService: IPreOrderService = isMockService
 export const customerService: ICustomerService = isMockService
   ? new MockCustomerService()
   : new HttpCustomerService();
+
+export const locationService: ILocationService = isMockService
+  ? new MockLocationService()
+  : new HttpLocationService();
 
 export { resetDemoData };

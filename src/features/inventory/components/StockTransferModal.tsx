@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import type { Product, StockLocation } from '@/types/product';
 import { useToastStore } from '@/components/feedback/toastStore';
+import { useLocations } from '../hooks/useLocations';
 
 interface StockTransferModalProps {
   product: Product | null;
@@ -17,13 +18,6 @@ interface StockTransferModalProps {
   ) => void;
 }
 
-const LOCATIONS: { value: StockLocation; label: string; icon: string }[] = [
-  { value: 'store', label: '門市現貨', icon: '🏪' },
-  { value: 'warehouse', label: '後方倉庫', icon: '📦' },
-  { value: 'company', label: '公司總倉', icon: '🏢' },
-  { value: 'other', label: '調度暫存', icon: '🚚' },
-];
-
 export function StockTransferModal({
   product,
   currentDrafts,
@@ -31,15 +25,65 @@ export function StockTransferModal({
   onApplyTransfer,
 }: StockTransferModalProps) {
   const showToast = useToastStore((s) => s.showToast);
+  const { locations: apiLocations } = useLocations();
+
+  const locations = useMemo(() => {
+    const iconMap: Record<string, string> = {
+      store: '🏪',
+      warehouse: '📦',
+      company: '🏢',
+      other: '🚚',
+    };
+    const map = new Map<string, { value: string; label: string; icon: string }>();
+
+    if (apiLocations && apiLocations.length > 0) {
+      apiLocations.forEach((l) => {
+        if (l.isActive !== false) {
+          const locKey = l.id;
+          map.set(locKey, {
+            value: locKey,
+            label: l.name,
+            icon: l.icon || iconMap[locKey] || '📍',
+          });
+        }
+      });
+    }
+
+    if (product?.stocks && product.stocks.length > 0) {
+      product.stocks.forEach((s) => {
+        if (s.location && !map.has(s.location)) {
+          map.set(s.location, {
+            value: s.location,
+            label: s.locationName || s.location,
+            icon: iconMap[s.location] || '📍',
+          });
+        }
+      });
+    }
+
+    if (map.size === 0) {
+      return [
+        { value: 'store', label: '門市現貨', icon: '🏪' },
+        { value: 'warehouse', label: '後方倉庫', icon: '📦' },
+        { value: 'company', label: '公司總倉', icon: '🏢' },
+        { value: 'other', label: '調度暫存', icon: '🚚' },
+      ];
+    }
+
+    return Array.from(map.values());
+  }, [apiLocations, product]);
+
   const [fromLocation, setFromLocation] = useState<StockLocation>('warehouse');
   const [toLocation, setToLocation] = useState<StockLocation>('store');
   const [quantity, setQuantity] = useState('1');
 
   // 每次打開或更換商品時重置欄位
   useEffect(() => {
-    if (product) {
-      setFromLocation('warehouse');
-      setToLocation('store');
+    if (product && product.stocks && product.stocks.length > 0) {
+      const warehouseLoc = product.stocks.find((s) => s.location === 'warehouse');
+      const storeLoc = product.stocks.find((s) => s.location === 'store');
+      setFromLocation(warehouseLoc ? warehouseLoc.location : product.stocks[0].location);
+      setToLocation(storeLoc ? storeLoc.location : product.stocks.length > 1 ? product.stocks[1].location : product.stocks[0].location);
       setQuantity('1');
     }
   }, [product]);
@@ -87,7 +131,7 @@ export function StockTransferModal({
               1. 選擇來源地點 (From)
             </label>
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-              {LOCATIONS.map((l) => {
+              {locations.map((l) => {
                 const qty = getQty(l.value);
                 const isSelected = fromLocation === l.value;
 
@@ -124,7 +168,7 @@ export function StockTransferModal({
               2. 選擇目標地點 (To)
             </label>
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-              {LOCATIONS.map((l) => {
+              {locations.map((l) => {
                 const qty = getQty(l.value);
                 const isSelected = toLocation === l.value;
                 const isSameAsFrom = fromLocation === l.value;
