@@ -12,6 +12,10 @@ interface CustomerListPanelProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onAddClick: () => void;
+  page: number;
+  totalPages: number;
+  total: number;
+  onPageChange: (page: number) => void;
 }
 
 export function CustomerListPanel({
@@ -21,6 +25,10 @@ export function CustomerListPanel({
   selectedId,
   onSelect,
   onAddClick,
+  page,
+  totalPages,
+  total,
+  onPageChange,
 }: CustomerListPanelProps) {
   const showToast = useToastStore((s) => s.showToast);
 
@@ -37,7 +45,7 @@ export function CustomerListPanel({
         <h3 className="text-base font-bold text-zinc-100 flex items-center gap-2">
           <span>👥 會員列表</span>
           <span className="rounded-full bg-zinc-800 px-2 py-0.5 font-mono text-xs font-semibold text-cyan-400">
-            {customers.length}
+            {total}
           </span>
         </h3>
         <Button size="md" variant="primary" onClick={onAddClick} className="px-3.5 py-1.5 text-sm font-bold shadow-sm">
@@ -48,7 +56,7 @@ export function CustomerListPanel({
       <div className="relative">
         <Input
           monospace
-          placeholder="🔍 電話或姓名..."
+          placeholder="🔍 電話、姓名或信箱..."
           value={keyword}
           onChange={(e) => onKeywordChange(e.target.value)}
           className="pr-8 text-sm"
@@ -95,7 +103,11 @@ export function CustomerListPanel({
                     <span className="select-none mr-1">📞</span>
                     <span className="select-text">{c.phone}</span>
                   </span>
-                  <span className="text-emerald-400 font-semibold select-text">點數 {c.rewardPoints}</span>
+                  {c.email && (
+                    <span className="text-zinc-500 truncate max-w-[120px]" title={c.email}>
+                      {c.email}
+                    </span>
+                  )}
                 </div>
               </button>
             );
@@ -103,13 +115,38 @@ export function CustomerListPanel({
         )}
       </div>
 
+      {/* 分頁控制區 */}
+      {totalPages > 1 && (
+        <div className="mt-2 flex items-center justify-between border-t border-zinc-800/60 pt-2 text-xs font-mono text-zinc-400">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => onPageChange(page - 1)}
+            className="rounded px-2.5 py-1 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed text-zinc-200"
+          >
+            ◀ 上頁
+          </button>
+          <span>
+            第 <strong className="text-cyan-400 font-bold">{page}</strong> / {totalPages} 頁
+          </span>
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => onPageChange(page + 1)}
+            className="rounded px-2.5 py-1 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed text-zinc-200"
+          >
+            下頁 ▶
+          </button>
+        </div>
+      )}
+
       {/* 獨立全域工具區：匯入預購單 */}
-      <div className="mt-3 pt-3 border-t border-zinc-800/80 shrink-0">
+      <div className="mt-2 pt-2 border-t border-zinc-800/80 shrink-0">
         <Button
           size="md"
           variant="secondary"
           onClick={() => showToast('尚未支援此功能', 'info')}
-          className="w-full justify-center py-2.5 text-sm font-bold flex items-center gap-2 shadow-sm"
+          className="w-full justify-center py-2 text-sm font-bold flex items-center gap-2 shadow-sm"
           title="全域匯入線上預購單"
         >
           <span>📥 匯入線上預購單</span>

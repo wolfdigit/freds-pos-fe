@@ -3,6 +3,7 @@ import type { Customer } from '@/types/customer';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { formatCurrency } from '@/utils/currency';
+import { formatDateTime } from '@/utils/date';
 import { CustomerPreOrderTab } from './CustomerPreOrderTab';
 import { CustomerHistoryTab } from './CustomerHistoryTab';
 import { cn } from '@/utils/cn';
@@ -38,7 +39,7 @@ export function CustomerDetailPanel({ customer, onEditClick }: CustomerDetailPan
                 <h2 className="text-xl font-bold text-zinc-100">{customer.name}</h2>
                 <Badge color={getBadgeColor(customer.vipTier)}>{customer.vipTierName}</Badge>
               </div>
-              <p className="mt-1 font-mono text-sm text-zinc-400 flex items-center gap-3">
+              <p className="mt-1 font-mono text-sm text-zinc-400 flex flex-wrap items-center gap-3">
                 <span className="flex items-center">
                   <span className="select-none mr-1 text-zinc-500">📞</span>
                   <span className="select-text">{customer.phone}</span>
@@ -50,9 +51,15 @@ export function CustomerDetailPanel({ customer, onEditClick }: CustomerDetailPan
                   </span>
                 )}
                 <span className="text-zinc-600 flex items-center">
-                  <span className="select-none mr-1">· 加入時間：</span>
-                  <span className="select-text">{customer.createdAt}</span>
+                  <span className="select-none mr-1">· 加入：</span>
+                  <span className="select-text">{formatDateTime(customer.createdAt)}</span>
                 </span>
+                {customer.updatedAt && (
+                  <span className="text-zinc-600 flex items-center">
+                    <span className="select-none mr-1">· 更新：</span>
+                    <span className="select-text">{formatDateTime(customer.updatedAt)}</span>
+                  </span>
+                )}
               </p>
             </div>
           </div>
@@ -74,17 +81,7 @@ export function CustomerDetailPanel({ customer, onEditClick }: CustomerDetailPan
             </p>
           </div>
 
-          <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 p-3">
-            <p className="text-xs font-medium text-zinc-400 flex items-center">
-              <span className="select-none mr-1">🎁</span>
-              <span>點數餘額</span>
-            </p>
-            <p className="mt-1 font-mono text-xl font-bold text-emerald-400 select-text">
-              {customer.rewardPoints} <span className="text-xs font-normal text-zinc-400 select-none">pts</span>
-            </p>
-          </div>
-
-          <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 p-3">
+          <div className="sm:col-span-2 rounded-lg border border-zinc-800/80 bg-zinc-950/50 p-3">
             <p className="text-xs font-medium text-zinc-400 flex items-center">
               <span className="select-none mr-1">💬</span>
               <span>偏好與備註</span>

@@ -263,11 +263,12 @@ export const useCartStore = create<CartStore>()(
             id: order.customerId,
             name: order.customerName || '會員',
             phone: order.customerPhone || '',
+            email: null,
             vipTier: 'regular',
             vipTierName: '一般會員',
-            rewardPoints: 0,
             totalSpent: 0,
             createdAt: order.createdAt,
+            updatedAt: order.createdAt,
           };
         }
 
