@@ -4,6 +4,7 @@ import { useUiStore } from '@/store/uiStore';
 import { Button } from '@/components/common/Button';
 import { resetDemoData, isMockService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
+import { useThemeStore } from '@/store/themeStore';
 
 const PRESET_STORES = ['台北旗艦店', '新竹巨城店', '台中中港店', '高雄巨蛋店', '線上官方門市'];
 
@@ -26,6 +27,7 @@ function formatClock(date: Date): string {
 export function Header() {
   const { storeName, stores, cashierName, setStoreName } = useSessionStore();
   const setActiveTab = useUiStore((s) => s.setActiveTab);
+  const { theme, toggleTheme } = useThemeStore();
   const now = useClock();
   const showToast = useToastStore((s) => s.showToast);
   const [confirmingReset, setConfirmingReset] = useState(false);
@@ -125,6 +127,17 @@ export function Header() {
           </span>
         )}
         <span className="font-mono text-sm text-zinc-400">{formatClock(now)}</span>
+        
+        {/* 主題切換按鈕 */}
+        <button
+          onClick={toggleTheme}
+          title={theme === 'dark' ? '切換為淺色主題' : '切換為暗色主題'}
+          className="flex items-center gap-1.5 rounded-lg border border-zinc-700/80 bg-zinc-800/80 hover:bg-zinc-800 hover:border-zinc-500 px-2.5 py-1 text-xs font-semibold text-zinc-200 transition-all shadow-sm"
+        >
+          <span>{theme === 'dark' ? '🌙' : '☀️'}</span>
+          <span>{theme === 'dark' ? '暗色' : '淺色'}</span>
+        </button>
+
         {isMockService && (
           <Button size="sm" variant={confirmingReset ? 'danger' : 'ghost'} onClick={handleReset}>
             ↻ 重置示範資料
