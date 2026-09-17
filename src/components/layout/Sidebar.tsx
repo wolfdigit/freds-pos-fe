@@ -5,6 +5,7 @@ const NAV_ITEMS: { id: ActiveTab; label: string; icon: string; description: stri
   { id: 'checkout', label: '出單 / 結帳櫃檯', icon: '🧾', description: '出單及商品結帳櫃檯' },
   { id: 'inventory', label: '商品及庫存', icon: '📦', description: '商品與庫存管理' },
   { id: 'customers', label: '客戶會員', icon: '👤', description: '客戶與會員管理' },
+  { id: 'reports', label: '營運日報表', icon: '📊', description: '營運日報表、結帳紀錄與收支加總' },
   { id: 'settings', label: '系統設定', icon: '⚙️', description: '系統與庫存地點設定 (管理員)' },
 ];
 

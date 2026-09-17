@@ -22,7 +22,7 @@ export const STORAGE_KEYS = {
 
 // 每次修改 seed 資料結構（型別新增/移除欄位）時，遞增此版本號，
 // 讓已存在瀏覽器中的舊資料自動失效並重新寫入 seed，避免開發期間手動清 localStorage。
-export const CURRENT_SCHEMA_VERSION = '1';
+export const CURRENT_SCHEMA_VERSION = '2';
 
 
 /** 模擬非同步網路延遲，讓 Loading / Skeleton 呈現更真實 */
