@@ -5,6 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="./vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fred's POS</title>
+    <script>
+      (function() {
+        try {
+          var stored = localStorage.getItem('freds-pos-theme');
+          var theme = stored ? JSON.parse(stored).state?.theme : 'dark';
+          if (theme === 'light') {
+            document.documentElement.classList.remove('dark');
+            document.documentElement.classList.add('light');
+          } else {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+          }
+        } catch (e) {}
+      })();
+    </script>
     <script src="/config.js"></script>
   </head>
   <body>
