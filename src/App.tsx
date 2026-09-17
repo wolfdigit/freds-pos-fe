@@ -5,6 +5,7 @@ import { CheckoutPage } from '@/features/checkout/CheckoutPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { CustomersPage } from '@/features/customers/CustomersPage';
 import { SettingsPage } from '@/features/settings/SettingsPage';
+import { ReportsPage } from '@/features/reports/ReportsPage';
 import { getStateFromHash, getHashFromState } from '@/utils/hashRouter';
 
 export function App() {
@@ -74,6 +75,16 @@ export function App() {
                 <span className="text-zinc-500 text-sm font-mono">前往 →</span>
               </button>
               <button
+                onClick={() => setActiveTab('reports')}
+                className="flex items-center justify-between rounded-xl border border-zinc-700 bg-zinc-800/80 px-5 py-3.5 text-base font-semibold text-zinc-100 hover:border-cyan-500 hover:bg-cyan-950/30 hover:text-cyan-300 transition-all shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">📊</span>
+                  <span>營運日報表 (結帳統計)</span>
+                </div>
+                <span className="text-zinc-500 text-sm font-mono">前往 →</span>
+              </button>
+              <button
                 onClick={() => setActiveTab('settings')}
                 className="flex items-center justify-between rounded-xl border border-zinc-700 bg-zinc-800/80 px-5 py-3.5 text-base font-semibold text-zinc-100 hover:border-cyan-500 hover:bg-cyan-950/30 hover:text-cyan-300 transition-all shadow-sm"
               >
@@ -90,6 +101,7 @@ export function App() {
       {activeTab === 'checkout' && <CheckoutPage />}
       {activeTab === 'inventory' && <InventoryPage />}
       {activeTab === 'customers' && <CustomersPage />}
+      {activeTab === 'reports' && <ReportsPage />}
       {activeTab === 'settings' && <SettingsPage />}
     </MainLayout>
   );

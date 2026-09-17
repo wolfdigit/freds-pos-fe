@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { CartItem } from './cartStore';
 import { getHashFromState } from '@/utils/hashRouter';
 
-export type ActiveTab = 'checkout' | 'inventory' | 'customers' | 'settings';
+export type ActiveTab = 'checkout' | 'inventory' | 'customers' | 'settings' | 'reports';
 
 interface UiStore {
   activeTab: ActiveTab | null;
