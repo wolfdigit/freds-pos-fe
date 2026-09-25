@@ -265,9 +265,6 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
                   <span className="text-rose-400 font-semibold">✂️ 折讓: -{formatCurrency(order.discountAmount)}</span>
                 )}
               </div>
-              {order.earnedPoints > 0 && (
-                <span className="text-emerald-400 font-semibold">🎁 獲得點數: +{order.earnedPoints} pts</span>
-              )}
             </div>
           </div>
         );

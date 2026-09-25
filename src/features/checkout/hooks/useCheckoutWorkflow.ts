@@ -8,7 +8,7 @@ import type { CheckoutReceipt, CreateOrderPayload, InvoiceInfo, PaymentTender } 
 export function useCheckoutWorkflow() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null);
-  const { items, attachedCustomer, shippingFee, usedPoints, orderNote, clearCart } = useCartStore();
+  const { items, attachedCustomer, shippingFee, orderNote, clearCart } = useCartStore();
   const showToast = useToastStore((s) => s.showToast);
 
   const submitCheckout = async (payments: PaymentTender[], invoice: InvoiceInfo) => {
@@ -28,7 +28,6 @@ export function useCheckoutWorkflow() {
     try {
       const payload: CreateOrderPayload = {
         customerId: attachedCustomer?.id,
-        usedPoints: usedPoints > 0 ? usedPoints : undefined,
         items: items.map((i) => ({
           productId: i.productId,
           quantity: i.quantity,

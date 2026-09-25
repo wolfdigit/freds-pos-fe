@@ -61,10 +61,7 @@ export class MockCheckoutService implements ICheckoutService {
       }
     }
 
-    // --- 1. 折抵與前置運算 ---
-    const usedPoints = payload.usedPoints ?? 0;
-
-    // --- 2. 逐項運算與業務前置驗證 ---
+    // --- 1. 逐項運算與業務前置驗證 ---
     const calculatedItems: CheckoutOrderItem[] = [];
     let itemsSubtotal = 0;
     let discountAmount = 0;
@@ -151,7 +148,7 @@ export class MockCheckoutService implements ICheckoutService {
     }
 
     const shippingFee = payload.shippingFee ?? 0;
-    const totalAmount = safeAdd(itemsSubtotal, shippingFee, -usedPoints);
+    const totalAmount = safeAdd(itemsSubtotal, shippingFee);
     const paymentsTotal = safeAdd(...payload.payments.map((p) => p.amount));
 
     // 純退款時 paymentsTotal 需等於 totalAmount (例如皆為 -650)；購買時 paymentsTotal 需大於等於 totalAmount
@@ -218,7 +215,6 @@ export class MockCheckoutService implements ICheckoutService {
     }
 
     // 3.4 建立並儲存本次新訂單
-    const earnedPoints = totalAmount > 0 ? Math.floor(totalAmount / 100) : 0;
     const newOrder: CheckoutOrder = {
       id: `so-${Date.now()}`,
       orderNumber: buildOrderNumber(orders.length),
@@ -235,16 +231,13 @@ export class MockCheckoutService implements ICheckoutService {
       totalAmount,
       payments: payload.payments,
       invoice: payload.invoice,
-      earnedPoints,
-      usedPoints,
       note: payload.note,
       createdAt: nowIso(),
     };
 
-    // 3.5 更新會員消費額與點數
+    // 3.5 更新會員消費額
     if (payload.customerId && customer) {
-      const netPointsDiff = earnedPoints - usedPoints;
-      await customerService.updateCustomerSpending(payload.customerId, totalAmount, netPointsDiff);
+      await customerService.updateCustomerSpending(payload.customerId, totalAmount);
     }
 
     setOrders([...nextOrders, newOrder]);
