@@ -37,7 +37,6 @@ interface CartStore {
   items: CartItem[];
   attachedCustomer: Customer | null;
   shippingFee: number;
-  usedPoints: number;
   orderNote: string;
 
   highlightedProductId: string | null;
@@ -58,7 +57,6 @@ interface CartStore {
   removeItem: (productId: string) => void;
   attachCustomer: (customer: Customer | null) => void;
   setShippingFee: (fee: number) => void;
-  setUsedPoints: (points: number) => void;
   setOrderNote: (note: string) => void;
   clearCart: () => void;
 
@@ -75,7 +73,6 @@ export const useCartStore = create<CartStore>()(
       items: [],
       attachedCustomer: null,
       shippingFee: 0,
-      usedPoints: 0,
       orderNote: '',
       highlightedProductId: null,
 
@@ -307,13 +304,12 @@ export const useCartStore = create<CartStore>()(
       },
 
       setShippingFee: (fee) => set({ shippingFee: fee }),
-      setUsedPoints: (points) => set({ usedPoints: points }),
       setOrderNote: (note) => set({ orderNote: note }),
 
-      clearCart: () => set({ items: [], attachedCustomer: null, shippingFee: 0, usedPoints: 0, orderNote: '' }),
+      clearCart: () => set({ items: [], attachedCustomer: null, shippingFee: 0, orderNote: '' }),
 
       getSubtotal: () => safeAdd(...get().items.map((i) => i.unitPrice * i.quantity)),
-      getTotalAmount: () => safeAdd(get().getSubtotal(), get().shippingFee, -get().usedPoints),
+      getTotalAmount: () => safeAdd(get().getSubtotal(), get().shippingFee),
       getTotalItemsCount: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
       getSalesItemsCount: () => get().items.filter((i) => i.quantity > 0).reduce((sum, i) => sum + i.quantity, 0),
       getReturnItemsCount: () => get().items.filter((i) => i.quantity < 0).reduce((sum, i) => sum + Math.abs(i.quantity), 0),

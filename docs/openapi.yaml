@@ -11,7 +11,7 @@ info:
     - **Single Transaction Pipeline**: All sales, returns, and defect exchanges are unified under `POST /checkout/orders`.
     - **Backend Pricing & Calculation Authority**: Frontend transmits purchase/return intents and cashier-adjusted `unitPrice`; backend calculates all line subtotals, discounts, taxes, and total amounts.
     - **Line-Item Return Traceability**: Returns/exchanges (negative quantities) must reference `originalOrderId` and `originalOrderItemId`, with cumulative `returnedQuantity` tracking.
-    - **ACID Atomicity**: Checkout/return operations execute inside a single database transaction (locking store stock, updating pre-orders, updating customer spending/points, and creating orders).
+    - **ACID Atomicity**: Checkout/return operations execute inside a single database transaction (locking store stock, updating pre-orders, updating customer spending, and creating orders).
     - **Idempotency**: `POST /checkout/orders` supports `X-Idempotency-Key` to prevent double-charging or double stock deduction.
     - **Authentication**: Cashier and branch identity are resolved from JWT Bearer tokens, bound at cashier login.
 
@@ -37,7 +37,7 @@ tags:
   - name: preorders
     description: Customer pre-orders and arrival management
   - name: customers
-    description: Members, VIP tiers, and reward points
+    description: Members and VIP tiers
   - name: system
     description: System configurations, store branches, and Google OAuth access control whitelist
 
@@ -416,10 +416,10 @@ paths:
            - For pre-order items: verify `unitPrice` matches `quotedPrice` and `quantity <= qtyArrived - qtyDelivered`.
            - For return/exchange items (`quantity < 0`): verify `originalOrderId` & `originalOrderItemId`, ensuring `abs(quantity) <= (qtySold - qtyReturned)`. Also enforce member ownership: if the checkout is bound to customer A, the original order cannot belong to customer B (`customerId` mismatch raises `INVALID_RETURN_CUSTOMER`; unattached guest original orders are permitted).
            - Compute `subtotal = unitPrice * quantity` for each line.
-        3. **Order Total & Points**:
+        3. **Order Total**:
            - `itemsSubtotal = sum(subtotals)`
            - `discountAmount = sum((originalPrice - unitPrice) * quantity)`
-           - Validate `usedPoints <= customer.rewardPoints` and calculate final `totalAmount = itemsSubtotal + shippingFee - usedPoints`.
+           - Calculate final `totalAmount = itemsSubtotal + shippingFee`.
            - Validate `sum(payments.amount) == totalAmount` (or `payments >= totalAmount` with cash change).
         4. **Inventory & Pre-Order Atomicity**:
            - Positive items: lock and deduct `store` stock with row lock (`WHERE quantity >= :qty`).
@@ -427,7 +427,6 @@ paths:
            - Pre-order items: increment `qtyDelivered` and update pre-order status.
         5. **Member Asset Update**:
            - Update `customer.totalSpent += totalAmount`
-           - Update `customer.rewardPoints += (earnedPoints - usedPoints)`
         6. **Receipt & Persistence**:
            - Persist `CheckoutOrder` and return `CheckoutReceipt` with thermal print HTML.
       parameters:
@@ -597,33 +596,83 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /preorders/{preOrderId}/fulfill:
+    post:
+      tags: [preorders]
+      operationId: fulfillPreOrderItems
+      summary: Fulfill pre-order items
+      description: Deducts fulfilled quantities for specific items in a pre-order.
+      parameters:
+        - $ref: '#/components/parameters/PreOrderId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fulfilledItems]
+              properties:
+                fulfilledItems:
+                  type: array
+                  items:
+                    type: object
+                    required: [preOrderItemId, qty]
+                    properties:
+                      preOrderItemId:
+                        type: string
+                      qty:
+                        type: integer
+      responses:
+        '200':
+          description: Fulfill succeeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /customers:
     get:
       tags: [customers]
       operationId: searchCustomers
       summary: Search customers
-      description: Maps to `ICustomerService.searchCustomers`. Empty query returns all.
+      description: Maps to `ICustomerService.searchCustomers`. Empty query returns all with pagination.
       parameters:
-        - name: query
+        - name: keyword
           in: query
           schema:
             type: string
-          description: Phone, name, or tax ID fragment for fuzzy matching
-        - name: phone
+          description: Phone, name, email, or tax ID fragment for fuzzy matching
+        - name: vipTier
           in: query
-          required: false
           schema:
             type: string
-          description: Optional exact phone filter
+            enum: [ALL, regular, silver, gold, platinum]
+          description: Filter by VIP tier or ALL
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            default: 20
+          description: Items per page
       responses:
         '200':
-          description: Customers
+          description: Customers list or paginated response
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Customer'
+                oneOf:
+                  - $ref: '#/components/schemas/CustomerSearchResponse'
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/Customer'
     post:
       tags: [customers]
       operationId: createCustomer
@@ -679,6 +728,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Customer'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [customers]
+      operationId: deleteCustomer
+      summary: Delete a customer
+      description: Maps to `ICustomerService.deleteCustomer`.
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      responses:
+        '204':
+          description: Customer deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /customers/{customerId}/spending:
+    post:
+      tags: [customers]
+      operationId: updateCustomerSpending
+      summary: Update customer total spending
+      description: Maps to `ICustomerService.updateCustomerSpending`.
+      parameters:
+        - $ref: '#/components/parameters/CustomerId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount:
+                  type: integer
+                  description: Spent amount in TWD
+      responses:
+        '200':
+          description: Customer spending updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
         '404':
           $ref: '#/components/responses/NotFound'
 
@@ -928,10 +1018,6 @@ components:
               value:
                 code: RETURN_QTY_EXCEEDED
                 message: 退貨數量超過原單剩餘可退上限
-            insufficientPoints:
-              value:
-                code: INSUFFICIENT_POINTS
-                message: 會員點數餘額不足
             payment:
               value:
                 code: PAYMENT_INSUFFICIENT
@@ -961,7 +1047,6 @@ components:
         - INSUFFICIENT_STORE_STOCK
         - PREORDER_QTY_EXCEEDED
         - RETURN_QTY_EXCEEDED
-        - INSUFFICIENT_POINTS
         - PAYMENT_INSUFFICIENT
         - PRODUCT_NOT_FOUND
         - PRODUCT_SKU_DUPLICATE
@@ -1459,8 +1544,6 @@ components:
         - totalAmount
         - payments
         - invoice
-        - earnedPoints
-        - usedPoints
         - createdAt
       properties:
         id:
@@ -1498,10 +1581,6 @@ components:
             $ref: '#/components/schemas/PaymentTender'
         invoice:
           $ref: '#/components/schemas/InvoiceInfo'
-        earnedPoints:
-          type: integer
-        usedPoints:
-          type: integer
         note:
           type: string
         createdAt:
@@ -1548,10 +1627,6 @@ components:
       properties:
         customerId:
           type: string
-        usedPoints:
-          type: integer
-          default: 0
-          description: Points to redeem on this checkout
         items:
           type: array
           minItems: 1
@@ -1750,7 +1825,6 @@ components:
         - phone
         - vipTier
         - vipTierName
-        - rewardPoints
         - totalSpent
         - createdAt
       properties:
@@ -1767,8 +1841,6 @@ components:
           $ref: '#/components/schemas/VipTier'
         vipTierName:
           type: string
-        rewardPoints:
-          type: integer
         totalSpent:
           type: integer
         note:
@@ -1781,10 +1853,6 @@ components:
       required:
         - name
         - phone
-        - vipTier
-        - vipTierName
-        - rewardPoints
-        - totalSpent
       properties:
         name:
           type: string
@@ -1795,12 +1863,6 @@ components:
           format: email
         vipTier:
           $ref: '#/components/schemas/VipTier'
-        vipTierName:
-          type: string
-        rewardPoints:
-          type: integer
-        totalSpent:
-          type: integer
         note:
           type: string
 
@@ -1816,14 +1878,26 @@ components:
           format: email
         vipTier:
           $ref: '#/components/schemas/VipTier'
-        vipTierName:
-          type: string
-        rewardPoints:
-          type: integer
-        totalSpent:
-          type: integer
         note:
           type: string
+
+    CustomerSearchResponse:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Customer'
+        page:
+          type: integer
+          example: 1
+        pageSize:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 42
 
     StoreDto:
       type: object

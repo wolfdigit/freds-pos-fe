@@ -64,8 +64,6 @@ export interface CheckoutOrder {
   totalAmount: number;
   payments: PaymentTender[];
   invoice: InvoiceInfo;
-  earnedPoints: number;
-  usedPoints: number;
   note?: string;
   createdAt: string;
 }
@@ -86,7 +84,6 @@ export interface CreateOrderItemPayload {
 
 export interface CreateOrderPayload {
   customerId?: string;
-  usedPoints?: number;
   items: CreateOrderItemPayload[];
   shippingFee: number;
   payments: PaymentTender[];

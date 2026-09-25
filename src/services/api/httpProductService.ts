@@ -42,21 +42,21 @@ export class HttpProductService implements IProductService {
   }
 
   async transferStock(request: InventoryTransferRequest): Promise<boolean> {
-    const res = await httpClient.post<{ success: boolean }>('/inventory/transfer', request);
+    const res = await httpClient.post<{ success: boolean }>('/inventory/transfers', request);
     return res.success ?? true;
   }
 
   async adjustStock(request: StockAdjustRequest): Promise<boolean> {
-    const res = await httpClient.post<{ success: boolean }>('/inventory/adjust', request);
+    const res = await httpClient.post<{ success: boolean }>('/inventory/adjustments', request);
     return res.success ?? true;
   }
 
   async batchAdjustStock(request: BatchStockAdjustRequest): Promise<boolean> {
-    const res = await httpClient.post<{ success: boolean }>('/inventory/batch-adjust', request);
+    const res = await httpClient.post<{ success: boolean }>('/inventory/batch-adjustments', request);
     return res.success ?? true;
   }
 
   async getStockAdjustmentLogs(): Promise<StockAdjustmentLog[]> {
-    return httpClient.get<StockAdjustmentLog[]>('/inventory/logs');
+    return httpClient.get<StockAdjustmentLog[]>('/inventory/adjustments/logs');
   }
 }

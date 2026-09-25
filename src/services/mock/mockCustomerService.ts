@@ -152,7 +152,7 @@ export class MockCustomerService implements ICustomerService {
     setCustomers(customers.filter((c) => c.id !== id));
   }
 
-  async updateCustomerSpending(customerId: string, amount: number, _earnedPoints?: number): Promise<boolean> {
+  async updateCustomerSpending(customerId: string, amount: number): Promise<boolean> {
     await simulateDelay();
     const customers = getCustomers();
     const idx = customers.findIndex((c) => c.id === customerId);

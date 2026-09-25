@@ -55,10 +55,9 @@ export class HttpCustomerService implements ICustomerService {
     await httpClient.delete(`/customers/${id}`);
   }
 
-  async updateCustomerSpending(customerId: string, amount: number, earnedPoints: number): Promise<boolean> {
+  async updateCustomerSpending(customerId: string, amount: number): Promise<boolean> {
     const res = await httpClient.post<{ success: boolean }>(`/customers/${customerId}/spending`, {
       amount,
-      earnedPoints,
     });
     return res.success ?? true;
   }

@@ -18,5 +18,5 @@ export interface ICustomerService {
   /** 刪除會員 */
   deleteCustomer(id: string): Promise<void>;
   /** 更新會員累計消費（結帳後由 CheckoutService 內部調用） */
-  updateCustomerSpending(customerId: string, amount: number, earnedPoints: number): Promise<boolean>;
+  updateCustomerSpending(customerId: string, amount: number): Promise<boolean>;
 }

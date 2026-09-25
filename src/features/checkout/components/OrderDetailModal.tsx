@@ -100,7 +100,7 @@ export function OrderDetailModal({
             </div>
           </div>
 
-          {/* 會員資訊與點數紀錄 */}
+          {/* 會員資訊 */}
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs bg-zinc-900/60 rounded-lg p-2.5 border border-zinc-800/60">
             <div className="flex items-center gap-3">
               <span className="text-zinc-400">購買會員：</span>
@@ -121,15 +121,6 @@ export function OrderDetailModal({
                 </div>
               ) : (
                 <span className="text-zinc-400 font-medium">現場非會員 (散客)</span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-3 font-mono text-xs">
-              {order.usedPoints > 0 && (
-                <span className="text-amber-300">💎 折抵點數: -{order.usedPoints} pts</span>
-              )}
-              {order.earnedPoints > 0 && (
-                <span className="text-emerald-400 font-bold">🎁 獲得點數: +{order.earnedPoints} pts</span>
               )}
             </div>
           </div>
