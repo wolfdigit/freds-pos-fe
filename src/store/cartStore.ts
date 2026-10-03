@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Product, ModelScale } from '@/types/product';
 import type { Customer } from '@/types/customer';
-import type { PreOrder, PreOrderItem } from '@/types/preorder';
 import type { CheckoutOrder, CheckoutOrderItem } from '@/types/checkout';
 import { safeAdd } from '@/utils/currency';
 
@@ -21,9 +20,6 @@ export interface CartItem {
   quantity: number;
   storeStock?: number;
   totalStock?: number;
-  preOrderPendingCount?: number;
-  preOrderId?: string;
-  preOrderItemId?: string;
   originalOrderId?: string;
   originalOrderItemId?: string;
   originalOrderCustomerId?: string;
@@ -44,7 +40,6 @@ interface CartStore {
 
   addItem: (product: Product, qty?: number) => void;
   switchItemSku: (oldProductId: string, newProduct: Product) => void;
-  importPreOrderItem: (preOrder: PreOrder, item: PreOrderItem, qty: number) => void;
   importReturnItem: (
     order: CheckoutOrder,
     item: CheckoutOrderItem,
@@ -84,7 +79,6 @@ export const useCartStore = create<CartStore>()(
         const existing = items.find(
           (i) =>
             i.productId === product.id &&
-            !i.preOrderId &&
             !i.originalOrderId &&
             (isTargetReturn ? i.quantity < 0 : i.quantity > 0)
         );
@@ -113,7 +107,6 @@ export const useCartStore = create<CartStore>()(
           quantity: qty,
           storeStock,
           totalStock: product.totalStock,
-          preOrderPendingCount: product.preOrderPendingCount ?? 0,
         };
         set({ items: [...items, newItem] });
       },
@@ -121,7 +114,7 @@ export const useCartStore = create<CartStore>()(
       switchItemSku: (oldProductId, newProduct) => {
         const { items } = get();
         const currentItem = items.find(
-          (i) => i.productId === oldProductId && i.quantity > 0 && !i.originalOrderId && !i.preOrderId
+          (i) => i.productId === oldProductId && i.quantity > 0 && !i.originalOrderId
         );
         if (!currentItem) return;
 
@@ -131,8 +124,7 @@ export const useCartStore = create<CartStore>()(
             i.productId === newProduct.id &&
             i !== currentItem &&
             i.quantity > 0 &&
-            !i.originalOrderId &&
-            !i.preOrderId
+            !i.originalOrderId
         );
 
         if (existingTarget) {
@@ -163,43 +155,9 @@ export const useCartStore = create<CartStore>()(
               unitPrice: i.isManualPrice ? i.unitPrice : newProduct.listPrice,
               storeStock,
               totalStock: newProduct.totalStock,
-              preOrderPendingCount: newProduct.preOrderPendingCount ?? 0,
             };
           }),
         });
-      },
-
-
-
-      importPreOrderItem: (preOrder, item, qty) => {
-        const { items } = get();
-        const existingIndex = items.findIndex(
-          (i) => i.preOrderId === preOrder.id && i.preOrderItemId === item.id
-        );
-        if (existingIndex !== -1) {
-          const updatedItems = [...items];
-          updatedItems[existingIndex] = {
-            ...updatedItems[existingIndex],
-            quantity: Math.max(updatedItems[existingIndex].quantity, qty),
-          };
-          set({ items: updatedItems });
-          return;
-        }
-
-        const newItem: CartItem = {
-          productId: item.productId,
-          sku: item.sku,
-          name: item.productName,
-          scale: item.scale,
-          brand: item.brand,
-          originalPrice: item.quotedPrice,
-          unitPrice: item.quotedPrice,
-          isManualPrice: false,
-          quantity: qty,
-          preOrderId: preOrder.id,
-          preOrderItemId: item.id,
-        };
-        set({ items: [...items, newItem] });
       },
 
       importReturnItem: (order, item, returnQty, reason = '門市退換貨', restock = true) => {

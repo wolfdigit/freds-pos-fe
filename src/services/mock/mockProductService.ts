@@ -64,7 +64,6 @@ export class MockProductService implements IProductService {
       ...product,
       id: `prod-${Date.now()}`,
       normalizedSku: normalized,
-      preOrderPendingCount: 0,
       totalStock: 0,
       stocks: [
         { location: 'store', locationName: '門市現貨', quantity: 0 },

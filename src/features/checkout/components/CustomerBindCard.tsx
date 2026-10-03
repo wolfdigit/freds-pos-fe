@@ -2,17 +2,15 @@ import { useState, useEffect, useRef } from 'react';
 import { Badge } from '@/components/common/Badge';
 import { useCartStore } from '@/store/cartStore';
 import { useUiStore } from '@/store/uiStore';
-import { customerService, preOrderService } from '@/services';
+import { customerService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import type { Customer } from '@/types/customer';
-import type { PreOrder } from '@/types/preorder';
 
 export function CustomerBindCard() {
-  const { attachedCustomer, attachCustomer, importPreOrderItem, items } = useCartStore();
+  const { attachedCustomer, attachCustomer, items } = useCartStore();
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<Customer[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [pendingPreOrders, setPendingPreOrders] = useState<PreOrder[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const showToast = useToastStore((s) => s.showToast);
 
@@ -52,31 +50,6 @@ export function CustomerBindCard() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // 當綁定客戶變更時，自動查詢其待取貨預購單
-  useEffect(() => {
-    let cancelled = false;
-    if (!attachedCustomer) {
-      setPendingPreOrders([]);
-      return;
-    }
-
-    preOrderService.getPreOrdersByCustomerId(attachedCustomer.id).then((orders) => {
-      if (!cancelled) {
-        const withAvailableItems = orders
-          .map((po) => ({
-            ...po,
-            items: po.items.filter((i) => i.qtyArrived - i.qtyDelivered > 0),
-          }))
-          .filter((po) => po.items.length > 0);
-        setPendingPreOrders(withAvailableItems);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [attachedCustomer, items]);
-
   const handleSelectCustomer = (customer: Customer) => {
     const conflictingReturn = items.find(
       (i) => i.quantity < 0 && i.originalOrderCustomerId && i.originalOrderCustomerId !== customer.id
@@ -95,22 +68,6 @@ export function CustomerBindCard() {
   };
 
   const navigateToCustomer = useUiStore((s) => s.navigateToCustomer);
-
-  const handleImportItem = (po: PreOrder, itemId: string) => {
-    const item = po.items.find((i) => i.id === itemId);
-    if (!item) return;
-    const available = item.qtyArrived - item.qtyDelivered;
-    if (available <= 0) return;
-
-    const alreadyInCart = items.some((ci) => ci.preOrderId === po.id && ci.preOrderItemId === item.id);
-    if (alreadyInCart) {
-      showToast(`預購品項「${item.productName}」已在結帳單中`, 'info');
-      return;
-    }
-
-    importPreOrderItem(po, item, available);
-    showToast(`已帶入預購品項：${item.productName} (${available}台)`, 'success');
-  };
 
   if (attachedCustomer) {
     return (
@@ -139,58 +96,6 @@ export function CustomerBindCard() {
             解除綁定
           </button>
         </div>
-
-        {/* 預購未取貨提醒與一鍵帶入 */}
-        {pendingPreOrders.length > 0 && (
-          <div className="rounded border border-amber-800/60 bg-amber-950/40 p-3 text-base">
-            <div className="mb-2 flex items-center justify-between font-semibold text-amber-300">
-              <button
-                onClick={() => navigateToCustomer(attachedCustomer.id)}
-                className="text-base hover:text-amber-200 hover:underline flex items-center gap-1 text-left"
-                title="點擊前往預購單明細頁面"
-              >
-                <span>★ 偵測到可提貨預購品項 (查看單據 →)</span>
-              </button>
-              <span className="font-mono text-sm text-amber-400">
-                {pendingPreOrders.reduce((sum, po) => sum + po.items.length, 0)} 項待取
-              </span>
-            </div>
-            <div className="space-y-2">
-              {pendingPreOrders.map((po) =>
-                po.items.map((item) => {
-                  const available = item.qtyArrived - item.qtyDelivered;
-                  const isItemInCart = items.some(
-                    (ci) => ci.preOrderId === po.id && ci.preOrderItemId === item.id
-                  );
-                  return (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between gap-3 rounded bg-zinc-950/80 p-2.5"
-                    >
-                      <div className="min-w-0 flex-1 truncate">
-                        <span className="text-zinc-100 font-medium text-base">{item.productName}</span>
-                        <span className="ml-2 font-mono text-amber-400 text-sm">
-                          (可取: {available}台 / 預購價 ${item.quotedPrice})
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => handleImportItem(po, item.id)}
-                        disabled={isItemInCart}
-                        className={`rounded px-3 py-1 text-sm font-bold transition-colors whitespace-nowrap ${
-                          isItemInCart
-                            ? 'bg-zinc-800 text-zinc-400 cursor-not-allowed'
-                            : 'bg-amber-500 text-zinc-950 hover:bg-amber-400'
-                        }`}
-                      >
-                        {isItemInCart ? '✓ 已在結帳單' : '+ 帶入結帳'}
-                      </button>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        )}
       </div>
     );
   }
@@ -244,4 +149,3 @@ export function CustomerBindCard() {
     </div>
   );
 }
-

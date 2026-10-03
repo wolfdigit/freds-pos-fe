@@ -1010,10 +1010,6 @@ components:
               value:
                 code: INSUFFICIENT_STORE_STOCK
                 message: 門市現貨不足，請先從倉庫調撥
-            preorderQty:
-              value:
-                code: PREORDER_QTY_EXCEEDED
-                message: 超過可取數量上限
             returnQty:
               value:
                 code: RETURN_QTY_EXCEEDED
@@ -1045,7 +1041,6 @@ components:
       type: string
       enum:
         - INSUFFICIENT_STORE_STOCK
-        - PREORDER_QTY_EXCEEDED
         - RETURN_QTY_EXCEEDED
         - PAYMENT_INSUFFICIENT
         - PRODUCT_NOT_FOUND
@@ -1196,7 +1191,6 @@ components:
         - costPrice
         - stocks
         - totalStock
-        - preOrderPendingCount
         - status
       properties:
         id:
@@ -1237,8 +1231,6 @@ components:
           items:
             $ref: '#/components/schemas/LocationStock'
         totalStock:
-          type: integer
-        preOrderPendingCount:
           type: integer
         note:
           type: string

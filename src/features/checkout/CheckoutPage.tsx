@@ -15,7 +15,7 @@ import { OrderDetailModal } from './components/OrderDetailModal';
 import { useCartStore } from '@/store/cartStore';
 import { useUiStore } from '@/store/uiStore';
 import { useToastStore } from '@/components/feedback/toastStore';
-import { productService, preOrderService, checkoutService } from '@/services';
+import { productService, checkoutService } from '@/services';
 import { formatCurrency } from '@/utils/currency';
 import type { Product } from '@/types/product';
 import type { CheckoutOrder } from '@/types/checkout';
@@ -53,63 +53,8 @@ export function CheckoutPage() {
   const discount = cart.items.reduce((sum, i) => sum + (i.originalPrice - i.unitPrice) * i.quantity, 0);
   const totalAmount = cart.getTotalAmount();
 
-  const handleConvertToPreOrder = async () => {
-    if (!cart.attachedCustomer) {
-      showToast('轉成預購單需先綁定會員', 'warning');
-      return;
-    }
-    if (cart.items.length === 0) {
-      showToast('購物車內無商品可建立預購單', 'warning');
-      return;
-    }
-    if (cart.items.some((i) => Boolean(i.preOrderId))) {
-      showToast('購物車內含有帶入之預購提貨品項，無法再轉換為預購單', 'warning');
-      return;
-    }
-
-    const targetCustomer = cart.attachedCustomer;
-    const today = new Date().toISOString().split('T')[0];
-    const randomNum = Math.floor(1000 + Math.random() * 9000);
-
-    try {
-      const created = await preOrderService.createPreOrder({
-        orderNumber: `PO-${today.replace(/-/g, '').slice(0, 6)}-${randomNum}`,
-        customerId: targetCustomer.id,
-        customerName: targetCustomer.name,
-        customerPhone: targetCustomer.phone,
-        orderDate: today,
-        source: 'in_store',
-        operatorName: '店長 Fred',
-        items: cart.items.map((item) => ({
-          id: `poi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          productId: item.productId,
-          sku: item.sku,
-          productName: item.name,
-          scale: item.scale,
-          brand: item.brand,
-          quotedPrice: item.unitPrice,
-          qtyOrdered: item.quantity,
-          qtyArrived: 0,
-          qtyDelivered: 0,
-        })),
-        note: '結帳櫃檯轉為預購單',
-      });
-
-      showToast(
-        `已成功將購物車商品轉為會員【${targetCustomer.name}】之預購單 (${created.orderNumber})！`,
-        'success'
-      );
-      cart.clearCart();
-      ui.navigateToCustomer(targetCustomer.id);
-    } catch (err) {
-      console.error(err);
-      showToast('轉為預購單失敗', 'error');
-    }
-  };
-
   useKeyboardShortcuts({
     onFocusSearch: () => searchInputRef.current?.focus(),
-    onOpenPreOrderDrawer: () => ui.openPreOrderDrawer(),
     onOpenPayment: () => cart.items.length > 0 && setIsPaymentOpen(true),
     onEscape: () => {
       ui.closeAllOverlays();
@@ -146,15 +91,14 @@ export function CheckoutPage() {
     }
 
     const storeStock = product.stocks.find((s) => s.location === 'store')?.quantity ?? 0;
-    const reservedPreOrder = product.preOrderPendingCount ?? 0;
-    const sellableTotal = Math.max(0, product.totalStock - reservedPreOrder);
+    const sellableTotal = product.totalStock;
 
-    const existing = cart.items.find((i) => i.productId === product.id && !i.preOrderId && i.quantity > 0);
+    const existing = cart.items.find((i) => i.productId === product.id && i.quantity > 0);
     const newQty = (existing?.quantity ?? 0) + 1;
 
     if (newQty > sellableTotal) {
       showToast(
-        `警示：「${product.name}」結帳數量 (${newQty}台) 超過全店可售總存量 (${sellableTotal}台，總現貨: ${product.totalStock}台，預購未取保留: ${reservedPreOrder}台)`,
+        `警示：「${product.name}」結帳數量 (${newQty}台) 超過全店可售總存量 (${sellableTotal}台，總現貨: ${product.totalStock}台)`,
         'warning'
       );
     } else if (newQty > storeStock) {
@@ -177,15 +121,14 @@ export function CheckoutPage() {
         cart.updateItemQuantity(item.productId, -item.maxReturnableQty);
         return;
       }
-    } else if (!item.preOrderId && newQty > 0) {
+    } else if (newQty > 0) {
       const storeStock = item.storeStock ?? 0;
       const totalStock = item.totalStock ?? storeStock;
-      const reservedPreOrder = item.preOrderPendingCount ?? 0;
-      const sellableTotal = Math.max(0, totalStock - reservedPreOrder);
+      const sellableTotal = totalStock;
 
       if (newQty > sellableTotal) {
         showToast(
-          `警示：「${item.name}」數量 (${newQty}台) 超過全店扣除預購未取保留後之可售現貨 (${sellableTotal}台)，需緊急進貨`,
+          `警示：「${item.name}」數量 (${newQty}台) 超過全店可售現貨 (${sellableTotal}台)，需緊急進貨`,
           'warning'
         );
       } else if (newQty > storeStock) {
@@ -210,11 +153,10 @@ export function CheckoutPage() {
     }
 
     const overStockItems = cart.items.filter((i) => {
-      if (i.preOrderId || i.quantity < 0) return false;
+      if (i.quantity < 0) return false;
       const storeStock = i.storeStock ?? 0;
       const totalStock = i.totalStock ?? storeStock;
-      const reserved = i.preOrderPendingCount ?? 0;
-      const sellableTotal = Math.max(0, totalStock - reserved);
+      const sellableTotal = totalStock;
       return i.quantity > storeStock || i.quantity > sellableTotal;
     });
 
@@ -250,7 +192,6 @@ export function CheckoutPage() {
             { location: 'warehouse', locationName: '後方倉庫', quantity: 0 },
             { location: 'company', locationName: '公司總倉', quantity: 0 },
           ],
-          preOrderPendingCount: 0,
         });
       }
     }
@@ -338,7 +279,7 @@ export function CheckoutPage() {
 
                   return (
                     <CartItemRow
-                      key={`sales-${item.productId}-${item.preOrderItemId ?? 'direct'}-${idx}`}
+                      key={`sales-${item.productId}-${idx}`}
                       item={item}
                       index={idx + 1}
                       siblingProducts={siblingProducts}
@@ -427,7 +368,7 @@ export function CheckoutPage() {
               <div className="space-y-1">
                 {returnItems.map((item, idx) => (
                   <ReturnCartItemRow
-                    key={`return-${item.productId}-${item.originalOrderId ?? item.preOrderItemId ?? 'return'}-${idx}`}
+                    key={`return-${item.productId}-${item.originalOrderId ?? 'return'}-${idx}`}
                     item={item}
                     index={idx + 1}
                     onUpdateQuantity={(q) => handleUpdateQuantity(item, q)}
@@ -457,11 +398,8 @@ export function CheckoutPage() {
           itemCount={cart.items.length}
           salesItemCount={cart.getSalesItemsCount()}
           returnItemCount={cart.getReturnItemsCount()}
-          boundCustomerName={cart.attachedCustomer?.name}
-          hasPreOrderItems={cart.items.some((i) => Boolean(i.preOrderId))}
           onClear={cart.clearCart}
           onCheckout={handleStartCheckout}
-          onConvertToPreOrder={handleConvertToPreOrder}
         />
       </section>
 
@@ -469,25 +407,22 @@ export function CheckoutPage() {
       {(() => {
         const overStockList = cart.items
           .filter((i) => {
-            if (i.preOrderId || i.quantity < 0) return false;
+            if (i.quantity < 0) return false;
             const storeStock = i.storeStock ?? 0;
             const totalStock = i.totalStock ?? storeStock;
-            const reserved = i.preOrderPendingCount ?? 0;
-            const sellableTotal = Math.max(0, totalStock - reserved);
+            const sellableTotal = totalStock;
             return i.quantity > storeStock || i.quantity > sellableTotal;
           })
           .map((i) => {
             const storeStock = i.storeStock ?? 0;
             const totalStock = i.totalStock ?? storeStock;
-            const reserved = i.preOrderPendingCount ?? 0;
-            const available = Math.max(0, totalStock - reserved);
+            const available = totalStock;
             return {
               productId: i.productId,
               name: i.name,
               quantity: i.quantity,
               storeStock,
               totalStock,
-              preOrderReserved: reserved,
               available,
             };
           });

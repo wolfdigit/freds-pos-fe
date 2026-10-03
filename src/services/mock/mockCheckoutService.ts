@@ -9,8 +9,6 @@ import type {
 } from '@/types/checkout';
 import type { Product, StockLocation } from '@/types/product';
 import { getProducts, setProducts, getOrders, setOrders, simulateDelay } from './storageHelper';
-import { getPreOrders, setPreOrders } from './storageHelper';
-import { derivePreOrderStatus } from './mockPreOrderService';
 import { safeAdd } from '@/utils/currency';
 import { nowIso, formatDate } from '@/utils/date';
 import { BusinessError } from '@/utils/errors';
@@ -49,7 +47,6 @@ export class MockCheckoutService implements ICheckoutService {
     await simulateDelay();
 
     const products = getProducts();
-    const preOrders = getPreOrders();
     const orders = getOrders();
     const productMap = new Map(products.map((p) => [p.id, p]));
 
@@ -80,20 +77,6 @@ export class MockCheckoutService implements ICheckoutService {
         unitPrice = product.listPrice;
       }
 
-
-      // 若為預購取貨
-      if (item.preOrderId && item.preOrderItemId) {
-        const preOrder = preOrders.find((po) => po.id === item.preOrderId);
-        const preOrderItem = preOrder?.items.find((i) => i.id === item.preOrderItemId);
-        if (!preOrder || !preOrderItem) {
-          throw new BusinessError('PREORDER_QTY_EXCEEDED', '找不到對應的預購單品項');
-        }
-        const available = preOrderItem.qtyArrived - preOrderItem.qtyDelivered;
-        if (item.quantity > available) {
-          throw new BusinessError('PREORDER_QTY_EXCEEDED', `超過可取數量上限：${preOrderItem.productName}`);
-        }
-        unitPrice = preOrderItem.quotedPrice;
-      }
 
       // 若為負數退換貨品項
       if (item.quantity < 0) {
@@ -138,8 +121,6 @@ export class MockCheckoutService implements ICheckoutService {
         quantity: item.quantity,
         subtotal: lineSubtotal,
         returnedQuantity: 0,
-        preOrderId: item.preOrderId,
-        preOrderItemId: item.preOrderItemId,
         originalOrderId: item.originalOrderId,
         originalOrderItemId: item.originalOrderItemId,
         restock: item.restock ?? true,
@@ -179,21 +160,7 @@ export class MockCheckoutService implements ICheckoutService {
     }
     setProducts(nextProducts);
 
-    // 3.2 沖銷預購單
-    let nextPreOrders = [...preOrders];
-    for (const item of calculatedItems) {
-      if (!item.preOrderId || !item.preOrderItemId || item.quantity <= 0) continue;
-      nextPreOrders = nextPreOrders.map((po) => {
-        if (po.id !== item.preOrderId) return po;
-        const nextItems = po.items.map((i) =>
-          i.id === item.preOrderItemId ? { ...i, qtyDelivered: i.qtyDelivered + item.quantity } : i
-        );
-        return { ...po, items: nextItems, status: derivePreOrderStatus(nextItems), updatedAt: nowIso() };
-      });
-    }
-    setPreOrders(nextPreOrders);
-
-    // 3.3 若為退貨，更新原訂單之 returnedQuantity 與狀態
+    // 3.2 若為退貨，更新原訂單之 returnedQuantity 與狀態
     let nextOrders = [...orders];
     for (const item of calculatedItems) {
       if (item.quantity < 0 && item.originalOrderId) {

@@ -25,8 +25,6 @@ const BRAND_TABS: string[] = [
 
 export type StockFilterType =
   | 'ALL'
-  | 'PREORDER_EXCEEDS_STORE'
-  | 'PREORDER_EXCEEDS_TOTAL'
   | 'STORE_LOW'
   | 'WAREHOUSE_LOW'
   | 'STORE_OUT'
@@ -35,8 +33,6 @@ export type StockFilterType =
 
 const STOCK_FILTER_OPTIONS: { value: StockFilterType; label: string }[] = [
   { value: 'ALL', label: '📊 全部庫存狀況' },
-  { value: 'PREORDER_EXCEEDS_STORE', label: '⚠️ 預購未交 > 門市現貨 (待補貨)' },
-  { value: 'PREORDER_EXCEEDS_TOTAL', label: '🚨 預購未交 > 預估總計 (欠貨警告)' },
   { value: 'STORE_LOW', label: '⚠️ 門市現貨低庫存 (≤ 2 台)' },
   { value: 'WAREHOUSE_LOW', label: '⚠️ 後方倉庫低庫存 (≤ 2 台)' },
   { value: 'STORE_OUT', label: '🚫 門市現貨缺貨 (= 0 台)' },
@@ -116,7 +112,7 @@ export function InventoryPage() {
     setDraftStocks({});
   };
 
-  // 根據庫存與預購狀況過濾商品 (動態彙整據點總量)
+  // 根據庫存狀況過濾商品 (動態彙整據點總量)
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {
       const getQty = (loc: string) =>
@@ -129,12 +125,6 @@ export function InventoryPage() {
       const allLocKeys = Array.from(new Set([...p.stocks.map((s) => s.location), ...Object.keys(draftStocks[p.id] || {})]));
       const totalQty = allLocKeys.reduce((sum, loc) => sum + getQty(loc), 0);
 
-      if (stockFilter === 'PREORDER_EXCEEDS_STORE') {
-        return p.preOrderPendingCount > storeQty;
-      }
-      if (stockFilter === 'PREORDER_EXCEEDS_TOTAL') {
-        return p.preOrderPendingCount > totalQty;
-      }
       if (stockFilter === 'STORE_LOW') {
         return storeQty <= 2;
       }
@@ -280,7 +270,7 @@ export function InventoryPage() {
             )}
           </div>
 
-          {/* 2. 庫存與預購狀況進階條件過濾器 */}
+          {/* 2. 庫存狀況進階條件過濾器 */}
           <div className="w-64">
             <select
               value={stockFilter}

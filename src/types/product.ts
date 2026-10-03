@@ -21,7 +21,6 @@ export interface Product {
   listPrice: number;
   stocks: LocationStock[];
   totalStock: number;
-  preOrderPendingCount: number;
   note?: string;
 }
 

@@ -1,23 +1,16 @@
-import { useState } from 'react';
 import type { Customer } from '@/types/customer';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { formatCurrency } from '@/utils/currency';
 import { formatDateTime } from '@/utils/date';
-import { CustomerPreOrderTab } from './CustomerPreOrderTab';
 import { CustomerHistoryTab } from './CustomerHistoryTab';
-import { cn } from '@/utils/cn';
 
 interface CustomerDetailPanelProps {
   customer: Customer;
   onEditClick: () => void;
 }
 
-type Tab = 'preorders' | 'history';
-
 export function CustomerDetailPanel({ customer, onEditClick }: CustomerDetailPanelProps) {
-  const [tab, setTab] = useState<Tab>('preorders');
-
   const getBadgeColor = (tier: string) => {
     if (tier === 'platinum') return 'purple';
     if (tier === 'gold') return 'amber';
@@ -93,40 +86,16 @@ export function CustomerDetailPanel({ customer, onEditClick }: CustomerDetailPan
         </div>
       </div>
 
-      {/* 雙分頁 Tab header */}
-      <div className="mt-5 flex gap-2 border-b border-zinc-800/80 shrink-0">
-        <button
-          onClick={() => setTab('preorders')}
-          className={cn(
-            'flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all',
-            tab === 'preorders'
-              ? 'border-cyan-400 text-cyan-300 bg-cyan-950/20'
-              : 'border-transparent text-zinc-400 hover:text-zinc-200'
-          )}
-        >
-          <span>📦 未結預訂單</span>
-        </button>
-
-        <button
-          onClick={() => setTab('history')}
-          className={cn(
-            'flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b-2 transition-all',
-            tab === 'history'
-              ? 'border-cyan-400 text-cyan-300 bg-cyan-950/20'
-              : 'border-transparent text-zinc-400 hover:text-zinc-200'
-          )}
-        >
+      {/* 標題欄 */}
+      <div className="mt-5 flex items-center justify-between border-b border-zinc-800/80 pb-2 shrink-0">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
           <span>🧾 歷史結帳紀錄</span>
-        </button>
+        </h3>
       </div>
 
-      {/* 分頁內容展示區 */}
+      {/* 歷史紀錄內容區 */}
       <div className="mt-4 flex-1 overflow-y-auto pr-2 pb-6">
-        {tab === 'preorders' ? (
-          <CustomerPreOrderTab customer={customer} />
-        ) : (
-          <CustomerHistoryTab customerId={customer.id} />
-        )}
+        <CustomerHistoryTab customerId={customer.id} />
       </div>
     </div>
   );

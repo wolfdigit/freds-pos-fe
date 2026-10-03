@@ -1,18 +1,15 @@
 import { BusinessError } from '@/utils/errors';
 import {
   INITIAL_PRODUCTS,
-  INITIAL_PREORDERS,
   INITIAL_CUSTOMERS,
   INITIAL_ORDERS,
 } from './mockDataSeed';
 import type { Product } from '@/types/product';
-import type { PreOrder } from '@/types/preorder';
 import type { Customer } from '@/types/customer';
 import type { CheckoutOrder } from '@/types/checkout';
 
 export const STORAGE_KEYS = {
   PRODUCTS: 'FREDS_POS_PRODUCTS',
-  PREORDERS: 'FREDS_POS_PREORDERS',
   CUSTOMERS: 'FREDS_POS_CUSTOMERS',
   ORDERS: 'FREDS_POS_ORDERS',
   STOCK_LOGS: 'FREDS_POS_STOCK_LOGS',
@@ -22,8 +19,7 @@ export const STORAGE_KEYS = {
 
 // 每次修改 seed 資料結構（型別新增/移除欄位）時，遞增此版本號，
 // 讓已存在瀏覽器中的舊資料自動失效並重新寫入 seed，避免開發期間手動清 localStorage。
-export const CURRENT_SCHEMA_VERSION = '2';
-
+export const CURRENT_SCHEMA_VERSION = '3';
 
 /** 模擬非同步網路延遲，讓 Loading / Skeleton 呈現更真實 */
 export function simulateDelay(minMs = 80, maxMs = 180): Promise<void> {
@@ -48,7 +44,6 @@ function writeRaw<T>(key: string, value: T): void {
 /** 寫入預設示範資料種子（首次啟動或 resetDemoData 時呼叫） */
 function seedAll(): void {
   writeRaw(STORAGE_KEYS.PRODUCTS, INITIAL_PRODUCTS);
-  writeRaw(STORAGE_KEYS.PREORDERS, INITIAL_PREORDERS);
   writeRaw(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS);
   writeRaw(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
   writeRaw(STORAGE_KEYS.INITIALIZED, true);
@@ -67,7 +62,6 @@ export function ensureInitialized(): void {
 
   try {
     readRaw(STORAGE_KEYS.PRODUCTS);
-    readRaw(STORAGE_KEYS.PREORDERS);
     readRaw(STORAGE_KEYS.CUSTOMERS);
     readRaw(STORAGE_KEYS.ORDERS);
   } catch {
@@ -85,13 +79,6 @@ export function getProducts(): Product[] {
 }
 export function setProducts(products: Product[]): void {
   writeRaw(STORAGE_KEYS.PRODUCTS, products);
-}
-
-export function getPreOrders(): PreOrder[] {
-  return readRaw<PreOrder[]>(STORAGE_KEYS.PREORDERS) ?? [];
-}
-export function setPreOrders(preOrders: PreOrder[]): void {
-  writeRaw(STORAGE_KEYS.PREORDERS, preOrders);
 }
 
 export function getCustomers(): Customer[] {
@@ -115,4 +102,3 @@ export function addStockLog(log: any): void {
   const current = getStockLogs();
   writeRaw(STORAGE_KEYS.STOCK_LOGS, [log, ...current]);
 }
-

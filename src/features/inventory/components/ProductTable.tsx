@@ -107,7 +107,6 @@ export function ProductTable({
               </th>
             ))}
             <th className="px-4 py-3.5 text-right font-bold bg-zinc-900">預估總計</th>
-            <th className="px-4 py-3.5 text-right font-bold bg-zinc-900">預購未交</th>
             <th className="px-4 py-3.5 text-right min-w-[90px] bg-zinc-900">操作</th>
           </tr>
         </thead>
@@ -204,15 +203,6 @@ export function ProductTable({
                 {/* 預估總計 (放大 text-xl 20px) */}
                 <td className="px-4 py-3.5 text-right font-mono font-extrabold text-xl text-cyan-300">
                   {totalCalculated}
-                </td>
-
-                {/* 預購未交 (放大 text-xl 20px，無「台」單位) */}
-                <td className="px-4 py-3.5 text-right font-mono font-bold text-xl">
-                  {p.preOrderPendingCount > 0 ? (
-                    <span className="text-amber-400">{p.preOrderPendingCount}</span>
-                  ) : (
-                    <span className="text-zinc-600">0</span>
-                  )}
                 </td>
 
                 {/* 操作按鈕 (單項調撥) */}
