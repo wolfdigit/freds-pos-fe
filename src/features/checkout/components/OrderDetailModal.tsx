@@ -238,25 +238,13 @@ export function OrderDetailModal({
               )}
             </div>
 
-            <div className="border-t border-zinc-800/80 pt-2 text-zinc-400 space-y-1">
-              <p>
-                發票模式：
-                <span className="text-zinc-200">
-                  {order.invoice?.type === 'carrier'
-                    ? `手機載具 (${order.invoice.carrierCode})`
-                    : order.invoice?.type === 'tax_id'
-                    ? `統一編號 (${order.invoice.taxId} / ${order.invoice.buyerTitle || '買受人'})`
-                    : order.invoice?.type === 'paper'
-                    ? '紙本電子發票'
-                    : '未開立/不索取'}
-                </span>
-              </p>
-              {order.note && (
+            {order.note && (
+              <div className="border-t border-zinc-800/80 pt-2 text-zinc-400 space-y-1">
                 <p>
                   訂單備註：<span className="text-amber-300">{order.note}</span>
                 </p>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* 右欄：金額結算彙整 */}

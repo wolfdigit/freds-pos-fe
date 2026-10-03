@@ -19,13 +19,6 @@ export interface PaymentTender {
   transactionRef?: string;
 }
 
-export interface InvoiceInfo {
-  type: 'none' | 'carrier' | 'tax_id' | 'paper';
-  carrierCode?: string;
-  taxId?: string;
-  buyerTitle?: string;
-}
-
 export interface CheckoutOrderItem {
   productId: string;
   sku: string;
@@ -61,7 +54,6 @@ export interface CheckoutOrder {
   shippingFee: number;
   totalAmount: number;
   payments: PaymentTender[];
-  invoice: InvoiceInfo;
   note?: string;
   createdAt: string;
 }
@@ -83,7 +75,6 @@ export interface CreateOrderPayload {
   items: CreateOrderItemPayload[];
   shippingFee: number;
   payments: PaymentTender[];
-  invoice: InvoiceInfo;
   note?: string;
 }
 

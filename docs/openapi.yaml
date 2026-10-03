@@ -375,7 +375,7 @@ paths:
           in: query
           schema:
             type: string
-          description: Search by customer phone, name, tax ID, carrier code, or order number
+          description: Search by customer phone, name, or order number
         - name: startDate
           in: query
           schema:
@@ -643,7 +643,7 @@ paths:
           in: query
           schema:
             type: string
-          description: Phone, name, email, or tax ID fragment for fuzzy matching
+          description: Phone, name, or email for fuzzy matching
         - name: vipTier
           in: query
           schema:
@@ -1449,22 +1449,6 @@ components:
           type: string
           description: Card last-4 or transfer last-5
 
-    InvoiceInfo:
-      type: object
-      required: [type]
-      properties:
-        type:
-          type: string
-          enum: [none, carrier, tax_id, paper]
-        carrierCode:
-          type: string
-          example: /ABC+123
-        taxId:
-          type: string
-          example: '83521409'
-        buyerTitle:
-          type: string
-
     CheckoutOrderItem:
       type: object
       required:
@@ -1535,7 +1519,6 @@ components:
         - shippingFee
         - totalAmount
         - payments
-        - invoice
         - createdAt
       properties:
         id:
@@ -1571,8 +1554,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PaymentTender'
-        invoice:
-          $ref: '#/components/schemas/InvoiceInfo'
         note:
           type: string
         createdAt:
@@ -1615,7 +1596,7 @@ components:
 
     CreateOrderPayload:
       type: object
-      required: [items, payments, invoice]
+      required: [items, payments]
       properties:
         customerId:
           type: string
@@ -1632,8 +1613,6 @@ components:
           minItems: 1
           items:
             $ref: '#/components/schemas/PaymentTender'
-        invoice:
-          $ref: '#/components/schemas/InvoiceInfo'
         note:
           type: string
 

@@ -475,7 +475,6 @@ export const INITIAL_ORDERS: CheckoutOrder[] = [
     shippingFee: 0,
     totalAmount: 1650,
     payments: [{ type: 'cash', name: '現金', amount: 1650, tenderedCash: 2000, changeAmount: 350 }],
-    invoice: { type: 'carrier', carrierCode: '/AB12345' },
     createdAt: new Date().toISOString(),
   },
   {
@@ -508,7 +507,6 @@ export const INITIAL_ORDERS: CheckoutOrder[] = [
     payments: [
       { type: 'credit_card_physical', name: '信用卡(實體)', amount: 7200, transactionRef: 'TXN-987654' },
     ],
-    invoice: { type: 'none' },
     createdAt: new Date(Date.now() - 3600 * 1000 * 2).toISOString(),
   },
   {
@@ -553,7 +551,6 @@ export const INITIAL_ORDERS: CheckoutOrder[] = [
     shippingFee: 0,
     totalAmount: -1870,
     payments: [{ type: 'cash', name: '現金 (退款)', amount: -1870 }],
-    invoice: { type: 'tax_id', taxId: '83521409', buyerTitle: '極速模型工作室' },
     note: '換貨並現金退回差額 NT$ 1,870 (退貨 1 件)',
     createdAt: new Date(Date.now() - 3600 * 1000 * 4).toISOString(),
   },
@@ -586,7 +583,6 @@ export const INITIAL_ORDERS: CheckoutOrder[] = [
     shippingFee: 0,
     totalAmount: 1100,
     payments: [{ type: 'cash', name: '現金', amount: 1100 }],
-    invoice: { type: 'none' },
     createdAt: '2026-08-25T19:32:00Z',
   },
   {
@@ -620,7 +616,6 @@ export const INITIAL_ORDERS: CheckoutOrder[] = [
       { type: 'credit_card_physical', name: '信用卡(實體)', amount: 5000, transactionRef: '1234' },
       { type: 'bank_transfer_ctbc', name: '轉帳(中信)', amount: 2500, transactionRef: '67890' },
     ],
-    invoice: { type: 'none' },
     note: '門市現場購買',
     createdAt: '2026-08-18T14:15:00Z',
   },
@@ -662,7 +657,6 @@ export const INITIAL_ORDERS: CheckoutOrder[] = [
     shippingFee: 0,
     totalAmount: 7450,
     payments: [{ type: 'line_pay', name: 'LINE Pay', amount: 7450 }],
-    invoice: { type: 'none' },
     createdAt: '2026-08-10T11:20:00Z',
   },
 ];
