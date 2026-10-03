@@ -4,7 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "generate:config": "node ./scripts/generate-config.mjs",
     "dev": "vite",
+    "prebuild": "npm run generate:config",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
