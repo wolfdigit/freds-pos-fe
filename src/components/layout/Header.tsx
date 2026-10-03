@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
 import { Button } from '@/components/common/Button';
-import { resetDemoData, isMockService } from '@/services';
+import { resetDemoData, isMockService, toggleMockMode } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { useThemeStore } from '@/store/themeStore';
 
@@ -117,15 +117,25 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-3">
-        {isMockService ? (
-          <span className="inline-flex items-center rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-400 ring-1 ring-inset ring-amber-500/20">
-            🧪 Mock 模式
-          </span>
-        ) : (
-          <span className="inline-flex items-center rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400 ring-1 ring-inset ring-emerald-500/20">
-            🌐 API 連線模式
-          </span>
-        )}
+        {/* 模式切換按鈕 */}
+        <button
+          type="button"
+          onClick={toggleMockMode}
+          title={isMockService ? '目前為：Mock 模式，點擊切換為真實 API 模式' : '目前為：真實 API 連線模式，點擊切換為 Mock 模式'}
+          className="cursor-pointer transition-transform active:scale-95 focus:outline-none"
+        >
+          {isMockService ? (
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-400 ring-1 ring-inset ring-amber-500/20 hover:ring-amber-500/40 transition-all">
+              <span>🧪 Mock 模式</span>
+              <span className="text-[10px] text-amber-500/80 font-mono">⇄ 切換</span>
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400 ring-1 ring-inset ring-emerald-500/20 hover:ring-emerald-500/40 transition-all">
+              <span>🌐 API 連線模式</span>
+              <span className="text-[10px] text-emerald-500/80 font-mono">⇄ 切換</span>
+            </span>
+          )}
+        </button>
         <span className="font-mono text-sm text-zinc-400">{formatClock(now)}</span>
         
         {/* 主題切換按鈕 */}
