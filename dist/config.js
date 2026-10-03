@@ -2,9 +2,8 @@
  * Runtime 運行期設定檔
  * 
  * 說明：
- * 此檔案在 Vite build 時會原封不動複製到 dist/ 目錄下。
- * 在打包（transpile）後，您可以直接透過文字編輯器修改 dist/config.js，
- * 或在 Docker / 伺服器部署時動態替換此檔案，無須重新 build。
+ * 此檔案在 Build 階段由 scripts/generate-config.mjs 依據環境變數動態產生。
+ * 在打包後，亦可直接修改 dist/config.js 或由 Docker 動態替換。
  */
 window.__APP_CONFIG__ = {
   // 是否啟用假資料（Mock Service）：true 為 Mock，false 為真實 HTTP API
