@@ -160,9 +160,6 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
                   <span className="font-mono text-lg font-bold text-zinc-100">{order.orderNumber}</span>
                   {renderStatusBadge(order.status)}
                   {renderPaymentBadge(order.payments)}
-                  {order.invoice?.type === 'tax_id' && (
-                    <Badge color="amber">統編: {order.invoice.taxId}</Badge>
-                  )}
                 </div>
                 <p className="mt-1 font-mono text-sm text-zinc-400">
                   結帳時間：{formatDateTime(order.createdAt)} · 收銀員：{order.cashierName || '店長 Fred'}

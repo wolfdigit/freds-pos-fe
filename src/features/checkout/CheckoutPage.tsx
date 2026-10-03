@@ -435,9 +435,9 @@ export function CheckoutPage() {
             isSubmitting={isSubmitting}
             hasOverStockItems={overStockList.length > 0}
             overStockItemsList={overStockList}
-            onConfirm={(payments, invoice) => {
+            onConfirm={(payments) => {
               setIsPaymentOpen(false);
-              submitCheckout(payments, invoice);
+              submitCheckout(payments);
             }}
           />
         );

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { formatCurrency } from '@/utils/currency';
-import type { InvoiceInfo, PaymentMethodType, PaymentTender } from '@/types/checkout';
+import type { PaymentMethodType, PaymentTender } from '@/types/checkout';
 
 export interface OverStockItemDetail {
   productId?: string;
@@ -20,7 +20,7 @@ interface PaymentModalProps {
   hasOverStockItems?: boolean;
   overStockItemsList?: OverStockItemDetail[];
   onClose: () => void;
-  onConfirm: (payments: PaymentTender[], invoice: InvoiceInfo) => void;
+  onConfirm: (payments: PaymentTender[]) => void;
 }
 
 // 依需求 11：7 種指定付款方式
@@ -51,7 +51,6 @@ export function PaymentModal({
   const selectedMethodObj = PAYMENT_METHODS.find((m) => m.type === method) || PAYMENT_METHODS[0];
 
   const proceedSubmit = () => {
-    const invoice: InvoiceInfo = { type: 'none' };
     const payment: PaymentTender = {
       type: method,
       name: isNegative ? `${selectedMethodObj.label}退款` : selectedMethodObj.label,
@@ -59,7 +58,7 @@ export function PaymentModal({
     };
 
     setShowOverStockConfirm(false);
-    onConfirm([payment], invoice);
+    onConfirm([payment]);
   };
 
   const handleConfirmClick = () => {

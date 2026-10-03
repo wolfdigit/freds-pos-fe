@@ -197,7 +197,6 @@ export class MockCheckoutService implements ICheckoutService {
       shippingFee,
       totalAmount,
       payments: payload.payments,
-      invoice: payload.invoice,
       note: payload.note,
       createdAt: nowIso(),
     };
@@ -266,8 +265,7 @@ export class MockCheckoutService implements ICheckoutService {
             barcode.includes(kw)
           );
         });
-        const matchInvoice = o.invoice?.taxId?.includes(kw) || o.invoice?.carrierCode?.includes(kw);
-        if (!matchNumber && !matchCustomer && !matchProduct && !matchInvoice) return false;
+        if (!matchNumber && !matchCustomer && !matchProduct) return false;
       }
       return true;
     });

@@ -3,7 +3,7 @@ import { checkoutService } from '@/services';
 import { useCartStore } from '@/store/cartStore';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { BusinessError } from '@/utils/errors';
-import type { CheckoutReceipt, CreateOrderPayload, InvoiceInfo, PaymentTender } from '@/types/checkout';
+import type { CheckoutReceipt, CreateOrderPayload, PaymentTender } from '@/types/checkout';
 
 export function useCheckoutWorkflow() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -11,7 +11,7 @@ export function useCheckoutWorkflow() {
   const { items, attachedCustomer, shippingFee, orderNote, clearCart } = useCartStore();
   const showToast = useToastStore((s) => s.showToast);
 
-  const submitCheckout = async (payments: PaymentTender[], invoice: InvoiceInfo) => {
+  const submitCheckout = async (payments: PaymentTender[]) => {
     // 檢查退貨數量限制
     const overReturnItem = items.find(
       (i) => i.quantity < 0 && i.maxReturnableQty !== undefined && Math.abs(i.quantity) > i.maxReturnableQty
@@ -41,7 +41,6 @@ export function useCheckoutWorkflow() {
         })),
         shippingFee,
         payments,
-        invoice,
         note: orderNote,
       };
 
