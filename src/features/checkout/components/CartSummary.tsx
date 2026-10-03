@@ -12,11 +12,8 @@ interface CartSummaryProps {
   itemCount: number;
   salesItemCount?: number;
   returnItemCount?: number;
-  boundCustomerName?: string | null;
-  hasPreOrderItems?: boolean;
   onClear: () => void;
   onCheckout: () => void;
-  onConvertToPreOrder?: () => void;
 }
 
 // 依需求 9：刪除宅配 $100，超商 $60 改成 $65
@@ -36,21 +33,9 @@ export function CartSummary({
   itemCount,
   salesItemCount = 0,
   returnItemCount = 0,
-  boundCustomerName,
-  hasPreOrderItems = false,
   onClear,
   onCheckout,
-  onConvertToPreOrder,
 }: CartSummaryProps) {
-  const isPreOrderDisabled = itemCount === 0 || !boundCustomerName || hasPreOrderItems;
-
-  const getPreOrderTooltip = () => {
-    if (hasPreOrderItems) return '購物車內含有帶入之預購品項，無法再轉寫為預購單';
-    if (!boundCustomerName) return '需先綁定會員方可轉為預購單';
-    if (itemCount === 0) return '購物車無商品';
-    return `將購物車商品轉為會員「${boundCustomerName}」之預購單`;
-  };
-
   const hasReturns = returnSubtotal !== undefined && returnSubtotal < 0;
 
   return (
@@ -133,7 +118,6 @@ export function CartSummary({
             ) : (
               <span>共 <strong className="text-cyan-300 text-base font-extrabold">{itemCount}</strong> 件商品</span>
             )}
-
           </div>
         </div>
 
@@ -156,24 +140,6 @@ export function CartSummary({
         >
           清空
         </Button>
-
-        {onConvertToPreOrder && (
-          <Button
-            type="button"
-            variant="secondary"
-            size="md"
-            onClick={onConvertToPreOrder}
-            disabled={isPreOrderDisabled}
-            title={getPreOrderTooltip()}
-            className={`px-3 py-2.5 text-xs font-bold shrink-0 border transition-all ${
-              isPreOrderDisabled
-                ? 'border-zinc-800 bg-zinc-900 text-zinc-600 opacity-60 cursor-not-allowed'
-                : 'border-amber-500/60 bg-amber-950/40 text-amber-300 hover:bg-amber-900/60 shadow-sm'
-            }`}
-          >
-            📋 轉預購單
-          </Button>
-        )}
 
         <Button
           variant="primary"

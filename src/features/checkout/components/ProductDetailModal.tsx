@@ -68,9 +68,7 @@ export function ProductDetailModal({
   const warehouseStock = currentProduct.stocks.find((s) => s.location === 'warehouse')?.quantity ?? 0;
   const companyStock = currentProduct.stocks.find((s) => s.location === 'company')?.quantity ?? 0;
 
-  const preOrderPending = currentProduct.preOrderPendingCount ?? 0;
-  const sellableTotal = Math.max(0, currentProduct.totalStock - preOrderPending);
-  const isShortage = sellableTotal <= 0 && currentProduct.totalStock > 0;
+  const sellableTotal = currentProduct.totalStock;
   const hasMultipleSkus = siblingProducts.length > 1;
 
   return (
@@ -156,7 +154,7 @@ export function ProductDetailModal({
           </div>
         </div>
 
-        {/* 庫存分佈狀況 (依需求 8：主要顯示各位置數量、可現售數量；總庫存及預購保留為次要資訊) */}
+        {/* 庫存分佈狀況 (依需求 8：主要顯示各位置數量、可現售數量；總庫存為次要資訊) */}
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-zinc-300">📍 庫存狀況與位置分佈</h4>
@@ -194,18 +192,11 @@ export function ProductDetailModal({
             </div>
           </div>
 
-          {/* 次要資訊：總庫存 & 預購未取保留數量 */}
+          {/* 次要資訊：總庫存 */}
           <div className="flex items-center justify-between rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 text-xs font-mono text-zinc-400">
             <div className="flex items-center gap-4">
               <span>全域總庫存：<strong className="text-zinc-200 text-sm">{currentProduct.totalStock}</strong> 台</span>
-              <span>預購未取保留：<strong className="text-amber-300 text-sm">{preOrderPending}</strong> 台</span>
             </div>
-            {isShortage && (
-              <span className="text-amber-300 font-bold">
-                ⚠️ 現貨不足以全數保留預購未取
-              </span>
-            )}
-
           </div>
         </div>
 

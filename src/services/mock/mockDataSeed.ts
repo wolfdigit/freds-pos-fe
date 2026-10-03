@@ -1,5 +1,4 @@
 import type { Product } from '@/types/product';
-import type { PreOrder } from '@/types/preorder';
 import type { Customer } from '@/types/customer';
 import type { CheckoutOrder } from '@/types/checkout';
 
@@ -22,7 +21,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 17,
-    preOrderPendingCount: 3,
     note: '熱銷神物，門市架上陳列 1 台',
   },
   {
@@ -43,7 +41,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 7,
-    preOrderPendingCount: 2,
     note: '精緻水貼細節，限量附壓克力展示盒',
   },
   {
@@ -64,7 +61,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 42,
-    preOrderPendingCount: 0,
     note: '同條碼多貨號測試款 A (冠軍白)',
   },
   {
@@ -85,7 +81,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 21,
-    preOrderPendingCount: 0,
     note: '同條碼多貨號測試款 B (夜鷹黑)',
   },
   {
@@ -106,7 +101,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 11,
-    preOrderPendingCount: 1,
     note: 'TLV 玩家必備款',
   },
   {
@@ -127,7 +121,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 4,
-    preOrderPendingCount: 1,
     note: '門市現貨已售罄，需從倉庫調撥',
   },
   {
@@ -148,7 +141,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 12,
-    preOrderPendingCount: 0,
   },
   {
     id: 'prod-006-b',
@@ -168,7 +160,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 1,
-    preOrderPendingCount: 0,
   },
   {
     id: 'prod-007',
@@ -188,7 +179,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 2,
-    preOrderPendingCount: 0,
     note: '僅公司總倉有貨，門市需調撥',
   },
   {
@@ -209,7 +199,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 1,
-    preOrderPendingCount: 0,
   },
   {
     id: 'prod-009',
@@ -229,7 +218,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 36,
-    preOrderPendingCount: 0,
   },
   {
     id: 'prod-010',
@@ -249,7 +237,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 0,
-    preOrderPendingCount: 2,
     note: '全店零庫存，僅接受預購',
   },
   {
@@ -270,7 +257,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 6,
-    preOrderPendingCount: 1,
   },
   {
     id: 'prod-012',
@@ -290,7 +276,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 8,
-    preOrderPendingCount: 0,
   },
   {
     id: 'prod-013',
@@ -310,7 +295,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 24,
-    preOrderPendingCount: 0,
   },
   {
     id: 'prod-014',
@@ -330,7 +314,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 7,
-    preOrderPendingCount: 0,
   },
   {
     id: 'prod-015',
@@ -350,7 +333,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 3,
-    preOrderPendingCount: 0,
     note: '門市缺貨，倉庫有 2 台可調撥',
   },
   {
@@ -371,7 +353,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 70,
-    preOrderPendingCount: 0,
   },
   {
     id: 'prod-017',
@@ -391,7 +372,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 2,
-    preOrderPendingCount: 0,
   },
   {
     id: 'prod-018',
@@ -411,116 +391,7 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 },
     ],
     totalStock: 0,
-    preOrderPendingCount: 3,
     note: '預購熱門款',
-  },
-];
-
-export const INITIAL_PREORDERS: PreOrder[] = [
-  {
-    id: 'po-1001',
-    orderNumber: 'PO-202607-0019',
-    customerId: 'cust-001',
-    customerName: '陳冠宇',
-    customerPhone: '0912345678',
-    orderDate: '2026-07-15',
-    expectedArrivalDate: '2026-08-28',
-    status: 'partially_arrived',
-    source: 'in_store',
-    note: '常客，預訂兩台，交代到貨電話通知',
-    updatedAt: '2026-08-28T14:20:00Z',
-    items: [
-      {
-        id: 'poi-101',
-        productId: 'prod-001',
-        sku: 'AA-79121',
-        productName: 'Nissan Skyline GT-R (R34) V-Spec II 灣岸藍',
-        scale: '1:18',
-        brand: 'AutoArt',
-        quotedPrice: 6840,
-        qtyOrdered: 1,
-        qtyArrived: 1,
-        qtyDelivered: 0,
-      },
-      {
-        id: 'poi-102',
-        productId: 'prod-005',
-        sku: 'MC-155021020',
-        productName: 'BMW M3 (E30) 1987 競技黑',
-        scale: '1:18',
-        brand: 'Minichamps',
-        quotedPrice: 5130,
-        qtyOrdered: 1,
-        qtyArrived: 0,
-        qtyDelivered: 0,
-      },
-    ],
-  },
-  {
-    id: 'po-1002',
-    orderNumber: 'PO-202607-0034',
-    customerId: 'cust-002',
-    customerName: '林俊宏 (小林)',
-    customerPhone: '0988765432',
-    orderDate: '2026-07-22',
-    expectedArrivalDate: '2026-09-10',
-    status: 'pending',
-    source: 'in_store',
-    note: 'LINE 客服下單，已告知到貨後店取',
-    updatedAt: '2026-07-22T10:00:00Z',
-    items: [
-      {
-        id: 'poi-201',
-        productId: 'prod-002',
-        sku: 'SP-S7682',
-        productName: 'Porsche 911 GT3 R #911 Manthey EMA 2024 紐柏林冠軍',
-        scale: '1:43',
-        brand: 'Spark',
-        quotedPrice: 2850,
-        qtyOrdered: 1,
-        qtyArrived: 0,
-        qtyDelivered: 0,
-      },
-    ],
-  },
-  {
-    id: 'po-1003',
-    orderNumber: 'PO-202606-0012',
-    customerId: 'cust-003',
-    customerName: '極速模型工作室 (統編戶)',
-    customerPhone: '0933112233',
-    orderDate: '2026-06-10',
-    expectedArrivalDate: '2026-08-15',
-    status: 'partially_completed',
-    source: 'in_store',
-    note: '批發客戶，已領 1 台 GT3 RS，另 1 台尚未到貨',
-    updatedAt: '2026-08-20T16:30:00Z',
-    items: [
-      {
-        id: 'poi-301',
-        productId: 'prod-014',
-        sku: 'MC-155026090',
-        productName: 'Porsche 911 (992) GT3 RS 蜥蜴綠',
-        scale: '1:18',
-        brand: 'Minichamps',
-        quotedPrice: 7500,
-        qtyOrdered: 2,
-        qtyArrived: 2,
-        qtyDelivered: 1,
-      },
-      {
-        id: 'poi-302',
-        productId: 'prod-011',
-        sku: 'SP-S2055',
-        productName: 'Ferrari 499P #51 2023 利曼冠軍',
-        scale: '1:43',
-        brand: 'Spark',
-        quotedPrice: 3000,
-        qtyOrdered: 1,
-        qtyArrived: 0,
-        qtyDelivered: 0,
-      },
-    ],
   },
 ];
 
@@ -739,8 +610,6 @@ export const INITIAL_ORDERS: CheckoutOrder[] = [
         quantity: 1,
         subtotal: 7500,
         returnedQuantity: 0,
-        preOrderId: 'po-1003',
-        preOrderItemId: 'poi-301',
       },
     ],
     itemsSubtotal: 7500,
@@ -752,7 +621,7 @@ export const INITIAL_ORDERS: CheckoutOrder[] = [
       { type: 'bank_transfer_ctbc', name: '轉帳(中信)', amount: 2500, transactionRef: '67890' },
     ],
     invoice: { type: 'none' },
-    note: '預購取貨第一批次',
+    note: '門市現場購買',
     createdAt: '2026-08-18T14:15:00Z',
   },
   {

@@ -1,7 +1,6 @@
 import { Input } from '@/components/common/Input';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
-import { useToastStore } from '@/components/feedback/toastStore';
 import type { Customer } from '@/types/customer';
 import { cn } from '@/utils/cn';
 
@@ -30,7 +29,6 @@ export function CustomerListPanel({
   total,
   onPageChange,
 }: CustomerListPanelProps) {
-  const showToast = useToastStore((s) => s.showToast);
 
   const getBadgeColor = (tier: string) => {
     if (tier === 'platinum') return 'purple';
@@ -139,19 +137,6 @@ export function CustomerListPanel({
           </button>
         </div>
       )}
-
-      {/* 獨立全域工具區：匯入預購單 */}
-      <div className="mt-2 pt-2 border-t border-zinc-800/80 shrink-0">
-        <Button
-          size="md"
-          variant="secondary"
-          onClick={() => showToast('尚未支援此功能', 'info')}
-          className="w-full justify-center py-2 text-sm font-bold flex items-center gap-2 shadow-sm"
-          title="全域匯入線上預購單"
-        >
-          <span>📥 匯入線上預購單</span>
-        </Button>
-      </div>
     </div>
   );
 }

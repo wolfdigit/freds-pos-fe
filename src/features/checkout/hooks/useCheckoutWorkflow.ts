@@ -34,8 +34,6 @@ export function useCheckoutWorkflow() {
           unitPrice: i.unitPrice,
           isManualPrice: i.isManualPrice,
           priceDiffReason: i.priceChangeReason,
-          preOrderId: i.preOrderId,
-          preOrderItemId: i.preOrderItemId,
           originalOrderId: (i as any).originalOrderId,
           originalOrderItemId: (i as any).originalOrderItemId,
           restock: (i as any).restock ?? true,

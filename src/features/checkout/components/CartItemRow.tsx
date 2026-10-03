@@ -85,11 +85,10 @@ export function CartItemRow({
   const isModifiedPrice = item.unitPrice !== item.originalPrice;
   const storeStock = item.storeStock ?? 0;
   const totalStock = item.totalStock ?? storeStock;
-  const preOrderReserved = item.preOrderPendingCount ?? 0;
-  const sellableTotal = Math.max(0, totalStock - preOrderReserved);
+  const sellableTotal = totalStock;
 
-  const isOverStoreStock = !item.preOrderId && currentQuantity > storeStock;
-  const isOverTotalSellable = !item.preOrderId && currentQuantity > sellableTotal;
+  const isOverStoreStock = currentQuantity > storeStock;
+  const isOverTotalSellable = currentQuantity > sellableTotal;
   const isOverStock = isOverStoreStock || isOverTotalSellable;
 
   const hasMultipleSkus = siblingProducts.length > 1;
@@ -169,11 +168,6 @@ export function CartItemRow({
 
           {item.brand && <span>· {item.brand}</span>}
           {item.spec && !hasMultipleSkus && <span className="text-zinc-500">({item.spec})</span>}
-          {item.preOrderId && (
-            <span className="rounded bg-cyan-950 px-1.5 py-0.2 text-[11px] font-semibold text-cyan-300 border border-cyan-800/60 shrink-0">
-              預購取貨
-            </span>
-          )}
           {isModifiedPrice && (
             <span className="text-zinc-500 line-through text-xs shrink-0">
               原價 {formatCurrency(item.originalPrice)}

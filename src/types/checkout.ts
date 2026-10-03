@@ -38,8 +38,6 @@ export interface CheckoutOrderItem {
   quantity: number;
   subtotal: number;
   returnedQuantity?: number;
-  preOrderId?: string;
-  preOrderItemId?: string;
   originalOrderId?: string;
   originalOrderItemId?: string;
   restock?: boolean;
@@ -74,8 +72,6 @@ export interface CreateOrderItemPayload {
   unitPrice?: number;
   isManualPrice?: boolean;
   priceDiffReason?: string;
-  preOrderId?: string;
-  preOrderItemId?: string;
   originalOrderId?: string;
   originalOrderItemId?: string;
   restock?: boolean;

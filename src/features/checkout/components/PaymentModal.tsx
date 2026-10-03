@@ -10,7 +10,6 @@ export interface OverStockItemDetail {
   quantity: number;
   storeStock: number;
   totalStock: number;
-  preOrderReserved: number;
   available: number;
 }
 

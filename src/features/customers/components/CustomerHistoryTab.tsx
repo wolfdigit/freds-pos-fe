@@ -221,11 +221,6 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
                       <span className="truncate text-base font-semibold text-zinc-100 select-text">
                         {item.name}
                       </span>
-                      {item.preOrderId && (
-                        <span className="shrink-0 rounded-md bg-cyan-950 px-2 py-0.5 text-xs font-mono font-bold text-cyan-300 border border-cyan-800 select-none">
-                          預購取貨
-                        </span>
-                      )}
                       {returned > 0 && (
                         <span className="shrink-0 rounded-md bg-rose-950 px-2 py-0.5 text-xs font-mono font-bold text-rose-300 border border-rose-800 select-none">
                           已退 {returned} 件 {remaining > 0 ? `(可退: ${remaining})` : '(已退清)'}

@@ -7,7 +7,6 @@ export type ActiveTab = 'checkout' | 'inventory' | 'customers' | 'settings' | 'r
 interface UiStore {
   activeTab: ActiveTab | null;
   isSidebarCollapsed: boolean;
-  isPreOrderDrawerOpen: boolean;
   isManualPriceModalOpen: boolean;
   isPaymentModalOpen: boolean;
   isStockTransferModalOpen: boolean;
@@ -20,8 +19,6 @@ interface UiStore {
   navigateToCustomer: (customerId: string) => void;
   setSelectedCustomerId: (id: string | null) => void;
   syncStateFromHash: (tab: ActiveTab | null, customerId: string | null) => void;
-  openPreOrderDrawer: () => void;
-  closePreOrderDrawer: () => void;
   openManualPriceModal: (item: CartItem) => void;
   closeManualPriceModal: () => void;
   openPaymentModal: () => void;
@@ -44,7 +41,6 @@ function syncHashWithState(activeTab: ActiveTab | null, selectedCustomerId: stri
 export const useUiStore = create<UiStore>((set) => ({
   activeTab: null,
   isSidebarCollapsed: false,
-  isPreOrderDrawerOpen: false,
   isManualPriceModalOpen: false,
   isPaymentModalOpen: false,
   isStockTransferModalOpen: false,
@@ -89,8 +85,6 @@ export const useUiStore = create<UiStore>((set) => ({
         isSidebarCollapsed: tab !== null,
       };
     }),
-  openPreOrderDrawer: () => set({ isPreOrderDrawerOpen: true }),
-  closePreOrderDrawer: () => set({ isPreOrderDrawerOpen: false }),
   openManualPriceModal: (item) => set({ isManualPriceModalOpen: true, currentEditingCartItem: item }),
   closeManualPriceModal: () => set({ isManualPriceModalOpen: false, currentEditingCartItem: null }),
   openPaymentModal: () => set({ isPaymentModalOpen: true }),
@@ -101,7 +95,6 @@ export const useUiStore = create<UiStore>((set) => ({
   closeProductCreateModal: () => set({ isProductCreateModalOpen: false }),
   closeAllOverlays: () =>
     set({
-      isPreOrderDrawerOpen: false,
       isManualPriceModalOpen: false,
       isPaymentModalOpen: false,
       isStockTransferModalOpen: false,

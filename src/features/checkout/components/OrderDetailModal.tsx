@@ -192,11 +192,6 @@ export function OrderDetailModal({
                         ({item.scale})
                       </span>
                     )}
-                    {item.preOrderId && (
-                      <span className="shrink-0 rounded bg-cyan-950 px-1.5 py-0.5 text-[11px] font-mono font-bold text-cyan-300 border border-cyan-800 select-none">
-                        預購提貨
-                      </span>
-                    )}
                     {isCurrentReturn && (
                       <span className="shrink-0 rounded bg-rose-500 text-white px-2 py-0.5 text-xs font-bold shadow-sm select-none">
                         ⭐ 本次退貨品項
