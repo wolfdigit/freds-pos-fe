@@ -160,37 +160,35 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
           />
         </div>
 
-        {/* 規格與定價 */}
+        {/* 定價與規格 */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">規格 (材質/顏色/變體)</label>
-            <Input
-              value={spec}
-              onChange={(e) => setSpec(e.target.value)}
-              placeholder="例如: 灣岸藍 / 合金全開"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">門市定價 (TWD) *</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-300">建議售價 (MSRP / 門市定價) *</label>
             <Input
               monospace
               type="number"
               min={0}
               value={listPrice}
               onChange={(e) => setListPrice(e.target.value)}
-              placeholder="6800"
+              placeholder="例如 630"
               required
             />
           </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-300">規格說明 (選填)</label>
+            <Input
+              value={spec}
+              onChange={(e) => setSpec(e.target.value)}
+              placeholder="例如: 灣岸藍 / 合金全開 / 吊卡版"
+            />
+          </div>
         </div>
-
-        {/* 備註 */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-zinc-300">備註說明 (選填)</label>
+          <label className="mb-1 block text-xs text-zinc-400">備註說明 (Note)</label>
           <Input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="備註說明..."
+            placeholder="例如: 現貨6、美國限定..."
           />
         </div>
 

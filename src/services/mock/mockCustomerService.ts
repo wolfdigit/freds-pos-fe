@@ -79,7 +79,7 @@ export class MockCustomerService implements ICustomerService {
       throw new BusinessError('CUSTOMER_EMAIL_DUPLICATE', '電子信箱已存在');
     }
 
-    const tier = request.vipTier || 'regular';
+    const tier = request.vipTier || 'Retail';
     const newCustomer: Customer = {
       id: `cust-${Date.now()}`,
       name: request.name.trim(),
@@ -90,7 +90,9 @@ export class MockCustomerService implements ICustomerService {
       totalSpent: 0,
       note: request.note?.trim() || undefined,
       createdAt: nowIso(),
+      createdBy: '系統管理員',
       updatedAt: nowIso(),
+      updatedBy: '系統管理員',
     };
 
     setCustomers([...customers, newCustomer]);
@@ -137,7 +139,10 @@ export class MockCustomerService implements ICustomerService {
       vipTier: nextTier,
       vipTierName: getVipTierName(nextTier),
       note: request.note !== undefined ? request.note.trim() || undefined : current.note,
+      createdAt: current.createdAt,
+      createdBy: current.createdBy,
       updatedAt: nowIso(),
+      updatedBy: '系統管理員',
     };
 
     const nextCustomers = [...customers];

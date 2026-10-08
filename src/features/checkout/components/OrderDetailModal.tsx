@@ -202,6 +202,11 @@ export function OrderDetailModal({
                         已退 {returned} 件 {remaining > 0 ? `(可退: ${remaining})` : '(已退清)'}
                       </span>
                     )}
+                    {item.note && (
+                      <span className="shrink-0 rounded bg-zinc-800/80 px-2 py-0.5 text-xs text-amber-300/90 font-mono">
+                        📝 {item.note}
+                      </span>
+                    )}
                   </div>
 
                   <div className="font-mono text-right shrink-0 text-sm">
