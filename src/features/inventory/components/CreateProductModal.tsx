@@ -183,26 +183,26 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
           />
         </div>
 
-        {/* 4. 規格與定價 */}
+        {/* 4. 定價與規格 */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">規格 (材質/顏色/變體)</label>
-            <Input
-              value={spec}
-              onChange={(e) => setSpec(e.target.value)}
-              placeholder="例如: 灣岸藍 / 合金全開 / 限量版"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">門市定價 (TWD) *</label>
+            <label className="mb-1 block text-sm font-medium text-zinc-300">建議售價 (MSRP / 門市定價) *</label>
             <Input
               monospace
               type="number"
               min={0}
               value={listPrice}
               onChange={(e) => setListPrice(e.target.value)}
-              placeholder="6800"
+              placeholder="例如 630"
               required
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-300">規格說明 (選填)</label>
+            <Input
+              value={spec}
+              onChange={(e) => setSpec(e.target.value)}
+              placeholder="例如: 吊卡版 / 盒裝版 / Chase"
             />
           </div>
         </div>
@@ -213,7 +213,7 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
           <Input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="例如: 限量 500 台、附壓克力展示盒..."
+            placeholder="例如: 現貨6、美國限定..."
           />
         </div>
 

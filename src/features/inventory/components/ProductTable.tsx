@@ -100,7 +100,7 @@ export function ProductTable({
           <tr>
             <th className="px-4 py-3.5 min-w-[160px] bg-zinc-900">商品貨號 (SKU) / 條碼</th>
             <th className="px-4 py-3.5 min-w-[280px] bg-zinc-900">車型與塗裝品名 (廠牌/比例)</th>
-            <th className="px-4 py-3.5 text-right bg-zinc-900">門市定價</th>
+            <th className="px-4 py-3.5 text-right bg-zinc-900">門市定價 (MSRP)</th>
             {availableLocations.map((loc) => (
               <th key={loc.key} className="px-4 py-3.5 text-center min-w-[120px] bg-zinc-900">
                 {loc.name}
@@ -152,7 +152,7 @@ export function ProductTable({
                   </div>
                 </td>
 
-                {/* 門市定價 (放大 text-xl 20px) */}
+                {/* 建議售價 (MSRP / 門市定價) */}
                 <td className="px-4 py-3.5 text-right font-mono text-xl font-bold text-zinc-100">
                   {formatCurrency(p.listPrice)}
                 </td>

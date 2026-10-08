@@ -12,9 +12,10 @@ interface CustomerDetailPanelProps {
 
 export function CustomerDetailPanel({ customer, onEditClick }: CustomerDetailPanelProps) {
   const getBadgeColor = (tier: string) => {
-    if (tier === 'platinum') return 'purple';
-    if (tier === 'gold') return 'amber';
-    if (tier === 'silver') return 'cyan';
+    if (tier === 'S') return 'purple';
+    if (tier === 'A') return 'amber';
+    if (tier === 'B') return 'cyan';
+    if (tier === 'Retail') return 'emerald';
     return 'zinc';
   };
 
@@ -43,16 +44,16 @@ export function CustomerDetailPanel({ customer, onEditClick }: CustomerDetailPan
                     <span className="select-text text-zinc-400">{customer.email}</span>
                   </span>
                 )}
+                {customer.createdBy && (
+                  <span className="text-zinc-500 flex items-center">
+                    <span className="select-none mr-1">👤 建檔人：</span>
+                    <span className="select-text text-zinc-400">{customer.createdBy}</span>
+                  </span>
+                )}
                 <span className="text-zinc-600 flex items-center">
                   <span className="select-none mr-1">· 加入：</span>
                   <span className="select-text">{formatDateTime(customer.createdAt)}</span>
                 </span>
-                {customer.updatedAt && (
-                  <span className="text-zinc-600 flex items-center">
-                    <span className="select-none mr-1">· 更新：</span>
-                    <span className="select-text">{formatDateTime(customer.updatedAt)}</span>
-                  </span>
-                )}
               </p>
             </div>
           </div>

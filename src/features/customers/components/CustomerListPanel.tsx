@@ -31,9 +31,10 @@ export function CustomerListPanel({
 }: CustomerListPanelProps) {
 
   const getBadgeColor = (tier: string) => {
-    if (tier === 'platinum') return 'purple';
-    if (tier === 'gold') return 'amber';
-    if (tier === 'silver') return 'cyan';
+    if (tier === 'S') return 'purple';
+    if (tier === 'A') return 'amber';
+    if (tier === 'B') return 'cyan';
+    if (tier === 'Retail') return 'emerald';
     return 'zinc';
   };
 
@@ -99,7 +100,7 @@ export function CustomerListPanel({
                 <div className="mt-1.5 flex items-center justify-between font-mono text-xs">
                   <span className="text-zinc-400 flex items-center">
                     <span className="select-none mr-1">📞</span>
-                    <span className="select-text">{c.phone}</span>
+                    <span className="select-text">{c.phone || '無電話'}</span>
                   </span>
                   {c.email && (
                     <span className="text-zinc-500 truncate max-w-[120px]" title={c.email}>
