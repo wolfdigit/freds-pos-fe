@@ -218,7 +218,7 @@ export function CartItemRow({
                 onUpdateQuantity(next);
                 setQtyInput(String(next));
               }}
-              className="flex h-3.5 w-4 items-center justify-center text-[9px] text-zinc-400 hover:bg-cyan-900 hover:text-cyan-200 transition-colors"
+              className="flex h-3.5 w-4 items-center justify-center text-[11px] text-zinc-300 hover:bg-cyan-900 hover:text-cyan-200 transition-colors"
               title="增加數量 (+1)"
             >
               ▲
@@ -232,7 +232,7 @@ export function CartItemRow({
                   setQtyInput(String(next));
                 }
               }}
-              className="flex h-3.5 w-4 items-center justify-center text-[9px] text-zinc-400 hover:bg-zinc-800 transition-colors border-t border-zinc-800"
+              className="flex h-3.5 w-4 items-center justify-center text-[11px] text-zinc-300 hover:bg-zinc-800 transition-colors border-t border-zinc-800"
               title="減少數量 (-1)"
             >
               ▼
@@ -316,12 +316,9 @@ export function ReturnCartItemRow({
       >
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-rose-400/80 text-xs shrink-0">{index}.</span>
-          <span className="rounded bg-rose-500/20 border border-rose-500/50 px-1.5 py-0.5 text-[11px] font-bold text-rose-300 shrink-0">
-            退貨
-          </span>
           {item.originalOrderId ? (
             <span
-              className="rounded bg-rose-900/50 border border-rose-700/60 px-1.5 py-0.5 text-[10px] font-mono text-rose-200 shrink-0 flex items-center gap-1 hover:bg-rose-800 transition-colors"
+              className="rounded bg-rose-900/50 border border-rose-700/60 px-1.5 py-0.5 text-xs font-mono text-rose-200 shrink-0 flex items-center gap-1 hover:bg-rose-800 transition-colors"
               title={`原始銷售單據: ${item.originalOrderId}（點擊查看原單明細）`}
             >
               <span>🧾</span>
@@ -329,7 +326,7 @@ export function ReturnCartItemRow({
             </span>
           ) : (
             <span
-              className="rounded bg-amber-900/50 border border-amber-700/60 px-1.5 py-0.5 text-[10px] font-bold text-amber-300 shrink-0"
+              className="rounded bg-amber-900/50 border border-amber-700/60 px-1.5 py-0.5 text-xs font-bold text-amber-300 shrink-0"
               title="未關聯原單，點擊查詢關聯"
             >
               ⚠️ 未關聯原單
@@ -343,7 +340,7 @@ export function ReturnCartItemRow({
           <span className="font-mono font-medium">{item.sku}</span>
           {item.brand && <span>· {item.brand}</span>}
           {item.maxReturnableQty !== undefined && (
-            <span className="rounded bg-zinc-800/80 px-1.5 py-0.2 text-[10px] font-mono text-zinc-300">
+            <span className="rounded bg-zinc-800/80 px-1.5 py-0.2 text-xs font-mono text-zinc-300">
               原單可退: {item.maxReturnableQty} 件
             </span>
           )}
@@ -395,7 +392,7 @@ export function ReturnCartItemRow({
                 onUpdateQuantity(-nextAbs);
                 setQtyInput(String(nextAbs));
               }}
-              className={`flex h-3.5 w-4 items-center justify-center text-[9px] transition-colors ${
+              className={`flex h-3.5 w-4 items-center justify-center text-[11px] transition-colors ${
                 isMaxReturnReached
                   ? 'text-zinc-600 bg-zinc-900/80 cursor-not-allowed'
                   : 'text-rose-300 hover:bg-rose-800'
@@ -417,7 +414,7 @@ export function ReturnCartItemRow({
                   setQtyInput(String(nextAbs));
                 }
               }}
-              className="flex h-3.5 w-4 items-center justify-center text-[9px] text-rose-400 hover:bg-rose-800 transition-colors border-t border-rose-900"
+              className="flex h-3.5 w-4 items-center justify-center text-[11px] text-rose-300 hover:bg-rose-800 transition-colors border-t border-rose-900"
               title="減少退貨數量 (-1)"
             >
               ▼

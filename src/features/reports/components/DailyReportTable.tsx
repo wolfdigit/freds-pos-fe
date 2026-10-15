@@ -194,7 +194,7 @@ export function DailyReportTable({
                           </div>
                         ))}
                         {order.items.length > 2 && (
-                          <div className="text-[11px] text-zinc-500 italic">
+                          <div className="text-xs text-zinc-400 italic">
                             ...等共 {order.items.length} 項品項
                           </div>
                         )}
