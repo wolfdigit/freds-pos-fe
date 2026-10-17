@@ -13,6 +13,8 @@ export type ModelScale = '1:18' | '1:43' | '1:64' | '1:24' | '1:12' | '配件周
 
 export type StockLocation = 'store' | 'warehouse' | 'company' | 'other';
 
+export type ProductStatus = 'active' | 'deleted';
+
 export interface LocationStock {
   location: StockLocation;
   locationName: string; // '門市現貨' | '後方倉庫' | '公司調度' | '其他'
@@ -31,13 +33,12 @@ export interface Product {
   color?: string;            // 塗裝顏色 (例如: Bayside Blue)
   imageUrl?: string;         // 商品縮圖 (庫存表與 Autocomplete 卡片顯示；無圖時顯示比例徽章佔位)
   listPrice: number;         // 門市定價
-  costPrice: number;         // 成本價 (老闆與店長視圖)
   vipPrice?: number;         // 會員專屬優惠價
   stocks: LocationStock[];   // 各地點庫存明細
   totalStock: number;        // 現貨總庫存
   preOrderPendingCount: number; // 預購未交數量 (統計欄位)
   note?: string;             // 備註說明
-  status: 'active' | 'discontinued';
+  status: ProductStatus;     // 軟刪除狀態。active 在架上；deleted 已隱藏，列不刪除
 }
 
 export interface ProductSearchParams {
@@ -297,7 +298,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Bayside Blue',
     imageUrl: '/images/products/prod-001.webp',
     listPrice: 7200,
-    costPrice: 4800,
     vipPrice: 6840,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 2 },
@@ -307,8 +307,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 17,
     preOrderPendingCount: 3,
+    status: 'active',
     note: '熱銷神物，門市架上陳列 1 台',
-    status: 'active'
   },
   {
     id: 'prod-002',
@@ -322,7 +322,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Grello 黃綠塗裝',
     imageUrl: '/images/products/prod-002.webp',
     listPrice: 2850,
-    costPrice: 1900,
     vipPrice: 2700,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 1 },
@@ -332,8 +331,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 7,
     preOrderPendingCount: 2,
+    status: 'active',
     note: '精緻水貼細節，限量附壓克力展示盒',
-    status: 'active'
   },
   {
     id: 'prod-003',
@@ -347,7 +346,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Championship White',
     imageUrl: '/images/products/prod-003.webp',
     listPrice: 650,
-    costPrice: 420,
     vipPrice: 620,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 6 },
@@ -357,8 +355,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 42,
     preOrderPendingCount: 0,
+    status: 'active',
     note: '附備用輪圈與水貼紙',
-    status: 'active'
   },
   {
     id: 'prod-004',
@@ -372,7 +370,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Innocent Blue Mica',
     imageUrl: '/images/products/prod-004.webp',
     listPrice: 880,
-    costPrice: 580,
     vipPrice: 830,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 3 },
@@ -382,8 +379,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 11,
     preOrderPendingCount: 1,
+    status: 'active',
     note: 'TLV 玩家必備款',
-    status: 'active'
   },
   {
     id: 'prod-005',
@@ -397,7 +394,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Diamantschwarz Metallic',
     imageUrl: '/images/products/prod-005.webp',
     listPrice: 5400,
-    costPrice: 3600,
     vipPrice: 5130,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 0 },
@@ -407,8 +403,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 4,
     preOrderPendingCount: 1,
+    status: 'active',
     note: '門市現貨已售罄，需從倉庫調撥',
-    status: 'active'
   },
   {
     id: 'prod-006',
@@ -422,7 +418,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Ultimate Metal Silver',
     imageUrl: '/images/products/prod-006.webp',
     listPrice: 580,
-    costPrice: 380,
     vipPrice: 550,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 4 },
@@ -432,7 +427,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 12,
     preOrderPendingCount: 0,
-    status: 'active'
+    status: 'active',
   },
   {
     id: 'prod-007',
@@ -446,7 +441,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Yellow',
     imageUrl: '/images/products/prod-007.webp',
     listPrice: 3200,
-    costPrice: 2100,
     vipPrice: 3040,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 0 },
@@ -456,8 +450,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 2,
     preOrderPendingCount: 0,
+    status: 'active',
     note: '僅公司總倉有貨，門市需調撥',
-    status: 'active'
   },
   {
     id: 'prod-008',
@@ -471,7 +465,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Verde Alceo',
     imageUrl: '/images/products/prod-008.webp',
     listPrice: 8900,
-    costPrice: 5900,
     vipPrice: 8455,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 1 },
@@ -481,7 +474,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 1,
     preOrderPendingCount: 0,
-    status: 'active'
+    status: 'active',
   },
   {
     id: 'prod-009',
@@ -495,7 +488,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Silver',
     imageUrl: '/images/products/prod-009.webp',
     listPrice: 350,
-    costPrice: 220,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 12 },
       { location: 'warehouse', locationName: '後方倉庫', quantity: 24 },
@@ -504,7 +496,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 36,
     preOrderPendingCount: 0,
-    status: 'active'
+    status: 'active',
   },
   {
     id: 'prod-010',
@@ -518,7 +510,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Red',
     imageUrl: '/images/products/prod-010.webp',
     listPrice: 6800,
-    costPrice: 4500,
     vipPrice: 6460,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 0 },
@@ -528,8 +519,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 0,
     preOrderPendingCount: 2,
+    status: 'active',
     note: '全店零庫存，僅接受預購',
-    status: 'active'
   },
   {
     id: 'prod-011',
@@ -543,7 +534,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Rosso Corsa',
     imageUrl: '/images/products/prod-011.webp',
     listPrice: 3100,
-    costPrice: 2050,
     vipPrice: 2945,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 2 },
@@ -553,7 +543,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 6,
     preOrderPendingCount: 1,
-    status: 'active'
+    status: 'active',
   },
   {
     id: 'prod-012',
@@ -567,7 +557,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Lightning Yellow',
     imageUrl: '/images/products/prod-012.webp',
     listPrice: 920,
-    costPrice: 600,
     vipPrice: 870,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 5 },
@@ -577,7 +566,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 8,
     preOrderPendingCount: 0,
-    status: 'active'
+    status: 'active',
   },
   {
     id: 'prod-013',
@@ -591,7 +580,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Stealth Grey',
     imageUrl: '/images/products/prod-013.webp',
     listPrice: 680,
-    costPrice: 440,
     vipPrice: 650,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 8 },
@@ -601,7 +589,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 24,
     preOrderPendingCount: 0,
-    status: 'active'
+    status: 'active',
   },
   {
     id: 'prod-014',
@@ -615,7 +603,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Lizard Green',
     imageUrl: '/images/products/prod-014.webp',
     listPrice: 7800,
-    costPrice: 5200,
     vipPrice: 7410,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 1 },
@@ -625,7 +612,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 7,
     preOrderPendingCount: 0,
-    status: 'active'
+    status: 'active',
   },
   {
     id: 'prod-015',
@@ -639,7 +626,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Championship White',
     imageUrl: '/images/products/prod-015.webp',
     listPrice: 6200,
-    costPrice: 4100,
     vipPrice: 5890,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 0 },
@@ -649,8 +635,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 3,
     preOrderPendingCount: 0,
+    status: 'active',
     note: '門市缺貨，倉庫有 2 台可調撥',
-    status: 'active'
   },
   {
     id: 'prod-016',
@@ -663,7 +649,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     material: '壓克力',
     imageUrl: '/images/products/prod-016.webp',
     listPrice: 450,
-    costPrice: 280,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 20 },
       { location: 'warehouse', locationName: '後方倉庫', quantity: 50 },
@@ -672,7 +657,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 70,
     preOrderPendingCount: 0,
-    status: 'active'
+    status: 'active',
   },
   {
     id: 'prod-017',
@@ -686,7 +671,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Gunmetal Grey',
     imageUrl: '/images/products/prod-017.webp',
     listPrice: 3500,
-    costPrice: 2300,
     vipPrice: 3325,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 1 },
@@ -696,7 +680,7 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 2,
     preOrderPendingCount: 0,
-    status: 'active'
+    status: 'active',
   },
   {
     id: 'prod-018',
@@ -710,7 +694,6 @@ export const INITIAL_PRODUCTS: Product[] = [
     color: 'Guards Red',
     imageUrl: '/images/products/prod-018.webp',
     listPrice: 620,
-    costPrice: 400,
     vipPrice: 590,
     stocks: [
       { location: 'store', locationName: '門市現貨', quantity: 0 },
@@ -720,8 +703,8 @@ export const INITIAL_PRODUCTS: Product[] = [
     ],
     totalStock: 0,
     preOrderPendingCount: 3,
+    status: 'active',
     note: '已停產，僅接受預購候補',
-    status: 'discontinued'
   }
 ];
 ```

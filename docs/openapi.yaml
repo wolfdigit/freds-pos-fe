@@ -50,6 +50,7 @@ paths:
         Fuzzy search by barcode, SKU without dashes (normalized), product name, or brand.
         Maps to `IProductService.searchProducts`.
         Default sort: `sku ASC`.
+        Omits products with `status: deleted`. `GET /products/{productId}` still returns a hidden row.
       parameters:
         - name: keyword
           in: query
@@ -87,6 +88,7 @@ paths:
         Server assigns `id` as `prod-{uuid4}` (no dashes), computes `normalizedSku`,
         and always creates four stock rows at quantity `0` with fixed location names.
         Does not write `product_pre_order_pending` (response `preOrderPendingCount` is `0`).
+        `status` is optional. When omitted, the server stores `active`.
         Initial / ongoing stock quantities use future inventory APIs.
       requestBody:
         required: true
@@ -135,6 +137,7 @@ paths:
         Maps to `IProductService.updateProduct`.
         Metadata only — does not mutate stock rows or `product_pre_order_pending`.
         On SKU change, server recomputes `normalizedSku`; duplicate SKU returns 409.
+        `status: deleted` hides the product. `status: active` shows it again. The row is not removed.
       parameters:
         - $ref: '#/components/parameters/ProductId'
       requestBody:
@@ -1176,7 +1179,11 @@ components:
 
     ProductStatus:
       type: string
-      enum: [active, discontinued]
+      enum: [active, deleted]
+      description: |
+        Soft-delete record. `active` keeps the product on the shelf.
+        `deleted` hides it from `GET /products` and from a new sale.
+        The row is not removed. `GET /products/{productId}` still returns it.
 
     Product:
       type: object
@@ -1188,7 +1195,6 @@ components:
         - brand
         - name
         - listPrice
-        - costPrice
         - stocks
         - totalStock
         - status
@@ -1223,8 +1229,6 @@ components:
         listPrice:
           type: integer
           description: 建議售價 / 門市定價 (即試算表之 MSRP)
-        costPrice:
-          type: integer
         vipPrice:
           type: integer
         stocks:
@@ -1235,8 +1239,6 @@ components:
           type: integer
         note:
           type: string
-        status:
-          $ref: '#/components/schemas/ProductStatus'
         createdAt:
           type: string
           readOnly: true
@@ -1253,6 +1255,8 @@ components:
           type: string
           readOnly: true
           description: 更新人員 (後端由 Auth 取得)
+        status:
+          $ref: '#/components/schemas/ProductStatus'
 
     CreateProductRequest:
       type: object
@@ -1262,8 +1266,6 @@ components:
         - brand
         - name
         - listPrice
-        - costPrice
-        - status
       properties:
         sku:
           type: string
@@ -1290,9 +1292,6 @@ components:
           type: integer
           minimum: 0
           description: 建議售價 / 門市定價 (即試算表之 MSRP)
-        costPrice:
-          type: integer
-          minimum: 0
         vipPrice:
           type: integer
           minimum: 0
@@ -1330,9 +1329,6 @@ components:
           type: integer
           minimum: 0
           description: 建議售價 / 門市定價 (即試算表之 MSRP)
-        costPrice:
-          type: integer
-          minimum: 0
         vipPrice:
           type: integer
           minimum: 0
