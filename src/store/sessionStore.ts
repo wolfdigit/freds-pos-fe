@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { systemService } from '@/services';
+import { INITIAL_STORES } from '@/services/mock/mockDataSeed';
 
 export interface OAuthAccount {
   email: string;
@@ -27,10 +29,11 @@ interface SessionStore {
   adminAccounts: OAuthAccount[];
   staffAccounts: OAuthAccount[];
 
-  // 門市管理
+  // 門市管理 (對接 ISystemService / systemService)
   setStoreName: (name: string) => void;
-  addStore: (name: string) => boolean;
-  removeStore: (name: string) => boolean;
+  fetchStores: () => Promise<string[]>;
+  addStore: (name: string) => Promise<boolean>;
+  removeStore: (name: string) => Promise<boolean>;
 
   // 登入角色
   setUserRole: (role: 'admin' | 'staff' | string) => void;
@@ -50,8 +53,8 @@ interface SessionStore {
 export const useSessionStore = create<SessionStore>()(
   persist(
     (set, get) => ({
-      storeName: '台北旗艦店',
-      stores: ['台北旗艦店', '台中一中店', '高雄巨蛋店'],
+      storeName: INITIAL_STORES[0].name,
+      stores: INITIAL_STORES.map((s) => s.name),
       cashierId: 'staff-001',
       cashierName: '店長 Fred',
       userRole: 'admin',
@@ -68,29 +71,60 @@ export const useSessionStore = create<SessionStore>()(
         { email: 'admin@gmail.com', name: '資訊管理員', note: '資訊維運管理處' },
       ],
       staffAccounts: [
-        { email: 'clerk01@gmail.com', name: '王小美', note: '台北店早班店員' },
-        { email: 'clerk02@gmail.com', name: '李大同', note: '台北店晚班店員' },
+        { email: 'clerk01@gmail.com', name: '王小美', note: '奇可門市早班店員' },
+        { email: 'clerk02@gmail.com', name: '李大同', note: '奇可門市晚班店員' },
         { email: 'staff@gmail.com', name: '門市支援', note: '支援收銀專員' },
       ],
 
       setStoreName: (name) => set({ storeName: name }),
 
-      addStore: (name) => {
-        const clean = name.trim();
-        if (!clean) return false;
-        const current = get().stores;
-        if (current.includes(clean)) return false;
-        set({ stores: [...current, clean] });
-        return true;
+      fetchStores: async () => {
+        try {
+          const storeDtos = await systemService.getStores();
+          const names = (storeDtos || []).map((s) => s.name);
+          if (names.length > 0) {
+            set((state) => {
+              const currentStore = state.storeName;
+              const newStore = names.includes(currentStore) ? currentStore : names[0];
+              return { stores: names, storeName: newStore };
+            });
+            return names;
+          }
+          return get().stores;
+        } catch (err) {
+          console.error('Failed to fetch stores from systemService:', err);
+          return get().stores;
+        }
       },
 
-      removeStore: (name) => {
-        const current = get().stores;
-        if (current.length <= 1) return false; // 至少保留一間門市
-        const next = current.filter((s) => s !== name);
-        const newActive = get().storeName === name ? next[0] : get().storeName;
-        set({ stores: next, storeName: newActive });
-        return true;
+      addStore: async (name) => {
+        const clean = name.trim();
+        if (!clean) return false;
+        try {
+          await systemService.createStore({ name: clean });
+          const current = get().stores;
+          if (!current.includes(clean)) {
+            set({ stores: [...current, clean] });
+          }
+          return true;
+        } catch (err) {
+          console.error('Failed to add store via systemService:', err);
+          return false;
+        }
+      },
+
+      removeStore: async (name) => {
+        try {
+          await systemService.deleteStore(name);
+          const current = get().stores;
+          const next = current.filter((s) => s !== name);
+          const newActive = get().storeName === name ? next[0] : get().storeName;
+          set({ stores: next, storeName: newActive });
+          return true;
+        } catch (err) {
+          console.error('Failed to remove store via systemService:', err);
+          return false;
+        }
       },
 
       setUserRole: (role) =>
@@ -230,6 +264,17 @@ export const useSessionStore = create<SessionStore>()(
     }),
     {
       name: 'FREDS_POS_SESSION',
+      version: 2,
+      migrate: (persistedState: any, version: number) => {
+        if (!version || version < 2) {
+          return {
+            ...persistedState,
+            storeName: INITIAL_STORES[0].name,
+            stores: INITIAL_STORES.map((s) => s.name),
+          };
+        }
+        return persistedState;
+      },
     }
   )
 );

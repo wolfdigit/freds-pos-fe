@@ -14931,3 +14931,14 @@ export const INITIAL_ORDERS: CheckoutOrder[] = [
     "updatedBy": "Martin"
   }
 ];
+
+export const INITIAL_STORES = [
+  {
+    name: '奇可門市',
+    isDefault: true,
+  },
+  {
+    name: '線上網購',
+    isDefault: false,
+  },
+];

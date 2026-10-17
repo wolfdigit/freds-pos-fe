@@ -1921,7 +1921,7 @@ components:
       properties:
         name:
           type: string
-          example: 台北旗艦店
+          example: 奇可門市
         isDefault:
           type: boolean
           default: false
@@ -1932,7 +1932,7 @@ components:
       properties:
         name:
           type: string
-          example: 高雄巨蛋店
+          example: 線上網購
 
     OAuthRole:
       type: string

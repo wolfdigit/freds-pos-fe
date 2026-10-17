@@ -6,8 +6,6 @@ import { resetDemoData, isMockService, toggleMockMode } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { useThemeStore } from '@/store/themeStore';
 
-const PRESET_STORES = ['台北旗艦店', '新竹巨城店', '台中中港店', '高雄巨蛋店', '線上官方門市'];
-
 function useClock() {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -45,7 +43,7 @@ export function Header() {
     setTimeout(() => window.location.reload(), 800);
   };
 
-  const availableStores = stores && stores.length > 0 ? stores : PRESET_STORES;
+  const availableStores = stores && stores.length > 0 ? stores : [storeName];
 
   const handleStoreChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;

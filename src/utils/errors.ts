@@ -13,6 +13,10 @@ export type BusinessErrorCode =
   | 'LOCATION_NOT_FOUND'
   | 'INVALID_LOCATION_TRANSFER'
   | 'TARGET_LOCATION_NOT_FOUND'
+  | 'INVALID_STORE_NAME'
+  | 'DUPLICATE_STORE_NAME'
+  | 'CANNOT_DELETE_LAST_STORE'
+  | 'STORE_NOT_FOUND'
   | 'STORAGE_CORRUPTED';
 
 export class BusinessError extends Error {

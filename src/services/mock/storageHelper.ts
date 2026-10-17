@@ -3,15 +3,18 @@ import {
   INITIAL_PRODUCTS,
   INITIAL_CUSTOMERS,
   INITIAL_ORDERS,
+  INITIAL_STORES,
 } from './mockDataSeed';
 import type { Product } from '@/types/product';
 import type { Customer } from '@/types/customer';
 import type { CheckoutOrder } from '@/types/checkout';
+import type { StoreDto } from '@/types/system';
 
 export const STORAGE_KEYS = {
   PRODUCTS: 'FREDS_POS_PRODUCTS',
   CUSTOMERS: 'FREDS_POS_CUSTOMERS',
   ORDERS: 'FREDS_POS_ORDERS',
+  STORES: 'FREDS_POS_STORES',
   STOCK_LOGS: 'FREDS_POS_STOCK_LOGS',
   INITIALIZED: 'FREDS_POS_INITIALIZED',
   SCHEMA_VERSION: 'FREDS_POS_SCHEMA_VERSION',
@@ -19,7 +22,7 @@ export const STORAGE_KEYS = {
 
 // 每次修改 seed 資料結構（型別新增/移除欄位）時，遞增此版本號，
 // 讓已存在瀏覽器中的舊資料自動失效並重新寫入 seed，避免開發期間手動清 localStorage。
-export const CURRENT_SCHEMA_VERSION = '3';
+export const CURRENT_SCHEMA_VERSION = '4';
 
 /** 模擬非同步網路延遲，讓 Loading / Skeleton 呈現更真實 */
 export function simulateDelay(minMs = 80, maxMs = 180): Promise<void> {
@@ -46,6 +49,7 @@ function seedAll(): void {
   writeRaw(STORAGE_KEYS.PRODUCTS, INITIAL_PRODUCTS);
   writeRaw(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS);
   writeRaw(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
+  writeRaw(STORAGE_KEYS.STORES, INITIAL_STORES);
   writeRaw(STORAGE_KEYS.INITIALIZED, true);
   writeRaw(STORAGE_KEYS.SCHEMA_VERSION, CURRENT_SCHEMA_VERSION);
 }
@@ -64,6 +68,7 @@ export function ensureInitialized(): void {
     readRaw(STORAGE_KEYS.PRODUCTS);
     readRaw(STORAGE_KEYS.CUSTOMERS);
     readRaw(STORAGE_KEYS.ORDERS);
+    readRaw(STORAGE_KEYS.STORES);
   } catch {
     seedAll();
   }
@@ -72,6 +77,11 @@ export function ensureInitialized(): void {
 /** 全域重置示範資料（提供 UI 上的「重置示範資料」按鈕使用） */
 export function resetDemoData(): void {
   seedAll();
+  try {
+    localStorage.removeItem('FREDS_POS_SESSION');
+  } catch {
+    // ignore
+  }
 }
 
 export function getProducts(): Product[] {
@@ -93,6 +103,13 @@ export function getOrders(): CheckoutOrder[] {
 }
 export function setOrders(orders: CheckoutOrder[]): void {
   writeRaw(STORAGE_KEYS.ORDERS, orders);
+}
+
+export function getStoredStores(): StoreDto[] {
+  return readRaw<StoreDto[]>(STORAGE_KEYS.STORES) ?? INITIAL_STORES;
+}
+export function setStoredStores(stores: StoreDto[]): void {
+  writeRaw(STORAGE_KEYS.STORES, stores);
 }
 
 export function getStockLogs(): any[] {
