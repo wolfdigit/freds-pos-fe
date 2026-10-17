@@ -34,7 +34,7 @@ export const ProductSearchBar = forwardRef<HTMLInputElement, ProductSearchBarPro
         <Input
           ref={ref}
           monospace
-          placeholder="🔍 掃描條碼 / 貨號 / 品名... (Enter帶入待結，F2聚焦)"
+          placeholder="🔍 掃描條碼 / 貨號 / 品名..."
           value={keyword}
           onChange={(e) => onKeywordChange(e.target.value)}
           onKeyDown={(e) => {

@@ -223,56 +223,6 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
   };
 
   const handleBarcodeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowRight') {
-      e.preventDefault();
-      const currentQty = Number(quantity) || 1;
-      setQuantity(String(currentQty + 1));
-      return;
-    }
-    if (e.key === 'ArrowLeft') {
-      e.preventDefault();
-      const currentQty = Number(quantity) || 1;
-      setQuantity(String(Math.max(1, currentQty - 1)));
-      return;
-    }
-
-    // 如果目前選取的群組有多個同條碼 SKU，支援 ArrowUp / ArrowDown 切換
-    if (activeGroup && activeGroup.items.length > 1) {
-      const currentIndex = activeGroup.items.findIndex((p) => p.id === activeProductId);
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const nextIndex = currentIndex < 0 ? 0 : Math.min(activeGroup.items.length - 1, currentIndex + 1);
-        setSelectedProductMap((prev) => ({
-          ...prev,
-          [activeGroup.groupKey]: activeGroup.items[nextIndex].id,
-        }));
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prevIndex = currentIndex < 0 ? 0 : Math.max(0, currentIndex - 1);
-        setSelectedProductMap((prev) => ({
-          ...prev,
-          [activeGroup.groupKey]: activeGroup.items[prevIndex].id,
-        }));
-        return;
-      }
-    } else if (productGroups.length > 1) {
-      const currentGroupIdx = productGroups.findIndex((g) => g.groupKey === selectedGroupKey);
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        const nextIdx = Math.min(productGroups.length - 1, currentGroupIdx + 1);
-        setSelectedGroupKey(productGroups[nextIdx].groupKey);
-        return;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        const prevIdx = Math.max(0, currentGroupIdx - 1);
-        setSelectedGroupKey(productGroups[prevIdx].groupKey);
-        return;
-      }
-    }
-
     if (e.key === 'Enter') {
       e.preventDefault();
       handleProcessBarcode();
@@ -359,7 +309,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
           <div className="flex items-start gap-3">
             <div className="flex-1 relative">
               <label className="mb-1 block text-xs font-semibold text-cyan-300">
-                1. 掃描或輸入國際條碼 / 貨號 (Enter 自動加入) *
+                1. 掃描或輸入國際條碼 / 貨號 *
               </label>
               <Input
                 ref={inputRef}
@@ -367,16 +317,9 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
                 value={barcodeInput}
                 onChange={(e) => handleBarcodeSearch(e.target.value)}
                 onKeyDown={handleBarcodeKeyDown}
-                placeholder="🔍 掃碼槍掃描條碼 (掃完自動 Enter 加入)..."
+                placeholder="🔍 掃碼槍掃描條碼或輸入貨號..."
                 className="text-lg font-bold border-cyan-500/50"
               />
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs font-mono text-zinc-400">
-                <span className="whitespace-nowrap">💡 <strong className="text-amber-300">⬆️/⬇️</strong> 切換品項</span>
-                <span className="text-zinc-600 font-bold font-sans">•</span>
-                <span className="whitespace-nowrap"><strong className="text-emerald-300">⬅️/➡️</strong> 增減數量</span>
-                <span className="text-zinc-600 font-bold font-sans">•</span>
-                <span className="whitespace-nowrap"><strong className="text-cyan-300">Enter</strong> 加入進貨</span>
-              </div>
             </div>
             <div className="w-44">
               <label className="mb-1 block text-xs font-semibold text-zinc-300">2. 進貨目標地點</label>
@@ -411,7 +354,6 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
               <div className="flex h-24 flex-col items-center justify-center text-zinc-500 font-mono text-sm">
                 <span className="text-2xl mb-1">🔍</span>
                 <span>請於上方掃描條碼或輸入貨號 SKU</span>
-                <span className="text-xs text-zinc-600 mt-0.5">條碼機掃描完成後按 Enter 會自動加入進貨批次清單</span>
               </div>
             ) : productGroups.length === 1 ? (
               /* 單一條碼/商品匹配 */
@@ -485,7 +427,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
               /* 搜尋關鍵字匹配多筆不同條碼/商品：用卷軸列出所有選項 */
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs text-zinc-400">
-                  <span>🔍 找到 {productGroups.length} 組符合搜尋的品項（點擊選取或按 Enter 加入）：</span>
+                  <span>🔍 找到 {productGroups.length} 組符合搜尋的品項（點擊選取）：</span>
                 </div>
                 <div className="max-h-48 overflow-y-auto space-y-2 pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-zinc-900 [&::-webkit-scrollbar-thumb]:bg-zinc-700">
                   {productGroups.map((group) => {
@@ -559,7 +501,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
               disabled={!barcodeInput.trim() && !selectedProduct}
               className="bg-cyan-500 text-zinc-950 font-bold px-4 py-2"
             >
-              ➕ 加入進貨批次清單 (Enter)
+              ➕ 加入進貨批次清單
             </Button>
           </div>
         </div>
@@ -580,7 +522,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
 
           {restockBatch.length === 0 ? (
             <div className="flex h-32 items-center justify-center rounded-xl border border-dashed border-zinc-800 text-zinc-500">
-              請在上方掃描條碼或輸入貨號加入進貨項目 (支援掃碼槍連續 Enter 掃描)
+              請在上方掃描條碼或輸入貨號加入進貨項目
             </div>
           ) : (
             <div className="max-h-56 overflow-y-auto rounded-xl border border-zinc-800 bg-zinc-950 divide-y divide-zinc-800/80 pr-1 [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-track]:bg-zinc-900 [&::-webkit-scrollbar-track]:rounded-lg [&::-webkit-scrollbar-thumb]:bg-cyan-500/80 [&::-webkit-scrollbar-thumb]:rounded-lg hover:[&::-webkit-scrollbar-thumb]:bg-cyan-400">

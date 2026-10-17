@@ -1,7 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { useProductSearch } from './hooks/useProductSearch';
 import { useCheckoutWorkflow } from './hooks/useCheckoutWorkflow';
-import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { ProductSearchBar } from './components/ProductSearchBar';
 import { ProductResultTable } from './components/ProductResultTable';
 import { CartItemRow, ReturnCartItemRow } from './components/CartItemRow';
@@ -60,20 +59,6 @@ export function CheckoutPage() {
   useEffect(() => {
     focusBarcode();
   }, []);
-
-  useKeyboardShortcuts({
-    onFocusSearch: () => searchInputRef.current?.focus(),
-    onOpenPayment: () => cart.items.length > 0 && setIsPaymentOpen(true),
-    onEscape: () => {
-      ui.closeAllOverlays();
-      setIsPaymentOpen(false);
-      setDetailProduct(null);
-      setIsReturnModalOpen(false);
-      setInspectedOrder(null);
-      setInspectedReturnItem(null);
-      focusBarcode();
-    },
-  });
 
   const handleSearchSubmit = () => {
     if (!keyword.trim()) return;

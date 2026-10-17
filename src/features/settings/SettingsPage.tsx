@@ -730,7 +730,6 @@ export function SettingsPage() {
                                   className="text-xs py-1"
                                   onKeyDown={(e) => {
                                     if (e.key === 'Enter') handleSaveAccountEdit(account.email, false);
-                                    if (e.key === 'Escape') setEditingAccountEmail(null);
                                   }}
                                 />
                               </div>
@@ -913,7 +912,6 @@ export function SettingsPage() {
                                     className="text-xs py-1"
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter') handleSaveAccountEdit(account.email, true);
-                                      if (e.key === 'Escape') setEditingAccountEmail(null);
                                     }}
                                   />
                                 </div>

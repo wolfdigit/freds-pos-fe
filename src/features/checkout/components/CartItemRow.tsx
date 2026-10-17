@@ -212,7 +212,7 @@ export function CartItemRow({
         <input
           type="text"
           inputMode="numeric"
-          title="直接修改單價 (Enter或點擊空白處確認)"
+          title="直接修改單價"
           value={priceInput}
           onChange={(e) => setPriceInput(e.target.value.replace(/[^0-9]/g, ''))}
           onBlur={handlePriceBlur}
