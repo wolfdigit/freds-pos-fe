@@ -109,10 +109,11 @@ export function DeleteLocationModal({
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-semibold text-zinc-200">
+            <label htmlFor="delete-location-target" className="mb-1.5 block text-sm font-semibold text-zinc-200">
               請選擇庫存移轉目標據點 (Transfer Target) <span className="text-rose-400">*</span>
             </label>
             <select
+              id="delete-location-target"
               value={transferToLocation}
               onChange={(e) => setTransferToLocation(e.target.value)}
               className="w-full rounded-lg border border-amber-400/60 bg-zinc-900 px-3 py-2.5 text-base font-semibold text-amber-200 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
@@ -127,10 +128,11 @@ export function DeleteLocationModal({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-semibold text-zinc-400">
+            <label htmlFor="delete-location-reason" className="mb-1 block text-xs font-semibold text-zinc-400">
               撤點/刪除原因備註 (選填)
             </label>
             <Input
+              id="delete-location-reason"
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               placeholder="例如: 租約到期撤點、展場結束整併"

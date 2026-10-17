@@ -326,8 +326,9 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
               <div className="rounded-xl border border-rose-800/60 bg-rose-950/30 p-3.5 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   <div className="flex items-center gap-2">
-                    <label className="text-zinc-200 font-semibold">退貨數量：</label>
+                    <label htmlFor="history-return-qty" className="text-zinc-200 font-semibold">退貨數量：</label>
                     <input
+                      id="history-return-qty"
                       type="number"
                       min={1}
                       max={selectedItem.quantity - (selectedItem.returnedQuantity ?? 0)}
@@ -352,8 +353,9 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
                 </div>
 
                 <div className="flex items-center gap-2 text-sm">
-                  <label className="text-zinc-200 font-semibold shrink-0">退貨原因：</label>
+                  <label htmlFor="history-return-reason" className="text-zinc-200 font-semibold shrink-0">退貨原因：</label>
                   <input
+                    id="history-return-reason"
                     type="text"
                     value={returnReason}
                     onChange={(e) => setReturnReason(e.target.value)}

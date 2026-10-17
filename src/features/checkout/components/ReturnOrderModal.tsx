@@ -233,10 +233,11 @@ export function ReturnOrderModal({
           {/* 第一排：商品品名/貨號/條碼、原單總金額、銷售單號 */}
           <div className="grid grid-cols-12 gap-3 items-end">
             <div className="col-span-12 md:col-span-6">
-              <label className="mb-1 block text-xs font-semibold text-zinc-300">
+              <label htmlFor="return-product-keyword" className="mb-1 block text-xs font-semibold text-zinc-300">
                 商品品名 / 貨號 (SKU) / 條碼
               </label>
               <Input
+                id="return-product-keyword"
                 placeholder="輸入品名、貨號或條碼..."
                 value={productKeyword}
                 onChange={(e) => setProductKeyword(e.target.value)}
@@ -245,10 +246,11 @@ export function ReturnOrderModal({
             </div>
 
             <div className="col-span-12 sm:col-span-6 md:col-span-3">
-              <label className="mb-1 block text-xs font-semibold text-zinc-300">
+              <label htmlFor="return-order-amount" className="mb-1 block text-xs font-semibold text-zinc-300">
                 原單總金額 ($)
               </label>
               <Input
+                id="return-order-amount"
                 monospace
                 placeholder="例如: 7450"
                 value={amountInput}
@@ -258,8 +260,9 @@ export function ReturnOrderModal({
             </div>
 
             <div className="col-span-12 sm:col-span-6 md:col-span-3">
-              <label className="mb-1 block text-xs font-semibold text-zinc-400">銷售單號</label>
+              <label htmlFor="return-order-number" className="mb-1 block text-xs font-semibold text-zinc-400">銷售單號</label>
               <Input
+                id="return-order-number"
                 monospace
                 placeholder="例如: SO-20260825-0076"
                 value={orderNumber}
@@ -272,19 +275,23 @@ export function ReturnOrderModal({
           {/* 第二排：原單時間區間 (獨立足夠空間)、會員姓名/電話、操作按鈕 */}
           <div className="grid grid-cols-12 gap-3 items-end pt-2 border-t border-zinc-900">
             <div className="col-span-12 lg:col-span-6">
-              <label className="mb-1 block text-xs font-semibold text-zinc-300">
+              <label htmlFor="return-start" className="mb-1 block text-xs font-semibold text-zinc-300">
                 原單時間區間 (年月日時分)
               </label>
               <div className="grid grid-cols-2 gap-2 items-center">
                 <input
+                  id="return-start"
                   type="datetime-local"
+                  aria-label="起始時間"
                   value={startDateTime}
                   onChange={(e) => setStartDateTime(e.target.value)}
                   className="w-full min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 font-mono focus:border-cyan-400 focus:outline-none"
                   title="起始時間"
                 />
                 <input
+                  id="return-end"
                   type="datetime-local"
+                  aria-label="結束時間"
                   value={endDateTime}
                   onChange={(e) => setEndDateTime(e.target.value)}
                   className="w-full min-w-0 rounded-lg border border-zinc-700 bg-zinc-900 px-2 py-1.5 text-xs text-zinc-100 font-mono focus:border-cyan-400 focus:outline-none"
@@ -294,8 +301,9 @@ export function ReturnOrderModal({
             </div>
 
             <div className="col-span-12 sm:col-span-8 lg:col-span-4">
-              <label className="mb-1 block text-xs font-semibold text-zinc-400">會員姓名 / 手機電話</label>
+              <label htmlFor="return-customer-keyword" className="mb-1 block text-xs font-semibold text-zinc-400">會員姓名 / 手機電話</label>
               <Input
+                id="return-customer-keyword"
                 placeholder="例如: 陳冠宇 或 0912..."
                 value={customerKeyword}
                 onChange={(e) => setCustomerKeyword(e.target.value)}
@@ -503,6 +511,7 @@ export function ReturnOrderModal({
                             type="number"
                             min={1}
                             max={remaining}
+                            aria-label="退貨數量"
                             value={entry.returnQty}
                             onChange={(e) => handleQtyChange(key, Number(e.target.value) || 1, remaining)}
                             className="h-6 w-12 border-y border-zinc-700 bg-zinc-900 text-center font-mono font-bold text-rose-100 focus:outline-none"
@@ -522,6 +531,7 @@ export function ReturnOrderModal({
                       <div className="flex items-center gap-1">
                         <input
                           type="text"
+                          aria-label="退貨原因"
                           value={entry.returnReason}
                           onChange={(e) => handleReasonChange(key, e.target.value)}
                           placeholder="退貨原因..."

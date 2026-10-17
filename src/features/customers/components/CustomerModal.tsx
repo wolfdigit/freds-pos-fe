@@ -101,10 +101,11 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
     <Modal open={open} onClose={onClose} title={isEdit ? '✏️ 編輯會員資料' : '➕ 新增客戶會員'}>
       <form onSubmit={handleSubmit} className="space-y-4 text-sm text-zinc-200">
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">
+          <label htmlFor="customer-name" className="mb-1 block text-xs font-medium text-zinc-400">
             客戶姓名 <span className="text-rose-400">*</span>
           </label>
           <Input
+            id="customer-name"
             placeholder="例如：陳冠宇 或 極速模型工作室"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -114,10 +115,11 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">
+            <label htmlFor="customer-phone" className="mb-1 block text-xs font-medium text-zinc-400">
               手機號碼 <span className="text-rose-400">*</span>
             </label>
             <Input
+              id="customer-phone"
               monospace
               placeholder="0912345678"
               value={phone}
@@ -126,8 +128,9 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
             {errors.phone && <p className="mt-1 text-xs font-medium text-rose-300">{errors.phone}</p>}
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">電子信箱 (選填)</label>
+            <label htmlFor="customer-email" className="mb-1 block text-xs font-medium text-zinc-400">電子信箱 (選填)</label>
             <Input
+              id="customer-email"
               type="email"
               placeholder="user@example.com"
               value={email}
@@ -137,8 +140,9 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">VIP 會員等級</label>
+          <label htmlFor="customer-tier" className="mb-1 block text-xs font-medium text-zinc-400">VIP 會員等級</label>
           <select
+            id="customer-tier"
             value={vipTier}
             onChange={(e) => setVipTier(e.target.value as VipTier)}
             className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:border-cyan-400 focus:outline-none"
@@ -151,8 +155,9 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">偏好與備註事項</label>
+          <label htmlFor="customer-note" className="mb-1 block text-xs font-medium text-zinc-400">偏好與備註事項</label>
           <textarea
+            id="customer-note"
             rows={3}
             placeholder="例如：主力收藏 1:18 日系 JDM、開統編 83521409..."
             value={note}

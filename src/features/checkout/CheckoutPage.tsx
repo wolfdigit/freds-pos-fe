@@ -53,6 +53,14 @@ export function CheckoutPage() {
   const discount = cart.items.reduce((sum, i) => sum + (i.originalPrice - i.unitPrice) * i.quantity, 0);
   const totalAmount = cart.getTotalAmount();
 
+  const focusBarcode = () => {
+    window.setTimeout(() => searchInputRef.current?.focus(), 0);
+  };
+
+  useEffect(() => {
+    focusBarcode();
+  }, []);
+
   useKeyboardShortcuts({
     onFocusSearch: () => searchInputRef.current?.focus(),
     onOpenPayment: () => cart.items.length > 0 && setIsPaymentOpen(true),
@@ -60,6 +68,10 @@ export function CheckoutPage() {
       ui.closeAllOverlays();
       setIsPaymentOpen(false);
       setDetailProduct(null);
+      setIsReturnModalOpen(false);
+      setInspectedOrder(null);
+      setInspectedReturnItem(null);
+      focusBarcode();
     },
   });
 
@@ -108,6 +120,7 @@ export function CheckoutPage() {
       );
     }
     cart.addItem(product, 1);
+    focusBarcode();
   };
 
   const handleUpdateQuantity = (item: (typeof cart.items)[number], newQty: number) => {
@@ -209,7 +222,10 @@ export function CheckoutPage() {
       } catch (err) {
         console.error('Failed to fetch original order:', err);
       }
-      showToast(`查無原始訂單 (${item.originalOrderId}) 之資料`, 'warning');
+      showToast(
+        item.originalOrderNumber ? `查無原始訂單（${item.originalOrderNumber}）之資料` : '查無原始訂單資料',
+        'warning'
+      );
     }
     setReturnModalPrefill({ productId: item.productId, keyword: item.sku });
     setIsReturnModalOpen(true);
@@ -433,14 +449,18 @@ export function CheckoutPage() {
         return (
           <PaymentModal
             open={isPaymentOpen}
-            onClose={() => setIsPaymentOpen(false)}
+            onClose={() => {
+              setIsPaymentOpen(false);
+              focusBarcode();
+            }}
             totalAmount={totalAmount}
             isSubmitting={isSubmitting}
             hasOverStockItems={overStockList.length > 0}
             overStockItemsList={overStockList}
-            onConfirm={(payments) => {
+            onConfirm={async (payments) => {
               setIsPaymentOpen(false);
-              submitCheckout(payments);
+              const result = await submitCheckout(payments);
+              if (!result) focusBarcode();
             }}
           />
         );
@@ -452,6 +472,7 @@ export function CheckoutPage() {
         onClose={() => {
           setIsReturnModalOpen(false);
           setReturnModalPrefill({});
+          focusBarcode();
         }}
         prefillProductId={returnModalPrefill.productId}
         prefillKeyword={returnModalPrefill.keyword}
@@ -465,6 +486,7 @@ export function CheckoutPage() {
         onClose={() => {
           setInspectedOrder(null);
           setInspectedReturnItem(null);
+          focusBarcode();
         }}
         onSelectAnotherOrder={() => {
           if (inspectedReturnItem) {
@@ -483,14 +505,23 @@ export function CheckoutPage() {
       />
 
       {/* 收據 Modal */}
-      <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />
+      <ReceiptModal
+        receipt={receipt}
+        onClose={() => {
+          setReceipt(null);
+          focusBarcode();
+        }}
+      />
 
       {/* 商品詳情 Modal */}
       <ProductDetailModal
         open={Boolean(detailProduct)}
         product={detailProduct}
         allProducts={allCatalogProducts}
-        onClose={() => setDetailProduct(null)}
+        onClose={() => {
+          setDetailProduct(null);
+          focusBarcode();
+        }}
         onAddToCart={
           detailSource === 'catalog'
             ? (p) => {

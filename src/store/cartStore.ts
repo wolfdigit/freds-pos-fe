@@ -21,6 +21,7 @@ export interface CartItem {
   storeStock?: number;
   totalStock?: number;
   originalOrderId?: string;
+  originalOrderNumber?: string;
   originalOrderItemId?: string;
   originalOrderCustomerId?: string;
   originalOrderCustomerName?: string;
@@ -181,6 +182,7 @@ export const useCartStore = create<CartStore>()(
           updated[existingIndex] = {
             ...updated[existingIndex],
             quantity: -absQty,
+            originalOrderNumber: order.orderNumber,
             originalOrderCustomerId: order.customerId,
             originalOrderCustomerName: order.customerName,
             maxReturnableQty: maxReturnable,
@@ -203,6 +205,7 @@ export const useCartStore = create<CartStore>()(
           priceChangeReason: item.priceDiffReason,
           quantity: -absQty,
           originalOrderId: order.id,
+          originalOrderNumber: order.orderNumber,
           originalOrderItemId: (item as any).id || item.productId,
           originalOrderCustomerId: order.customerId,
           originalOrderCustomerName: order.customerName,

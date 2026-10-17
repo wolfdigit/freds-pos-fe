@@ -3,6 +3,36 @@ import type { CartItem } from '@/store/cartStore';
 import { useCartStore } from '@/store/cartStore';
 import type { Product } from '@/types/product';
 import { formatCurrency } from '@/utils/currency';
+import { checkoutService } from '@/services';
+
+function useOriginalOrderNumber(item: CartItem): string {
+  const [resolved, setResolved] = useState(item.originalOrderNumber ?? '');
+
+  useEffect(() => {
+    if (item.originalOrderNumber) {
+      setResolved(item.originalOrderNumber);
+      return;
+    }
+    if (!item.originalOrderId) {
+      setResolved('');
+      return;
+    }
+    let cancelled = false;
+    checkoutService
+      .getOrderById(item.originalOrderId)
+      .then((order) => {
+        if (!cancelled) setResolved(order?.orderNumber ?? '');
+      })
+      .catch(() => {
+        if (!cancelled) setResolved('');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [item.originalOrderId, item.originalOrderNumber]);
+
+  return resolved;
+}
 
 interface CartItemRowProps {
   item: CartItem;
@@ -300,6 +330,8 @@ export function ReturnCartItemRow({
 
   const absQty = Math.abs(item.quantity);
   const refundSubtotal = item.unitPrice * item.quantity; // 負數金額
+  const originalOrderNumber = useOriginalOrderNumber(item);
+  const originalOrderLabel = originalOrderNumber ? `原單: ${originalOrderNumber}` : '原單';
   const isMaxReturnReached = item.maxReturnableQty !== undefined && absQty >= item.maxReturnableQty;
 
   return (
@@ -310,7 +342,9 @@ export function ReturnCartItemRow({
         className="min-w-0 flex-1 cursor-pointer select-none rounded p-1 -m-1 hover:bg-rose-900/30 transition-colors"
         title={
           item.originalOrderId
-            ? `點擊查看原始售出單據明細 (${item.originalOrderId})`
+            ? originalOrderNumber
+              ? `點擊查看原始售出單據明細（${originalOrderNumber}）`
+              : '點擊查看原始售出單據明細'
             : '點擊查詢並關聯原始售出單據'
         }
       >
@@ -319,10 +353,10 @@ export function ReturnCartItemRow({
           {item.originalOrderId ? (
             <span
               className="rounded bg-rose-900/50 border border-rose-700/60 px-1.5 py-0.5 text-xs font-mono text-rose-200 shrink-0 flex items-center gap-1 hover:bg-rose-800 transition-colors"
-              title={`原始銷售單據: ${item.originalOrderId}（點擊查看原單明細）`}
+              title={originalOrderNumber ? `原始銷售單據: ${originalOrderNumber}（點擊查看原單明細）` : '原始銷售單據（點擊查看原單明細）'}
             >
               <span>🧾</span>
-              <span>原單: {item.originalOrderId}</span>
+              <span>{originalOrderLabel}</span>
             </span>
           ) : (
             <span

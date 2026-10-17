@@ -69,10 +69,11 @@ export function CreateLocationModal({
     <Modal open={open} onClose={onClose} title="➕ 新增庫存據點" widthClassName="max-w-md">
       <form onSubmit={handleSubmit} className="space-y-4 text-base">
         <div>
-          <label className="mb-1 block text-sm font-semibold text-zinc-300">
+          <label htmlFor="create-location-name" className="mb-1 block text-sm font-semibold text-zinc-300">
             據點名稱 <span className="text-rose-400">*</span>
           </label>
           <Input
+            id="create-location-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="例如: 高雄巨蛋門市, 桃園發貨倉, B1特賣展場"
@@ -86,7 +87,7 @@ export function CreateLocationModal({
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-semibold text-zinc-300">
+          <label htmlFor="create-location-icon" className="mb-1 block text-sm font-semibold text-zinc-300">
             據點圖示 (Icon)
           </label>
           <div className="flex items-center gap-2 mb-2">
@@ -94,6 +95,7 @@ export function CreateLocationModal({
               {icon}
             </span>
             <Input
+              id="create-location-icon"
               value={icon}
               onChange={(e) => setIcon(e.target.value)}
               placeholder="輸入 Emoji 或文字"

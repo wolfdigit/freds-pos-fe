@@ -86,7 +86,7 @@ export function Header() {
         <button
           onClick={() => setActiveTab(null)}
           title="回主選單"
-          className="font-extrabold text-cyan-400 tracking-wider hover:text-cyan-300 transition-colors"
+          className="rounded-sm font-extrabold text-cyan-400 tracking-wider hover:text-cyan-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
         >
           FRED'S POS
         </button>
@@ -98,7 +98,7 @@ export function Header() {
           <select
             value={availableStores.includes(storeName) ? storeName : '__CUSTOM__'}
             onChange={handleStoreChange}
-            className="rounded-lg bg-zinc-800/90 border border-zinc-700/80 px-2.5 py-1 text-sm font-semibold text-cyan-300 focus:border-cyan-400 focus:outline-none cursor-pointer hover:border-zinc-500 hover:bg-zinc-800 transition-all shadow-sm"
+            className="cursor-pointer rounded-lg border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-sm font-semibold text-cyan-300 shadow-sm transition-all hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             title="點擊更改登入門市"
           >
             {availableStores.map((s) => (
@@ -124,7 +124,7 @@ export function Header() {
           <button
             onClick={handleLogoutClick}
             title="未開放此功能"
-            className="rounded bg-zinc-800/80 hover:bg-rose-950/60 border border-zinc-700 hover:border-rose-700/80 px-2 py-0.5 text-xs text-zinc-300 hover:text-rose-300 transition-all shadow-sm"
+            className="rounded border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-xs text-zinc-300 shadow-sm transition-all hover:border-rose-700/80 hover:bg-rose-950/60 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
             🚪 登出
           </button>
@@ -137,7 +137,7 @@ export function Header() {
           type="button"
           onClick={toggleMockMode}
           title={isMockService ? '目前為：Mock 模式，點擊切換為真實 API 模式' : '目前為：真實 API 連線模式，點擊切換為 Mock 模式'}
-          className="cursor-pointer transition-transform active:scale-95 focus:outline-none"
+          className="cursor-pointer rounded-md transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
         >
           {isMockService ? (
             <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-400 ring-1 ring-inset ring-amber-500/20 hover:ring-amber-500/40 transition-all">
@@ -157,7 +157,7 @@ export function Header() {
         <button
           onClick={toggleTheme}
           title={theme === 'dark' ? '切換為淺色主題' : '切換為暗色主題'}
-          className="flex items-center gap-1.5 rounded-lg border border-zinc-700/80 bg-zinc-800/80 hover:bg-zinc-800 hover:border-zinc-500 px-2.5 py-1 text-xs font-semibold text-zinc-200 transition-all shadow-sm"
+          className="flex items-center gap-1.5 rounded-lg border border-zinc-700/80 bg-zinc-800/80 px-2.5 py-1 text-xs font-semibold text-zinc-200 shadow-sm transition-all hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
         >
           <span>{theme === 'dark' ? '🌙' : '☀️'}</span>
           <span>{theme === 'dark' ? '暗色' : '淺色'}</span>
@@ -173,8 +173,9 @@ export function Header() {
       <Modal open={customStoreOpen} onClose={() => setCustomStoreOpen(false)} title="✏️ 自訂登入門市">
         <form onSubmit={handleCustomStoreSubmit} className="space-y-4 text-sm text-zinc-200">
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">門市名稱</label>
+            <label htmlFor="custom-store-name" className="mb-1 block text-sm font-medium text-zinc-300">門市名稱</label>
             <Input
+              id="custom-store-name"
               value={customStoreName}
               onChange={(e) => setCustomStoreName(e.target.value)}
               placeholder="例如：信義概念店"
