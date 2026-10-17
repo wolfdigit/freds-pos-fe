@@ -7,6 +7,7 @@ export interface OAuthAccount {
   email: string;
   name?: string;
   note?: string;
+  assignedStores?: string[]; // 授權門市清單 (如: ['奇可門市', '線上網購']; 未指定或為空則為全門市)
 }
 
 export interface OAuthUser {
@@ -16,6 +17,7 @@ export interface OAuthUser {
   role: 'admin' | 'staff' | string;
   roles?: string[];
   avatarUrl?: string;
+  assignedStores?: string[];
 }
 
 interface SessionStore {
@@ -40,13 +42,13 @@ interface SessionStore {
   setOAuthUser: (user: Partial<OAuthUser>) => void;
   isSystemAdmin: () => boolean;
 
-  // OAuth 管理員與店員帳號 (包含名稱與附註)
-  addAdminAccount: (email: string, name?: string, note?: string) => boolean;
-  updateAdminAccount: (email: string, data: { name?: string; note?: string }) => void;
+  // OAuth 管理員與店員帳號 (包含名稱、附註與授權門市)
+  addAdminAccount: (email: string, name?: string, note?: string, assignedStores?: string[]) => boolean;
+  updateAdminAccount: (email: string, data: { name?: string; note?: string; assignedStores?: string[] }) => void;
   removeAdminAccount: (email: string) => boolean;
 
-  addStaffAccount: (email: string, name?: string, note?: string) => boolean;
-  updateStaffAccount: (email: string, data: { name?: string; note?: string }) => void;
+  addStaffAccount: (email: string, name?: string, note?: string, assignedStores?: string[]) => boolean;
+  updateStaffAccount: (email: string, data: { name?: string; note?: string; assignedStores?: string[] }) => void;
   removeStaffAccount: (email: string) => boolean;
 }
 
@@ -71,9 +73,9 @@ export const useSessionStore = create<SessionStore>()(
         { email: 'admin@gmail.com', name: '資訊管理員', note: '資訊維運管理處' },
       ],
       staffAccounts: [
-        { email: 'clerk01@gmail.com', name: '王小美', note: '奇可門市早班店員' },
-        { email: 'clerk02@gmail.com', name: '李大同', note: '奇可門市晚班店員' },
-        { email: 'staff@gmail.com', name: '門市支援', note: '支援收銀專員' },
+        { email: 'clerk01@gmail.com', name: '王小美', note: '早班收銀', assignedStores: ['奇可門市'] },
+        { email: 'clerk02@gmail.com', name: '李大同', note: '晚班收銀', assignedStores: ['奇可門市'] },
+        { email: 'staff@gmail.com', name: '門市支援', note: '線上訂單與支援', assignedStores: ['奇可門市', '線上網購'] },
       ],
 
       setStoreName: (name) => set({ storeName: name }),
@@ -138,8 +140,10 @@ export const useSessionStore = create<SessionStore>()(
           const email = (user.email || state.oauthUser.email || '').toLowerCase().trim();
           let calculatedRole = user.role || state.userRole;
           let calculatedName = user.name || state.cashierName;
+          let calculatedAssignedStores: string[] | undefined = user.assignedStores;
+          let calculatedStoreName = state.storeName;
 
-          // 依據 Gmail 白名單自動計算角色與名稱
+          // 依據 Gmail 白名單自動計算角色、名稱與授權門市
           if (email) {
             const adminMatch = state.adminAccounts.find((a) => a.email.toLowerCase() === email);
             const staffMatch = state.staffAccounts.find((a) => a.email.toLowerCase() === email);
@@ -147,14 +151,30 @@ export const useSessionStore = create<SessionStore>()(
             if (adminMatch) {
               calculatedRole = 'admin';
               if (adminMatch.name) calculatedName = adminMatch.name;
+              calculatedAssignedStores = adminMatch.assignedStores;
             } else if (staffMatch) {
               calculatedRole = 'staff';
               if (staffMatch.name) calculatedName = staffMatch.name;
+              calculatedAssignedStores = staffMatch.assignedStores;
+            }
+          }
+
+          // 若非管理員且有指定授權門市，確認目前 storeName 是否在授權門市中；若不在則自動切換至第一間
+          if (calculatedRole !== 'admin' && calculatedAssignedStores && calculatedAssignedStores.length > 0) {
+            if (!calculatedAssignedStores.includes(calculatedStoreName)) {
+              calculatedStoreName = calculatedAssignedStores[0];
             }
           }
 
           return {
-            oauthUser: { ...state.oauthUser, ...user, name: calculatedName, role: calculatedRole },
+            oauthUser: {
+              ...state.oauthUser,
+              ...user,
+              name: calculatedName,
+              role: calculatedRole,
+              assignedStores: calculatedAssignedStores,
+            },
+            storeName: calculatedStoreName,
             cashierName: calculatedName,
             cashierId: user.id || state.cashierId,
             userRole: calculatedRole,
@@ -175,7 +195,7 @@ export const useSessionStore = create<SessionStore>()(
         );
       },
 
-      addAdminAccount: (email, name = '', note = '') => {
+      addAdminAccount: (email, name = '', note = '', assignedStores) => {
         const clean = email.trim().toLowerCase();
         if (!clean) return false;
         const { adminAccounts, staffAccounts } = get();
@@ -186,7 +206,7 @@ export const useSessionStore = create<SessionStore>()(
         set({
           adminAccounts: [
             ...adminAccounts,
-            { email: clean, name: name.trim(), note: note.trim() },
+            { email: clean, name: name.trim(), note: note.trim(), assignedStores: assignedStores?.length ? assignedStores : undefined },
           ],
           staffAccounts: newStaff,
         });
@@ -203,6 +223,7 @@ export const useSessionStore = create<SessionStore>()(
                   ...a,
                   name: data.name !== undefined ? data.name.trim() : a.name,
                   note: data.note !== undefined ? data.note.trim() : a.note,
+                  assignedStores: data.assignedStores !== undefined ? (data.assignedStores.length ? data.assignedStores : undefined) : a.assignedStores,
                 }
               : a
           ),
@@ -219,7 +240,7 @@ export const useSessionStore = create<SessionStore>()(
         return true;
       },
 
-      addStaffAccount: (email, name = '', note = '') => {
+      addStaffAccount: (email, name = '', note = '', assignedStores) => {
         const clean = email.trim().toLowerCase();
         if (!clean) return false;
         const { adminAccounts, staffAccounts } = get();
@@ -230,7 +251,7 @@ export const useSessionStore = create<SessionStore>()(
         set({
           staffAccounts: [
             ...staffAccounts,
-            { email: clean, name: name.trim(), note: note.trim() },
+            { email: clean, name: name.trim(), note: note.trim(), assignedStores: assignedStores?.length ? assignedStores : undefined },
           ],
           adminAccounts: newAdmin,
         });
@@ -247,6 +268,7 @@ export const useSessionStore = create<SessionStore>()(
                   ...a,
                   name: data.name !== undefined ? data.name.trim() : a.name,
                   note: data.note !== undefined ? data.note.trim() : a.note,
+                  assignedStores: data.assignedStores !== undefined ? (data.assignedStores.length ? data.assignedStores : undefined) : a.assignedStores,
                 }
               : a
           ),
@@ -264,16 +286,60 @@ export const useSessionStore = create<SessionStore>()(
     }),
     {
       name: 'FREDS_POS_SESSION',
-      version: 2,
+      version: 4,
       migrate: (persistedState: any, version: number) => {
+        let state = persistedState;
         if (!version || version < 2) {
-          return {
-            ...persistedState,
+          state = {
+            ...state,
             storeName: INITIAL_STORES[0].name,
             stores: INITIAL_STORES.map((s) => s.name),
           };
         }
-        return persistedState;
+        if (!version || version < 3) {
+          const staffAccounts = (state.staffAccounts || []).map((account: any) => {
+            if (account.email?.toLowerCase().includes('clerk01')) {
+              return { ...account, storeName: '奇可門市' };
+            }
+            if (account.email?.toLowerCase().includes('clerk02')) {
+              return { ...account, storeName: '奇可門市' };
+            }
+            if (account.email?.toLowerCase().includes('staff')) {
+              return { ...account, storeName: '線上網購' };
+            }
+            return account;
+          });
+          state = {
+            ...state,
+            staffAccounts,
+          };
+        }
+        if (!version || version < 4) {
+          const staffAccounts = (state.staffAccounts || []).map((account: any) => {
+            if (account.assignedStores && Array.isArray(account.assignedStores)) {
+              return account;
+            }
+            if (account.storeName) {
+              const { storeName, ...rest } = account;
+              return { ...rest, assignedStores: [storeName] };
+            }
+            if (account.email?.toLowerCase().includes('clerk01')) {
+              return { ...account, assignedStores: ['奇可門市'] };
+            }
+            if (account.email?.toLowerCase().includes('clerk02')) {
+              return { ...account, assignedStores: ['奇可門市'] };
+            }
+            if (account.email?.toLowerCase().includes('staff')) {
+              return { ...account, assignedStores: ['奇可門市', '線上網購'] };
+            }
+            return account;
+          });
+          state = {
+            ...state,
+            staffAccounts,
+          };
+        }
+        return state;
       },
     }
   )

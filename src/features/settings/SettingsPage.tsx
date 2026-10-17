@@ -73,11 +73,13 @@ export function SettingsPage() {
   const [newStaffNameInput, setNewStaffNameInput] = useState('');
   const [newStaffEmailInput, setNewStaffEmailInput] = useState('');
   const [newStaffNoteInput, setNewStaffNoteInput] = useState('');
+  const [newStaffStoresInput, setNewStaffStoresInput] = useState<string[]>([]);
 
-  // 帳號編輯狀態 (名稱 + 附註)
+  // 帳號編輯狀態 (名稱 + 附註 + 門市)
   const [editingAccountEmail, setEditingAccountEmail] = useState<string | null>(null);
   const [editingNameValue, setEditingNameValue] = useState('');
   const [editingNoteValue, setEditingNoteValue] = useState('');
+  const [editingStoresValue, setEditingStoresValue] = useState<string[]>([]);
 
   const loadProducts = useCallback(async () => {
     try {
@@ -191,12 +193,18 @@ export function SettingsPage() {
       showToast('請輸入有效的 Gmail / 電子信箱格式', 'error');
       return;
     }
-    const success = addStaffAccount(clean, newStaffNameInput.trim(), newStaffNoteInput.trim());
+    const success = addStaffAccount(
+      clean,
+      newStaffNameInput.trim(),
+      newStaffNoteInput.trim(),
+      newStaffStoresInput.length > 0 ? newStaffStoresInput : undefined
+    );
     if (success) {
       showToast(`成功新增店員：「${newStaffNameInput.trim() || clean}」`, 'success');
       setNewStaffNameInput('');
       setNewStaffEmailInput('');
       setNewStaffNoteInput('');
+      setNewStaffStoresInput([]);
     } else {
       showToast(`該帳號「${clean}」已在店員名單中`, 'warning');
     }
@@ -210,21 +218,23 @@ export function SettingsPage() {
     }
   };
 
-  // 儲存帳號編輯 (名稱 + 附註)
+  // 儲存帳號編輯 (名稱 + 附註 + 門市)
   const handleSaveAccountEdit = (email: string, isStaff: boolean) => {
     const data = {
       name: editingNameValue.trim(),
       note: editingNoteValue.trim(),
+      assignedStores: editingStoresValue.length > 0 ? editingStoresValue : undefined,
     };
     if (isStaff) {
       updateStaffAccount(email, data);
     } else {
       updateAdminAccount(email, data);
     }
-    showToast(`已更新「${email}」的名稱與附註`, 'success');
+    showToast(`已更新「${email}」的資料與門市設定`, 'success');
     setEditingAccountEmail(null);
     setEditingNameValue('');
     setEditingNoteValue('');
+    setEditingStoresValue([]);
   };
 
   // 1. 若 OAuth 驗證身分未具備管理員權限 (Non-admin)
@@ -678,6 +688,7 @@ export function SettingsPage() {
                                   setEditingAccountEmail(account.email);
                                   setEditingNameValue(account.name || '');
                                   setEditingNoteValue(account.note || '');
+                                  setEditingStoresValue(account.assignedStores || []);
                                 }}
                                 className="text-xs text-zinc-400 hover:text-cyan-300 px-2 py-1 rounded bg-zinc-800/60 border border-zinc-700/60"
                                 title="編輯名稱與附註說明"
@@ -777,10 +788,10 @@ export function SettingsPage() {
                   </p>
                 </div>
 
-                {/* 新增店員 名稱、Gmail 與附註 */}
-                <form onSubmit={handleAddStaffEmailSubmit} className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/80 p-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-6 gap-2">
-                    <div className="sm:col-span-2">
+                {/* 新增店員 名稱、Gmail、所屬門市 與附註 */}
+                <form onSubmit={handleAddStaffEmailSubmit} className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/80 p-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                    <div className="sm:col-span-4">
                       <Input
                         type="text"
                         value={newStaffNameInput}
@@ -789,7 +800,7 @@ export function SettingsPage() {
                         className="text-sm font-semibold"
                       />
                     </div>
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-4">
                       <Input
                         type="email"
                         value={newStaffEmailInput}
@@ -799,7 +810,7 @@ export function SettingsPage() {
                         required
                       />
                     </div>
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-4">
                       <Input
                         type="text"
                         value={newStaffNoteInput}
@@ -809,7 +820,44 @@ export function SettingsPage() {
                       />
                     </div>
                   </div>
-                  <div className="flex justify-end">
+
+                  {/* 授權門市多選區域 */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-850">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-xs text-zinc-400 font-medium">授權門市 (可複選，不選則全門市):</span>
+                      {stores.map((s) => {
+                        const isSelected = newStaffStoresInput.includes(s);
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => {
+                              setNewStaffStoresInput((prev) =>
+                                isSelected ? prev.filter((item) => item !== s) : [...prev, s]
+                              );
+                            }}
+                            className={`px-2.5 py-1 text-xs rounded-lg border transition-all font-medium flex items-center gap-1.5 ${
+                              isSelected
+                                ? 'bg-emerald-950 border-emerald-500 text-emerald-300 shadow-sm'
+                                : 'bg-zinc-900 border-zinc-700/80 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
+                            }`}
+                          >
+                            <span>🏢 {s}</span>
+                            {isSelected ? (
+                              <span className="text-emerald-400 font-bold text-xs">✓</span>
+                            ) : (
+                              <span className="text-zinc-600 text-xs">+</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                      {newStaffStoresInput.length === 0 && (
+                        <span className="text-[11px] text-zinc-500 italic bg-zinc-900/60 px-2 py-0.5 rounded border border-zinc-800">
+                          🌐 允許登入全門市
+                        </span>
+                      )}
+                    </div>
+
                     <Button
                       type="submit"
                       variant="primary"
@@ -844,6 +892,22 @@ export function SettingsPage() {
                               <span className="font-mono text-xs text-emerald-300/80 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-900/40">
                                 {account.email}
                               </span>
+                              {account.assignedStores && account.assignedStores.length > 0 ? (
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  {account.assignedStores.map((st) => (
+                                    <span
+                                      key={st}
+                                      className="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-700/60 px-1.5 py-0.5 rounded font-semibold whitespace-nowrap"
+                                    >
+                                      🏢 {st}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-[10px] bg-zinc-800 text-zinc-400 border border-zinc-700 px-1.5 py-0.5 rounded whitespace-nowrap">
+                                  🌐 全部門市
+                                </span>
+                              )}
                               {isSelf && (
                                 <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-1.5 py-0.2 rounded font-bold whitespace-nowrap">
                                   您目前登入中
@@ -859,6 +923,7 @@ export function SettingsPage() {
                                     setEditingAccountEmail(account.email);
                                     setEditingNameValue(account.name || '');
                                     setEditingNoteValue(account.note || '');
+                                    setEditingStoresValue(account.assignedStores || []);
                                   }}
                                   className="text-xs text-zinc-400 hover:text-cyan-300 px-2 py-1 rounded bg-zinc-800/60 border border-zinc-700/60"
                                   title="編輯名稱與附註說明"
@@ -879,10 +944,10 @@ export function SettingsPage() {
                             </div>
                           </div>
 
-                          {/* 名稱與附註顯示或編輯欄位 */}
+                          {/* 名稱、門市與附註顯示或編輯欄位 */}
                           {isEditing ? (
-                            <div className="space-y-2 pt-1 bg-zinc-900/80 p-2.5 rounded-lg border border-zinc-700">
-                              <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-3 pt-1 bg-zinc-900/80 p-3 rounded-lg border border-zinc-700">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <div>
                                   <label className="block text-[11px] text-zinc-400 font-semibold mb-1">名稱/姓名</label>
                                   <Input
@@ -906,7 +971,47 @@ export function SettingsPage() {
                                   />
                                 </div>
                               </div>
-                              <div className="flex justify-end gap-2">
+
+                              <div>
+                                <label className="block text-[11px] text-zinc-400 font-semibold mb-1">
+                                  授權門市 (點擊切換，未選取代表全門市通用)
+                                </label>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {stores.map((s) => {
+                                    const isSelected = editingStoresValue.includes(s);
+                                    return (
+                                      <button
+                                        key={s}
+                                        type="button"
+                                        onClick={() => {
+                                          setEditingStoresValue((prev) =>
+                                            isSelected ? prev.filter((item) => item !== s) : [...prev, s]
+                                          );
+                                        }}
+                                        className={`px-2.5 py-1 text-xs rounded-lg border transition-all font-medium flex items-center gap-1.5 ${
+                                          isSelected
+                                            ? 'bg-emerald-950 border-emerald-500 text-emerald-300 shadow-sm'
+                                            : 'bg-zinc-800 border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200'
+                                        }`}
+                                      >
+                                        <span>🏢 {s}</span>
+                                        {isSelected ? (
+                                          <span className="text-emerald-400 font-bold">✓</span>
+                                        ) : (
+                                          <span className="text-zinc-600">+</span>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                  {editingStoresValue.length === 0 && (
+                                    <span className="text-[11px] text-zinc-500 italic bg-zinc-900/60 px-2 py-0.5 rounded border border-zinc-800">
+                                      🌐 允許登入全門市
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="flex justify-end gap-2 pt-1 border-t border-zinc-800">
                                 <button
                                   type="button"
                                   onClick={() => setEditingAccountEmail(null)}

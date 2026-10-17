@@ -1958,6 +1958,14 @@ components:
           type: string
           example: 系統最高管理員 / 總部
           description: Optional note / job title / shift info
+        assignedStores:
+          type: array
+          items:
+            type: string
+          example:
+            - 奇可門市
+            - 線上網購
+          description: Assigned store branches (optional; if omitted or empty, staff can access any store)
 
     CreateOAuthAccountRequest:
       type: object
@@ -1974,7 +1982,13 @@ components:
           example: 王小美
         note:
           type: string
-          example: 台北店早班店員
+          example: 奇可門市早班店員
+        assignedStores:
+          type: array
+          items:
+            type: string
+          example:
+            - 奇可門市
 
     UpdateOAuthAccountRequest:
       type: object
@@ -1986,5 +2000,12 @@ components:
           example: 王小美
         note:
           type: string
-          example: 台北店早班主管
+          example: 奇可門市早班主管
+        assignedStores:
+          type: array
+          items:
+            type: string
+          example:
+            - 奇可門市
+            - 線上網購
 

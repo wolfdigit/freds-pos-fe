@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react';
 import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
 import { Button } from '@/components/common/Button';
-import { Input } from '@/components/common/Input';
-import { Modal } from '@/components/common/Modal';
 import { resetDemoData, isMockService, toggleMockMode } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -25,15 +23,22 @@ function formatClock(date: Date): string {
 }
 
 export function Header() {
-  const { storeName, stores, cashierName, setStoreName } = useSessionStore();
+  const {
+    storeName,
+    stores,
+    cashierName,
+    setStoreName,
+    userRole,
+    oauthUser,
+    adminAccounts,
+    staffAccounts,
+    isSystemAdmin,
+  } = useSessionStore();
   const setActiveTab = useUiStore((s) => s.setActiveTab);
   const { theme, toggleTheme } = useThemeStore();
   const now = useClock();
   const showToast = useToastStore((s) => s.showToast);
   const [confirmingReset, setConfirmingReset] = useState(false);
-  const [customStoreOpen, setCustomStoreOpen] = useState(false);
-  const [customStoreName, setCustomStoreName] = useState('');
-  const [customStoreError, setCustomStoreError] = useState('');
 
   const handleReset = () => {
     if (!confirmingReset) {
@@ -48,30 +53,25 @@ export function Header() {
     setTimeout(() => window.location.reload(), 800);
   };
 
-  const availableStores = stores && stores.length > 0 ? stores : [storeName];
+  const currentAccount = userRole === 'admin'
+    ? adminAccounts.find((a) => a.email.toLowerCase() === (oauthUser?.email || '').toLowerCase())
+    : staffAccounts.find((a) => a.email.toLowerCase() === (oauthUser?.email || '').toLowerCase());
+
+  const assignedStores = currentAccount?.assignedStores;
+  const isStoreRestricted = !isSystemAdmin() && Boolean(assignedStores && assignedStores.length > 0);
+  const availableStores = isStoreRestricted && assignedStores && assignedStores.length > 0
+    ? (stores || []).filter((s) => assignedStores.includes(s))
+    : stores && stores.length > 0
+    ? stores
+    : [storeName];
+
+  // 避免 availableStores 為空的情況
+  const safeStores = availableStores.length > 0 ? availableStores : [storeName];
 
   const handleStoreChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
-    if (val === '__CUSTOM__') {
-      setCustomStoreName('');
-      setCustomStoreError('');
-      setCustomStoreOpen(true);
-      return;
-    }
     setStoreName(val);
     showToast(`已成功更換登入門市為：「${val}」`, 'success');
-  };
-
-  const handleCustomStoreSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const name = customStoreName.trim();
-    if (!name) {
-      setCustomStoreError('請填寫門市名稱');
-      return;
-    }
-    setStoreName(name);
-    showToast(`已成功更換登入門市為：「${name}」`, 'success');
-    setCustomStoreOpen(false);
   };
 
   const handleLogoutClick = () => {
@@ -93,22 +93,37 @@ export function Header() {
         {/* 可更改登入門市選單 */}
         <div className="flex items-center gap-1.5 text-zinc-300 font-medium">
           <span className="text-zinc-400 text-xs">登入門市:</span>
-          <select
-            value={availableStores.includes(storeName) ? storeName : '__CUSTOM__'}
-            onChange={handleStoreChange}
-            className="cursor-pointer rounded-lg border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-sm font-semibold text-cyan-300 shadow-sm transition-all hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-            title="點擊更改登入門市"
-          >
-            {availableStores.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-            {!availableStores.includes(storeName) && (
-              <option value="__CUSTOM__">{storeName}</option>
-            )}
-            <option value="__CUSTOM__">自訂其他門市...</option>
-          </select>
+          {isStoreRestricted && safeStores.length === 1 ? (
+            <div
+              className="flex items-center gap-1.5 rounded-lg border border-emerald-700/60 bg-zinc-800/90 px-2.5 py-1 text-sm font-semibold text-emerald-300 shadow-sm cursor-not-allowed"
+              title={`此帳號已綁定專屬門市「${safeStores[0]}」，無法跨店切換`}
+            >
+              <span>🏢 {safeStores[0]}</span>
+              <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-1 py-0.2 rounded font-mono">
+                專屬門市
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1">
+              <select
+                value={storeName}
+                onChange={handleStoreChange}
+                className="cursor-pointer rounded-lg border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-sm font-semibold text-cyan-300 shadow-sm transition-all hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+                title={isStoreRestricted ? '切換您被授權的門市' : '點擊更改登入門市'}
+              >
+                {safeStores.map((s) => (
+                  <option key={s} value={s}>
+                    🏢 {s}
+                  </option>
+                ))}
+              </select>
+              {isStoreRestricted && (
+                <span className="text-[10px] bg-cyan-950/80 text-cyan-400 border border-cyan-800/80 px-1.5 py-0.5 rounded font-mono" title={`授權門市：${safeStores.join('、')}`}>
+                  授權 {safeStores.length} 店
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <span className="text-zinc-600">|</span>
@@ -167,29 +182,6 @@ export function Header() {
           </Button>
         )}
       </div>
-
-      <Modal open={customStoreOpen} onClose={() => setCustomStoreOpen(false)} title="自訂登入門市">
-        <form onSubmit={handleCustomStoreSubmit} className="space-y-4 text-sm text-zinc-200">
-          <div>
-            <label htmlFor="custom-store-name" className="mb-1 block text-sm font-medium text-zinc-300">門市名稱</label>
-            <Input
-              id="custom-store-name"
-              value={customStoreName}
-              onChange={(e) => setCustomStoreName(e.target.value)}
-              placeholder="例如：信義概念店"
-            />
-            {customStoreError && <p className="mt-1 text-xs font-medium text-rose-300">{customStoreError}</p>}
-          </div>
-          <div className="flex justify-end gap-3 border-t border-zinc-800 pt-3">
-            <Button type="button" variant="secondary" onClick={() => setCustomStoreOpen(false)}>
-              取消
-            </Button>
-            <Button type="submit" variant="primary">
-              確認更換
-            </Button>
-          </div>
-        </form>
-      </Modal>
     </header>
   );
 }
