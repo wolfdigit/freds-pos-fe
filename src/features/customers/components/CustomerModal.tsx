@@ -17,7 +17,7 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
-  const [vipTier, setVipTier] = useState<VipTier>('regular');
+  const [vipTier, setVipTier] = useState<VipTier>('Retail');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ name?: string; phone?: string }>({});
@@ -37,7 +37,7 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
         setName('');
         setPhone('');
         setEmail('');
-        setVipTier('regular');
+        setVipTier('Retail');
         setNote('');
       }
       setErrors({});
@@ -98,15 +98,15 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={isEdit ? '✏️ 編輯會員資料' : '➕ 新增客戶會員'}>
+    <Modal open={open} onClose={onClose} title={isEdit ? '✏️ 編輯客戶會員資料' : '➕ 新增客戶會員'}>
       <form onSubmit={handleSubmit} className="space-y-4 text-sm text-zinc-200">
         <div>
           <label htmlFor="customer-name" className="mb-1 block text-xs font-medium text-zinc-400">
-            客戶姓名 <span className="text-rose-400">*</span>
+            客戶姓名 / 店家名稱 <span className="text-rose-400">*</span>
           </label>
           <Input
             id="customer-name"
-            placeholder="例如：陳冠宇 或 極速模型工作室"
+            placeholder="例如：陳冠宇 或 Max Gear 或 創Q本館"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -116,7 +116,7 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label htmlFor="customer-phone" className="mb-1 block text-xs font-medium text-zinc-400">
-              手機號碼 <span className="text-rose-400">*</span>
+              手機號碼 / 聯絡電話 <span className="text-rose-400">*</span>
             </label>
             <Input
               id="customer-phone"
@@ -140,17 +140,17 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
         </div>
 
         <div>
-          <label htmlFor="customer-tier" className="mb-1 block text-xs font-medium text-zinc-400">VIP 會員等級</label>
+          <label htmlFor="customer-tier" className="mb-1 block text-xs font-medium text-zinc-400">客戶等級 / 經銷分類</label>
           <select
             id="customer-tier"
             value={vipTier}
             onChange={(e) => setVipTier(e.target.value as VipTier)}
             className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:border-cyan-400 focus:outline-none"
           >
-            <option value="regular">一般會員 (無折扣)</option>
-            <option value="silver">銀卡會員 (98折)</option>
-            <option value="gold">金卡會員 (95折)</option>
-            <option value="platinum">白金黑卡 (9折)</option>
+            <option value="Retail">Retail (一般零售)</option>
+            <option value="B">B 級批發經銷</option>
+            <option value="A">A 級批發經銷</option>
+            <option value="S">S 級特約經銷</option>
           </select>
         </div>
 

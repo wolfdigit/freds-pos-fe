@@ -65,7 +65,7 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
     if (!barcode.trim()) next.barcode = '請填寫國際條碼';
     if (!name.trim()) next.name = '請填寫商品品名';
     const price = Number(listPrice);
-    if (listPrice.trim() === '' || Number.isNaN(price) || price < 0) next.listPrice = '請填寫正確的門市定價';
+    if (listPrice.trim() === '' || Number.isNaN(price) || price < 0) next.listPrice = '請填寫正確的建議售價';
     setErrors(next);
     if (Object.keys(next).length > 0) return;
 
@@ -187,19 +187,10 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
           {errors.name && <p className="mt-1 text-xs font-medium text-rose-300">{errors.name}</p>}
         </div>
 
-        {/* 4. 規格與定價 */}
+        {/* 4. 定價與規格 */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="create-product-spec" className="mb-1 block text-sm font-medium text-zinc-300">規格 (材質/顏色/變體)</label>
-            <Input
-              id="create-product-spec"
-              value={spec}
-              onChange={(e) => setSpec(e.target.value)}
-              placeholder="例如: 灣岸藍 / 合金全開 / 限量版"
-            />
-          </div>
-          <div>
-            <label htmlFor="create-product-price" className="mb-1 block text-sm font-medium text-zinc-300">門市定價 (TWD) *</label>
+            <label htmlFor="create-product-price" className="mb-1 block text-sm font-medium text-zinc-300">建議售價 (MSRP / 門市定價) *</label>
             <Input
               id="create-product-price"
               monospace
@@ -207,9 +198,18 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
               min={0}
               value={listPrice}
               onChange={(e) => setListPrice(e.target.value)}
-              placeholder="6800"
+              placeholder="例如 630"
             />
             {errors.listPrice && <p className="mt-1 text-xs font-medium text-rose-300">{errors.listPrice}</p>}
+          </div>
+          <div>
+            <label htmlFor="create-product-spec" className="mb-1 block text-sm font-medium text-zinc-300">規格說明 (選填)</label>
+            <Input
+              id="create-product-spec"
+              value={spec}
+              onChange={(e) => setSpec(e.target.value)}
+              placeholder="例如: 吊卡版 / 盒裝版 / Chase"
+            />
           </div>
         </div>
 
@@ -220,7 +220,7 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
             id="create-product-note"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="例如: 限量 500 台、附壓克力展示盒..."
+            placeholder="例如: 現貨6、美國限定..."
           />
         </div>
 

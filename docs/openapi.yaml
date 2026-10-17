@@ -648,7 +648,7 @@ paths:
           in: query
           schema:
             type: string
-            enum: [ALL, regular, silver, gold, platinum]
+            enum: [ALL, Retail, B, A, S]
           description: Filter by VIP tier or ALL
         - name: page
           in: query
@@ -1222,6 +1222,7 @@ components:
           type: string
         listPrice:
           type: integer
+          description: 建議售價 / 門市定價 (即試算表之 MSRP)
         costPrice:
           type: integer
         vipPrice:
@@ -1236,6 +1237,22 @@ components:
           type: string
         status:
           $ref: '#/components/schemas/ProductStatus'
+        createdAt:
+          type: string
+          readOnly: true
+          description: 建立時間
+        createdBy:
+          type: string
+          readOnly: true
+          description: 建檔人員 (後端由 Auth 取得)
+        updatedAt:
+          type: string
+          readOnly: true
+          description: 更新時間
+        updatedBy:
+          type: string
+          readOnly: true
+          description: 更新人員 (後端由 Auth 取得)
 
     CreateProductRequest:
       type: object
@@ -1272,6 +1289,7 @@ components:
         listPrice:
           type: integer
           minimum: 0
+          description: 建議售價 / 門市定價 (即試算表之 MSRP)
         costPrice:
           type: integer
           minimum: 0
@@ -1311,6 +1329,7 @@ components:
         listPrice:
           type: integer
           minimum: 0
+          description: 建議售價 / 門市定價 (即試算表之 MSRP)
         costPrice:
           type: integer
           minimum: 0
@@ -1455,7 +1474,6 @@ components:
         - productId
         - sku
         - name
-        - scale
         - originalPrice
         - unitPrice
         - isManualPrice
@@ -1474,23 +1492,23 @@ components:
           type: integer
         unitPrice:
           type: integer
+          description: 結帳成交單價
         isManualPrice:
           type: boolean
         priceDiffReason:
           type: string
         quantity:
           type: integer
-          description: Negative = return / exchange
+          description: Positive for purchase, negative for return/exchange
         subtotal:
           type: integer
+        note:
+          type: string
+          description: 項目備註
         returnedQuantity:
           type: integer
           description: Cumulative quantity returned against this line item
           default: 0
-        preOrderId:
-          type: string
-        preOrderItemId:
-          type: string
         originalOrderId:
           type: string
         originalOrderItemId:
@@ -1559,6 +1577,21 @@ components:
         createdAt:
           type: string
           format: date-time
+          readOnly: true
+          description: 建立時間
+        createdBy:
+          type: string
+          readOnly: true
+          description: 建檔人員
+        updatedAt:
+          type: string
+          format: date-time
+          readOnly: true
+          description: 更新時間
+        updatedBy:
+          type: string
+          readOnly: true
+          description: 更新人員
 
     CreateOrderItemPayload:
       type: object
@@ -1577,10 +1610,6 @@ components:
           default: false
         priceDiffReason:
           type: string
-        preOrderId:
-          type: string
-        preOrderItemId:
-          type: string
         originalOrderId:
           type: string
           description: Required when quantity < 0 (links return to original sales order)
@@ -1592,6 +1621,8 @@ components:
           default: true
           description: For returns, whether returned item is restocked to store inventory
         returnReason:
+          type: string
+        note:
           type: string
 
     CreateOrderPayload:
@@ -1786,7 +1817,7 @@ components:
 
     VipTier:
       type: string
-      enum: [regular, silver, gold, platinum]
+      enum: [Retail, B, A, S]
 
     Customer:
       type: object
@@ -1803,21 +1834,39 @@ components:
           type: string
         name:
           type: string
+          description: Customer_Name (客戶姓名/名稱)
         phone:
           type: string
+          description: Phone (電話/手機)
         email:
           type: string
           format: email
         vipTier:
           $ref: '#/components/schemas/VipTier'
+          description: Tier (等級：Retail, B, A, S)
         vipTierName:
           type: string
         totalSpent:
           type: integer
         note:
           type: string
+          description: 備註
         createdAt:
           type: string
+          readOnly: true
+          description: 建立時間
+        createdBy:
+          type: string
+          readOnly: true
+          description: 建檔人員 (後端由 Auth 取得)
+        updatedAt:
+          type: string
+          readOnly: true
+          description: 更新時間
+        updatedBy:
+          type: string
+          readOnly: true
+          description: 更新人員 (後端由 Auth 取得)
 
     CreateCustomerRequest:
       type: object

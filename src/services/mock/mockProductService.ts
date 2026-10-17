@@ -65,6 +65,10 @@ export class MockProductService implements IProductService {
       id: `prod-${Date.now()}`,
       normalizedSku: normalized,
       totalStock: 0,
+      createdAt: new Date().toISOString(),
+      createdBy: '系統管理員',
+      updatedAt: new Date().toISOString(),
+      updatedBy: '系統管理員',
       stocks: [
         { location: 'store', locationName: '門市現貨', quantity: 0 },
         { location: 'warehouse', locationName: '後方倉庫', quantity: 0 },
@@ -101,6 +105,8 @@ export class MockProductService implements IProductService {
       ...updates,
       sku: updates.sku ? updates.sku.trim() : orig.sku,
       normalizedSku: updates.sku ? normalizeSku(updates.sku) : orig.normalizedSku,
+      updatedAt: new Date().toISOString(),
+      updatedBy: '系統管理員',
     };
 
     const finalProduct = recalcTotalStock(updated);

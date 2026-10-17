@@ -1,16 +1,22 @@
-export type VipTier = 'regular' | 'silver' | 'gold' | 'platinum';
+export type VipTier =
+  | 'S'
+  | 'A'
+  | 'B'
+  | 'Retail';
 
 export interface Customer {
   id: string;
-  name: string;
-  phone: string;
-  email: string | null;
-  vipTier: VipTier;
+  name: string; // Customer_Name
+  phone: string; // Phone
+  email: string | null; // Email
+  vipTier: VipTier; // Tier
   vipTierName: string;
   totalSpent: number;
-  note?: string;
+  note?: string; // 備註
   createdAt: string;
+  createdBy?: string; // 建檔人員 (Auth)
   updatedAt: string;
+  updatedBy?: string; // 更新人員 (Auth)
 }
 
 export interface CreateCustomerRequest {
@@ -45,14 +51,14 @@ export interface CustomerSearchResponse {
 
 export function getVipTierName(tier: VipTier): string {
   switch (tier) {
-    case 'platinum':
-      return '白金黑卡 (9折)';
-    case 'gold':
-      return '金卡會員 (95折)';
-    case 'silver':
-      return '銀卡會員 (98折)';
-    case 'regular':
+    case 'S':
+      return 'S 級特約經銷';
+    case 'A':
+      return 'A 級批發經銷';
+    case 'B':
+      return 'B 級批發經銷';
+    case 'Retail':
     default:
-      return '一般會員';
+      return '零售客戶 (Retail)';
   }
 }

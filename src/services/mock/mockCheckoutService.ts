@@ -120,6 +120,7 @@ export class MockCheckoutService implements ICheckoutService {
         priceDiffReason: item.priceDiffReason,
         quantity: item.quantity,
         subtotal: lineSubtotal,
+        note: item.note,
         returnedQuantity: 0,
         originalOrderId: item.originalOrderId,
         originalOrderItemId: item.originalOrderItemId,
@@ -189,7 +190,7 @@ export class MockCheckoutService implements ICheckoutService {
       cashierName: '店長 Fred',
       status: 'completed',
       customerId: payload.customerId,
-      customerName: customer?.name,
+      customerName: customer?.name || 'Retail',
       customerPhone: customer?.phone,
       items: calculatedItems,
       itemsSubtotal,
@@ -199,6 +200,9 @@ export class MockCheckoutService implements ICheckoutService {
       payments: payload.payments,
       note: payload.note,
       createdAt: nowIso(),
+      createdBy: '店長 Fred',
+      updatedAt: nowIso(),
+      updatedBy: '店長 Fred',
     };
 
     // 3.5 更新會員消費額

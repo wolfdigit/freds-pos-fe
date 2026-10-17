@@ -10,18 +10,22 @@ export interface LocationStock {
 
 export interface Product {
   id: string;
-  sku: string;
+  sku: string; // SKU (貨號)
   normalizedSku: string;
-  barcode: string;
-  brand: string;
-  name: string;
-  scale?: ModelScale | string;
-  spec?: string;
+  barcode: string; // Barcode (國際條碼)
+  brand: string; // Brand (品牌)
+  name: string; // Item_Name (品名)
+  scale?: ModelScale | string; // 模型比例 (1:64, 1:43, 1:18 等)
+  spec?: string; // 規格 / 版本說明
   imageUrl?: string;
-  listPrice: number;
+  listPrice: number; // 門市定價 / 建議售價 (即試算表 MSRP)
   stocks: LocationStock[];
   totalStock: number;
-  note?: string;
+  note?: string; // 備註 (Note)
+  createdAt?: string; // 建檔時間
+  createdBy?: string; // 建檔人員 (Auth)
+  updatedAt?: string; // 更新時間
+  updatedBy?: string; // 更新人員 (Auth)
 }
 
 export interface ProductSearchParams {
@@ -39,7 +43,7 @@ export interface CreateProductRequest {
   scale?: ModelScale | string;
   spec?: string;
   imageUrl?: string;
-  listPrice: number;
+  listPrice: number; // 建議售價 (即試算表 MSRP)
   note?: string;
 }
 
@@ -51,6 +55,6 @@ export interface UpdateProductRequest {
   scale?: ModelScale | string;
   spec?: string;
   imageUrl?: string;
-  listPrice?: number;
+  listPrice?: number; // 建議售價 (即試算表 MSRP)
   note?: string;
 }

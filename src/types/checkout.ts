@@ -30,6 +30,7 @@ export interface CheckoutOrderItem {
   priceDiffReason?: string;
   quantity: number;
   subtotal: number;
+  note?: string;
   returnedQuantity?: number;
   originalOrderId?: string;
   originalOrderItemId?: string;
@@ -56,6 +57,9 @@ export interface CheckoutOrder {
   payments: PaymentTender[];
   note?: string;
   createdAt: string;
+  createdBy?: string;
+  updatedAt: string;
+  updatedBy?: string;
 }
 
 export interface CreateOrderItemPayload {
@@ -68,6 +72,7 @@ export interface CreateOrderItemPayload {
   originalOrderItemId?: string;
   restock?: boolean;
   returnReason?: string;
+  note?: string;
 }
 
 export interface CreateOrderPayload {
