@@ -20,6 +20,7 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
   const [vipTier, setVipTier] = useState<VipTier>('Retail');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; phone?: string }>({});
   const showToast = useToastStore((s) => s.showToast);
 
   const isEdit = !!customer;
@@ -39,19 +40,17 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
         setVipTier('Retail');
         setNote('');
       }
+      setErrors({});
     }
   }, [open, customer]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      showToast('請輸入客戶姓名', 'warning');
-      return;
-    }
-    if (!phone.trim()) {
-      showToast('請輸入手機號碼', 'warning');
-      return;
-    }
+    const next: { name?: string; phone?: string } = {};
+    if (!name.trim()) next.name = '請填寫客戶姓名';
+    if (!phone.trim()) next.phone = '請填寫手機號碼';
+    setErrors(next);
+    if (next.name || next.phone) return;
 
     setSubmitting(true);
     try {
@@ -99,36 +98,39 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={isEdit ? '✏️ 編輯客戶會員資料' : '➕ 新增客戶會員'}>
+    <Modal open={open} onClose={onClose} title={isEdit ? '編輯客戶會員資料' : '新增客戶會員'}>
       <form onSubmit={handleSubmit} className="space-y-4 text-sm text-zinc-200">
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">
+          <label htmlFor="customer-name" className="mb-1 block text-xs font-medium text-zinc-400">
             客戶姓名 / 店家名稱 <span className="text-rose-400">*</span>
           </label>
           <Input
+            id="customer-name"
             placeholder="例如：陳冠宇 或 Max Gear 或 創Q本館"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            required
           />
+          {errors.name && <p className="mt-1 text-xs font-medium text-rose-300">{errors.name}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">
+            <label htmlFor="customer-phone" className="mb-1 block text-xs font-medium text-zinc-400">
               手機號碼 / 聯絡電話 <span className="text-rose-400">*</span>
             </label>
             <Input
+              id="customer-phone"
               monospace
               placeholder="0912345678"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              required
             />
+            {errors.phone && <p className="mt-1 text-xs font-medium text-rose-300">{errors.phone}</p>}
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium text-zinc-400">電子信箱 (選填)</label>
+            <label htmlFor="customer-email" className="mb-1 block text-xs font-medium text-zinc-400">電子信箱 (選填)</label>
             <Input
+              id="customer-email"
               type="email"
               placeholder="user@example.com"
               value={email}
@@ -138,8 +140,9 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">客戶等級 / 經銷分類</label>
+          <label htmlFor="customer-tier" className="mb-1 block text-xs font-medium text-zinc-400">客戶等級 / 經銷分類</label>
           <select
+            id="customer-tier"
             value={vipTier}
             onChange={(e) => setVipTier(e.target.value as VipTier)}
             className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 focus:border-cyan-400 focus:outline-none"
@@ -152,8 +155,9 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium text-zinc-400">偏好與備註事項</label>
+          <label htmlFor="customer-note" className="mb-1 block text-xs font-medium text-zinc-400">偏好與備註事項</label>
           <textarea
+            id="customer-note"
             rows={3}
             placeholder="例如：主力收藏 1:18 日系 JDM、開統編 83521409..."
             value={note}

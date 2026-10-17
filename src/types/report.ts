@@ -5,18 +5,17 @@ export type ReportType = 'daily';
 export interface PaymentMethodOption {
   type: PaymentMethodType | 'all';
   label: string;
-  icon: string;
 }
 
 export const PAYMENT_METHOD_OPTIONS: PaymentMethodOption[] = [
-  { type: 'all', label: '全部付款方式', icon: '⚡' },
-  { type: 'cash', label: '現金', icon: '💵' },
-  { type: 'bank_transfer_ctbc', label: '轉帳(中信)', icon: '🏦' },
-  { type: 'bank_transfer_ubot', label: '轉帳(聯邦)', icon: '🏦' },
-  { type: 'credit_card_physical', label: '信用卡(實體)', icon: '💳' },
-  { type: 'credit_card_online', label: '信用卡(網路)', icon: '🌐' },
-  { type: 'line_pay', label: 'LINE Pay', icon: '📱' },
-  { type: 'cod', label: '貨到付款', icon: '📦' },
+  { type: 'all', label: '全部付款方式' },
+  { type: 'cash', label: '現金' },
+  { type: 'bank_transfer_ctbc', label: '轉帳(中信)' },
+  { type: 'bank_transfer_ubot', label: '轉帳(聯邦)' },
+  { type: 'credit_card_physical', label: '信用卡(實體)' },
+  { type: 'credit_card_online', label: '信用卡(網路)' },
+  { type: 'line_pay', label: 'LINE Pay' },
+  { type: 'cod', label: '貨到付款' },
 ];
 
 export interface PaymentMethodStat {

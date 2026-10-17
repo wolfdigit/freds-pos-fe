@@ -35,18 +35,16 @@ export function CustomerDetailPanel({ customer, onEditClick }: CustomerDetailPan
               </div>
               <p className="mt-1 font-mono text-sm text-zinc-400 flex flex-wrap items-center gap-3">
                 <span className="flex items-center">
-                  <span className="select-none mr-1 text-zinc-500">📞</span>
                   <span className="select-text">{customer.phone}</span>
                 </span>
                 {customer.email && (
                   <span className="flex items-center text-zinc-500">
-                    <span className="select-none mr-1">✉️</span>
                     <span className="select-text text-zinc-400">{customer.email}</span>
                   </span>
                 )}
                 {customer.createdBy && (
                   <span className="text-zinc-500 flex items-center">
-                    <span className="select-none mr-1">👤 建檔人：</span>
+                    <span className="select-none mr-1">建檔人：</span>
                     <span className="select-text text-zinc-400">{customer.createdBy}</span>
                   </span>
                 )}
@@ -59,7 +57,7 @@ export function CustomerDetailPanel({ customer, onEditClick }: CustomerDetailPan
           </div>
 
           <Button size="sm" variant="secondary" onClick={onEditClick} className="px-3 py-1.5 text-xs font-semibold">
-            ✏️ 編輯會員資料
+            編輯會員資料
           </Button>
         </div>
 
@@ -67,7 +65,6 @@ export function CustomerDetailPanel({ customer, onEditClick }: CustomerDetailPan
         <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="rounded-lg border border-zinc-800/80 bg-zinc-950/50 p-3">
             <p className="text-xs font-medium text-zinc-400 flex items-center">
-              <span className="select-none mr-1">💰</span>
               <span>累計消費總額</span>
             </p>
             <p className="mt-1 font-mono text-xl font-bold text-cyan-300 select-text">
@@ -77,7 +74,6 @@ export function CustomerDetailPanel({ customer, onEditClick }: CustomerDetailPan
 
           <div className="sm:col-span-2 rounded-lg border border-zinc-800/80 bg-zinc-950/50 p-3">
             <p className="text-xs font-medium text-zinc-400 flex items-center">
-              <span className="select-none mr-1">💬</span>
               <span>偏好與備註</span>
             </p>
             <p className="mt-1 text-xs text-zinc-200 line-clamp-2 select-text">
@@ -90,7 +86,7 @@ export function CustomerDetailPanel({ customer, onEditClick }: CustomerDetailPan
       {/* 標題欄 */}
       <div className="mt-5 flex items-center justify-between border-b border-zinc-800/80 pb-2 shrink-0">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
-          <span>🧾 歷史結帳紀錄</span>
+          <span>歷史結帳紀錄</span>
         </h3>
       </div>
 

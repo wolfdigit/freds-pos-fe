@@ -51,7 +51,7 @@ export function CreateLocationModal({
         isActive,
       });
 
-      showToast(`✨ 成功新增庫存地點：「${created.name}」`, 'success');
+      showToast(`成功新增庫存地點：「${created.name}」`, 'success');
       onSuccess(created);
       onClose();
       setName('');
@@ -66,13 +66,14 @@ export function CreateLocationModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="➕ 新增庫存據點" widthClassName="max-w-md">
+    <Modal open={open} onClose={onClose} title="新增庫存據點" widthClassName="max-w-md">
       <form onSubmit={handleSubmit} className="space-y-4 text-base">
         <div>
-          <label className="mb-1 block text-sm font-semibold text-zinc-300">
+          <label htmlFor="create-location-name" className="mb-1 block text-sm font-semibold text-zinc-300">
             據點名稱 <span className="text-rose-400">*</span>
           </label>
           <Input
+            id="create-location-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="例如: 高雄巨蛋門市, 桃園發貨倉, B1特賣展場"
@@ -81,12 +82,12 @@ export function CreateLocationModal({
             className="text-lg font-bold"
           />
           <span className="text-xs text-zinc-500 mt-1 block">
-            💡 系統將自動為此據點指派 UUID 唯一識別碼
+            系統將自動為此據點指派 UUID 唯一識別碼
           </span>
         </div>
 
         <div>
-          <label className="mb-1 block text-sm font-semibold text-zinc-300">
+          <label htmlFor="create-location-icon" className="mb-1 block text-sm font-semibold text-zinc-300">
             據點圖示 (Icon)
           </label>
           <div className="flex items-center gap-2 mb-2">
@@ -94,6 +95,7 @@ export function CreateLocationModal({
               {icon}
             </span>
             <Input
+              id="create-location-icon"
               value={icon}
               onChange={(e) => setIcon(e.target.value)}
               placeholder="輸入 Emoji 或文字"

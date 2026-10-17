@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useId, type ReactNode } from 'react';
 import { cn } from '@/utils/cn';
 
 interface ModalProps {
@@ -11,6 +11,8 @@ interface ModalProps {
 }
 
 export function Modal({ open, onClose, title, children, widthClassName = 'max-w-lg', zIndexClassName = 'z-50' }: ModalProps) {
+  const titleId = useId();
+
   useEffect(() => {
     if (!open) return;
     const handleKey = (e: KeyboardEvent) => {
@@ -25,13 +27,16 @@ export function Modal({ open, onClose, title, children, widthClassName = 'max-w-
   return (
     <div className={cn('fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4', zIndexClassName)}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className={cn(
           'w-full max-h-[90vh] flex flex-col rounded-xl border border-zinc-800 bg-zinc-900 shadow-2xl shadow-black/50 overflow-hidden',
           widthClassName
         )}
       >
         <div className="flex items-center justify-between border-b border-zinc-800/80 px-6 py-3.5 select-none shrink-0 bg-zinc-900/90">
-          <h2 className="text-lg font-bold text-zinc-100">{title}</h2>
+          <h2 id={titleId} className="text-lg font-bold text-zinc-100">{title}</h2>
           <button
             onClick={onClose}
             className="rounded-md p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 text-lg transition-colors"

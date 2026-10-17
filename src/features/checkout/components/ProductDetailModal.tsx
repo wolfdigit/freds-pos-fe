@@ -97,7 +97,7 @@ export function ProductDetailModal({
         {hasMultipleSkus && (
           <div className="rounded-xl border border-cyan-800/60 bg-cyan-950/30 p-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-cyan-300 font-bold text-sm">🏷️ 同條碼其他貨號：</span>
+              <span className="text-cyan-300 font-bold text-sm">同條碼其他貨號：</span>
               <span className="text-xs text-zinc-400 font-mono">
                 (條碼: {currentProduct.barcode})
               </span>
@@ -157,7 +157,7 @@ export function ProductDetailModal({
         {/* 庫存分佈狀況 (依需求 8：主要顯示各位置數量、可現售數量；總庫存為次要資訊) */}
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
-            <h4 className="text-sm font-bold text-zinc-300">📍 庫存狀況與位置分佈</h4>
+            <h4 className="text-sm font-bold text-zinc-300">庫存狀況與位置分佈</h4>
           </div>
 
           {/* 主要資訊：各位置數量 + 可現售數量 */}
@@ -212,7 +212,7 @@ export function ProductDetailModal({
               }}
               className="text-sm font-semibold text-cyan-300 border-cyan-700/60 hover:bg-cyan-950/40"
             >
-              ✏️ 編輯商品資訊
+              編輯商品資訊
             </Button>
           )}
           <Button variant="ghost" size="md" onClick={onClose} className="text-sm">
@@ -228,7 +228,7 @@ export function ProductDetailModal({
               }}
               className="text-sm font-bold"
             >
-              🛒 加入待結清單 ({currentProduct.sku})
+              加入待結清單 ({currentProduct.sku})
             </Button>
           )}
         </div>

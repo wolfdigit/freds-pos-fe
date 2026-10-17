@@ -70,7 +70,7 @@ export function StockAdjustmentReceiptModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="📦 倉庫理貨清單"
+      title="倉庫理貨清單"
       widthClassName="max-w-2xl"
     >
       <div className="space-y-4 text-base">
@@ -95,7 +95,7 @@ export function StockAdjustmentReceiptModal({
           <div>
             <div className="flex items-center justify-between text-xs mb-1.5">
               <span className="font-semibold text-zinc-300">
-                📦 理貨進度: <strong className="text-emerald-400 text-sm font-mono">{doneCount}</strong> / {totalCount} 品項
+                理貨進度: <strong className="text-emerald-400 text-sm font-mono">{doneCount}</strong> / {totalCount} 品項
               </span>
               <span className="font-mono font-bold text-cyan-300 text-sm">
                 {progressPercent}%
@@ -157,9 +157,8 @@ export function StockAdjustmentReceiptModal({
         <div className="max-h-[50vh] min-h-[220px] overflow-y-auto space-y-2.5 pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:bg-zinc-700 [&::-webkit-scrollbar-thumb]:rounded-full">
           {filteredAdjustments.length === 0 ? (
             <div className="flex h-36 flex-col items-center justify-center rounded-xl border border-dashed border-zinc-800 text-zinc-500 text-sm">
-              <span className="text-2xl mb-1">✨</span>
               <span>
-                {filter === 'PENDING' ? '太棒了！所有品項皆已理貨完成 🎉' : '無符合此條件的理貨項目'}
+                {filter === 'PENDING' ? '太棒了！所有品項皆已理貨完成' : '無符合此條件的理貨項目'}
               </span>
             </div>
           ) : (
@@ -210,7 +209,7 @@ export function StockAdjustmentReceiptModal({
                   {/* 第二層：高對比國際條碼 (條碼機/肉眼在貨架極易核對) */}
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs sm:text-sm font-bold text-amber-300 bg-zinc-950 border border-zinc-800 px-2.5 py-0.5 rounded-md">
-                      🏷️ {item.barcode || '無條碼'}
+                      {item.barcode || '無條碼'}
                     </span>
                     <span className="rounded bg-cyan-950 border border-cyan-800/80 px-2 py-0.5 text-xs font-semibold text-cyan-300">
                       {item.summaryText}
@@ -259,14 +258,14 @@ export function StockAdjustmentReceiptModal({
         {/* 4. 底部動作列 */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-2 border-t border-zinc-800">
           <p className="text-xs text-zinc-500 font-mono text-center sm:text-left">
-            💡 理貨提示：點擊卡片即可勾選完成理貨，核對貨架與實物無誤後點擊關閉。
+            理貨提示：點擊卡片即可勾選完成理貨，核對貨架與實物無誤後點擊關閉。
           </p>
           <Button
             variant="primary"
             onClick={onClose}
             className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold text-base px-6 py-2.5 shadow-md"
           >
-            ✅ 完成理貨 (關閉)
+            完成理貨 (關閉)
           </Button>
         </div>
       </div>

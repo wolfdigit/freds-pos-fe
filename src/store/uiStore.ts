@@ -11,6 +11,7 @@ interface UiStore {
   isPaymentModalOpen: boolean;
   isStockTransferModalOpen: boolean;
   isProductCreateModalOpen: boolean;
+  productCreateKeyword: string;
   selectedCustomerId: string | null;
   currentEditingCartItem: CartItem | null;
 
@@ -25,7 +26,7 @@ interface UiStore {
   closePaymentModal: () => void;
   openStockTransferModal: () => void;
   closeStockTransferModal: () => void;
-  openProductCreateModal: () => void;
+  openProductCreateModal: (keyword?: string) => void;
   closeProductCreateModal: () => void;
   closeAllOverlays: () => void;
 }
@@ -45,6 +46,7 @@ export const useUiStore = create<UiStore>((set) => ({
   isPaymentModalOpen: false,
   isStockTransferModalOpen: false,
   isProductCreateModalOpen: false,
+  productCreateKeyword: '',
   selectedCustomerId: null,
   currentEditingCartItem: null,
 
@@ -91,14 +93,16 @@ export const useUiStore = create<UiStore>((set) => ({
   closePaymentModal: () => set({ isPaymentModalOpen: false }),
   openStockTransferModal: () => set({ isStockTransferModalOpen: true }),
   closeStockTransferModal: () => set({ isStockTransferModalOpen: false }),
-  openProductCreateModal: () => set({ isProductCreateModalOpen: true }),
-  closeProductCreateModal: () => set({ isProductCreateModalOpen: false }),
+  openProductCreateModal: (keyword?: string) =>
+    set({ isProductCreateModalOpen: true, productCreateKeyword: keyword?.trim() ?? '' }),
+  closeProductCreateModal: () => set({ isProductCreateModalOpen: false, productCreateKeyword: '' }),
   closeAllOverlays: () =>
     set({
       isManualPriceModalOpen: false,
       isPaymentModalOpen: false,
       isStockTransferModalOpen: false,
       isProductCreateModalOpen: false,
+      productCreateKeyword: '',
       currentEditingCartItem: null,
     }),
 }));

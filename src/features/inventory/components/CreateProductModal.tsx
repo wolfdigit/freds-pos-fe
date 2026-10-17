@@ -12,11 +12,12 @@ interface CreateProductModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess: (product: Product, initialDrafts?: Record<StockLocation, number>) => void;
+  initialKeyword?: string;
 }
 
 const SCALE_OPTIONS: ModelScale[] = ['1:18', '1:43', '1:64', '1:24', '1:12', '配件周邊'];
 
-export function CreateProductModal({ open, onClose, onSuccess }: CreateProductModalProps) {
+export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = '' }: CreateProductModalProps) {
   const showToast = useToastStore((s) => s.showToast);
 
   const [brand, setBrand] = useState('AutoArt');
@@ -34,14 +35,17 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
   const [companyStock, setCompanyStock] = useState('0');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // 每次進入彈窗時重置所有輸入欄位
+  // 每次進入彈窗時重置欄位，並帶入結帳搜尋關鍵字
   useEffect(() => {
     if (open) {
+      const seed = initialKeyword.trim();
+      const looksLikeSku = seed.length > 0 && !/\s/.test(seed);
       setBrand('AutoArt');
-      setSku('');
+      setSku(looksLikeSku ? seed : '');
       setBarcode('');
-      setName('');
+      setName(seed);
       setScale('');
       setSpec('');
       setListPrice('');
@@ -49,26 +53,21 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
       setStoreStock('0');
       setWarehouseStock('0');
       setCompanyStock('0');
+      setErrors({});
     }
-  }, [open]);
+  }, [open, initialKeyword]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sku.trim() || !name.trim() || !brand.trim()) {
-      showToast('請填寫廠牌、貨號與商品品名', 'error');
-      return;
-    }
-
-    if (!barcode.trim()) {
-      showToast('請填寫國際條碼 (Barcode)', 'error');
-      return;
-    }
-
+    const next: Record<string, string> = {};
+    if (!brand.trim()) next.brand = '請填寫商品廠牌';
+    if (!sku.trim()) next.sku = '請填寫商品貨號';
+    if (!barcode.trim()) next.barcode = '請填寫國際條碼';
+    if (!name.trim()) next.name = '請填寫商品品名';
     const price = Number(listPrice);
-    if (isNaN(price) || price < 0) {
-      showToast('請輸入正確的定價', 'error');
-      return;
-    }
+    if (listPrice.trim() === '' || Number.isNaN(price) || price < 0) next.listPrice = '請填寫正確的建議售價';
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
 
     setIsSubmitting(true);
     try {
@@ -95,9 +94,9 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
         : undefined;
 
       if (hasInitialStocks) {
-        showToast('🎉 新商品建檔成功！初始庫存已載入編輯列表，請點擊【儲存庫存變更】存檔', 'success');
+        showToast('新商品建檔成功！初始庫存已載入編輯列表，請點擊【儲存庫存變更】存檔', 'success');
       } else {
-        showToast('🎉 新商品建檔成功！', 'success');
+        showToast('新商品建檔成功！', 'success');
       }
       onSuccess(created, initialDrafts);
       onClose();
@@ -118,22 +117,24 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="✨ 新增模型商品建檔" widthClassName="max-w-2xl">
+    <Modal open={open} onClose={onClose} title="新增模型商品建檔" widthClassName="max-w-2xl">
       <form onSubmit={handleSubmit} className="space-y-4 text-left">
         {/* 1. 廠牌與比例 */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">商品廠牌 (Brand) *</label>
+            <label htmlFor="create-product-brand" className="mb-1 block text-sm font-medium text-zinc-300">商品廠牌 (Brand) *</label>
             <Input
+              id="create-product-brand"
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
               placeholder="例如: AutoArt, Spark, Mini GT"
-              required
             />
+            {errors.brand && <p className="mt-1 text-xs font-medium text-rose-300">{errors.brand}</p>}
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">模型比例 (選填)</label>
+            <label htmlFor="create-product-scale" className="mb-1 block text-sm font-medium text-zinc-300">模型比例 (選填)</label>
             <select
+              id="create-product-scale"
               value={scale}
               onChange={(e) => setScale(e.target.value)}
               className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-400 focus:outline-none"
@@ -151,55 +152,60 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
         {/* 2. 貨號與國際條碼 */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">商品貨號 (SKU) *</label>
+            <label htmlFor="create-product-sku" className="mb-1 block text-sm font-medium text-zinc-300">商品貨號 (SKU) *</label>
             <Input
+              id="create-product-sku"
               monospace
               value={sku}
               onChange={(e) => setSku(e.target.value)}
               placeholder="例如: AA-79122"
-              required
             />
+            {errors.sku && <p className="mt-1 text-xs font-medium text-rose-300">{errors.sku}</p>}
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">國際條碼 (Barcode) *</label>
+            <label htmlFor="create-product-barcode" className="mb-1 block text-sm font-medium text-zinc-300">國際條碼 (Barcode) *</label>
             <Input
+              id="create-product-barcode"
               monospace
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}
               placeholder="掃描或手動輸入國際條碼"
-              required
             />
+            {errors.barcode && <p className="mt-1 text-xs font-medium text-rose-300">{errors.barcode}</p>}
           </div>
         </div>
 
         {/* 3. 商品品名 */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-zinc-300">商品品名 *</label>
+          <label htmlFor="create-product-name" className="mb-1 block text-sm font-medium text-zinc-300">商品品名 *</label>
           <Input
+            id="create-product-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="例如: Nissan Skyline GT-R R34 V-Spec II"
-            required
           />
+          {errors.name && <p className="mt-1 text-xs font-medium text-rose-300">{errors.name}</p>}
         </div>
 
         {/* 4. 定價與規格 */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">建議售價 (MSRP / 門市定價) *</label>
+            <label htmlFor="create-product-price" className="mb-1 block text-sm font-medium text-zinc-300">建議售價 (MSRP / 門市定價) *</label>
             <Input
+              id="create-product-price"
               monospace
               type="number"
               min={0}
               value={listPrice}
               onChange={(e) => setListPrice(e.target.value)}
               placeholder="例如 630"
-              required
             />
+            {errors.listPrice && <p className="mt-1 text-xs font-medium text-rose-300">{errors.listPrice}</p>}
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">規格說明 (選填)</label>
+            <label htmlFor="create-product-spec" className="mb-1 block text-sm font-medium text-zinc-300">規格說明 (選填)</label>
             <Input
+              id="create-product-spec"
               value={spec}
               onChange={(e) => setSpec(e.target.value)}
               placeholder="例如: 吊卡版 / 盒裝版 / Chase"
@@ -209,8 +215,9 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
 
         {/* 5. 備註說明 */}
         <div>
-          <label className="mb-1 block text-xs text-zinc-400">備註說明 (選填)</label>
+          <label htmlFor="create-product-note" className="mb-1 block text-xs text-zinc-400">備註說明 (選填)</label>
           <Input
+            id="create-product-note"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="例如: 現貨6、美國限定..."
@@ -220,12 +227,13 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
         {/* 6. 初始各地點進貨庫存數量 */}
         <div>
           <label className="mb-2 block text-sm font-medium text-cyan-400">
-            📍 初始各地點進貨庫存數量 (建檔後寫入暫存草稿)
+            初始各地點進貨庫存數量 (建檔後寫入暫存草稿)
           </label>
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-2.5">
-              <span className="block text-xs text-emerald-400 mb-1">門市現貨</span>
+              <label htmlFor="create-product-stock-store" className="mb-1 block text-xs text-emerald-400">門市現貨</label>
               <Input
+                id="create-product-stock-store"
                 monospace
                 type="number"
                 min={0}
@@ -234,8 +242,9 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
               />
             </div>
             <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-2.5">
-              <span className="block text-xs text-zinc-400 mb-1">後方倉庫</span>
+              <label htmlFor="create-product-stock-warehouse" className="mb-1 block text-xs text-zinc-400">後方倉庫</label>
               <Input
+                id="create-product-stock-warehouse"
                 monospace
                 type="number"
                 min={0}
@@ -244,8 +253,9 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
               />
             </div>
             <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-2.5">
-              <span className="block text-xs text-zinc-400 mb-1">公司總倉</span>
+              <label htmlFor="create-product-stock-company" className="mb-1 block text-xs text-zinc-400">公司總倉</label>
               <Input
+                id="create-product-stock-company"
                 monospace
                 type="number"
                 min={0}

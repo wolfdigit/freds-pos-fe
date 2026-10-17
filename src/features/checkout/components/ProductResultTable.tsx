@@ -80,7 +80,7 @@ export function ProductResultTable({
           <tr>
             <th className="py-2 pl-2.5 pr-1.5 w-24 bg-zinc-950 truncate">廠牌 / 貨號</th>
             <th className="py-2 px-1.5 bg-zinc-950 truncate">品名 / 規格 (點擊加入)</th>
-            <th className="py-2 px-1.5 w-16 text-right bg-zinc-950">定價</th>
+            <th className="py-2 px-1.5 w-[4.5rem] text-right bg-zinc-950">定價</th>
             <th className="py-2 pl-1 pr-2 w-12 text-center bg-zinc-950">詳情</th>
           </tr>
         </thead>
@@ -155,8 +155,9 @@ export function ProductResultTable({
                       e.stopPropagation();
                       onViewDetail(currentProduct);
                     }}
-                    title="查看商品詳細資訊"
-                    className="inline-flex items-center justify-center rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-[11px] font-semibold text-zinc-300 hover:border-cyan-400 hover:text-cyan-300 hover:bg-zinc-700 transition-colors whitespace-nowrap"
+                    title="詳情"
+                    aria-label="詳情"
+                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-zinc-700 bg-zinc-800 text-sm font-semibold text-zinc-300 transition-colors hover:border-cyan-400 hover:bg-zinc-700 hover:text-cyan-300"
                   >
                     ℹ
                   </button>

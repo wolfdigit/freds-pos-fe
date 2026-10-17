@@ -166,6 +166,14 @@ html.light {
   --color-purple-50: 59 7 100;
 }
 
+/* Light theme row rules are nearly white. Darken dividers so inventory and report rows scan. */
+html.light .divide-zinc-800 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-zinc-800\/80 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-zinc-800\/60 > :not([hidden]) ~ :not([hidden]),
+html.light .divide-zinc-800\/40 > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(71 85 105 / 0.9);
+}
+
 body {
   @apply bg-zinc-950 text-zinc-200 antialiased transition-colors duration-150;
 }

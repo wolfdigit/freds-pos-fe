@@ -87,7 +87,7 @@ export function ProductTable({
   if (products.length === 0) {
     return (
       <div className="flex h-52 flex-col items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-400">
-        <p className="text-base font-medium">🔍 找不到符合條件的商品</p>
+        <p className="text-base font-medium">找不到符合條件的商品</p>
         <p className="text-sm text-zinc-500 mt-1">請嘗試變更關鍵字或切換廠牌分類</p>
       </div>
     );
@@ -107,7 +107,7 @@ export function ProductTable({
               </th>
             ))}
             <th className="px-4 py-3.5 text-right font-bold bg-zinc-900">預估總計</th>
-            <th className="px-4 py-3.5 text-right min-w-[90px] bg-zinc-900">操作</th>
+            <th className="sticky right-0 z-20 min-w-[7.25rem] whitespace-nowrap bg-zinc-900 px-4 py-3.5 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.45)]">操作</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-800/80">
@@ -133,7 +133,6 @@ export function ProductTable({
                     {p.sku}
                   </p>
                   <p className="font-mono text-sm font-medium text-zinc-300 flex items-center gap-1 mt-0.5">
-                    <span>🏷️</span>
                     <span>{p.barcode || '無條碼'}</span>
                   </p>
                 </td>
@@ -206,13 +205,13 @@ export function ProductTable({
                 </td>
 
                 {/* 操作按鈕 (單項調撥) */}
-                <td className="px-4 py-3.5 text-right">
+                <td className="sticky right-0 z-10 min-w-[7.25rem] whitespace-nowrap bg-zinc-950 px-4 py-3.5 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.35)] group-hover:bg-zinc-900">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onTransfer(p);
                     }}
-                    className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-cyan-300 transition-colors"
+                    className="whitespace-nowrap rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-cyan-300 transition-colors"
                     title="跨據點庫存調撥"
                   >
                     ⇄ 調撥

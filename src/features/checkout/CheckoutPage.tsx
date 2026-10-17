@@ -1,7 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { useProductSearch } from './hooks/useProductSearch';
 import { useCheckoutWorkflow } from './hooks/useCheckoutWorkflow';
-import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { ProductSearchBar } from './components/ProductSearchBar';
 import { ProductResultTable } from './components/ProductResultTable';
 import { CartItemRow, ReturnCartItemRow } from './components/CartItemRow';
@@ -53,15 +52,13 @@ export function CheckoutPage() {
   const discount = cart.items.reduce((sum, i) => sum + (i.originalPrice - i.unitPrice) * i.quantity, 0);
   const totalAmount = cart.getTotalAmount();
 
-  useKeyboardShortcuts({
-    onFocusSearch: () => searchInputRef.current?.focus(),
-    onOpenPayment: () => cart.items.length > 0 && setIsPaymentOpen(true),
-    onEscape: () => {
-      ui.closeAllOverlays();
-      setIsPaymentOpen(false);
-      setDetailProduct(null);
-    },
-  });
+  const focusBarcode = () => {
+    window.setTimeout(() => searchInputRef.current?.focus(), 0);
+  };
+
+  useEffect(() => {
+    focusBarcode();
+  }, []);
 
   const handleSearchSubmit = () => {
     if (!keyword.trim()) return;
@@ -108,6 +105,7 @@ export function CheckoutPage() {
       );
     }
     cart.addItem(product, 1);
+    focusBarcode();
   };
 
   const handleUpdateQuantity = (item: (typeof cart.items)[number], newQty: number) => {
@@ -209,7 +207,10 @@ export function CheckoutPage() {
       } catch (err) {
         console.error('Failed to fetch original order:', err);
       }
-      showToast(`查無原始訂單 (${item.originalOrderId}) 之資料`, 'warning');
+      showToast(
+        item.originalOrderNumber ? `查無原始訂單（${item.originalOrderNumber}）之資料` : '查無原始訂單資料',
+        'warning'
+      );
     }
     setReturnModalPrefill({ productId: item.productId, keyword: item.sku });
     setIsReturnModalOpen(true);
@@ -238,7 +239,10 @@ export function CheckoutPage() {
               setDetailSource('catalog');
               setDetailProduct(product);
             }}
-            onCreateNew={() => showToast('新商品建檔功能請至「商品及庫存」頁面', 'info')}
+            onCreateNew={() => {
+              ui.openProductCreateModal(keyword.trim());
+              ui.setActiveTab('inventory');
+            }}
           />
         </div>
       </section>
@@ -263,8 +267,7 @@ export function CheckoutPage() {
           >
             {salesItems.length === 0 && returnItems.length === 0 ? (
               <div className="flex h-48 flex-col items-center justify-center text-center text-zinc-500 py-8">
-                <p className="text-3xl">🛒</p>
-                <p className="mt-2 text-xs">目前無待結品項，請點擊左側商品或掃描條碼加入</p>
+                <p className="text-xs">目前無待結品項，請點擊左側商品或掃描條碼加入</p>
               </div>
             ) : salesItems.length === 0 ? (
               <div className="p-4 text-center text-zinc-500 text-xs border border-dashed border-zinc-800 rounded-lg select-none">
@@ -341,7 +344,7 @@ export function CheckoutPage() {
                     }}
                     className="rounded bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs px-2 py-0.5 border border-rose-700 font-bold transition-all shadow-sm"
                   >
-                    🔍 查原單退貨
+                    查原單退貨
                   </button>
                 </div>
               ) : (
@@ -357,7 +360,7 @@ export function CheckoutPage() {
                     }}
                     className="rounded bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs px-2 py-0.5 border border-rose-700 font-bold transition-all shadow-sm"
                   >
-                    🔍 查原單退貨
+                    查原單退貨
                   </button>
                 </div>
               )}
@@ -430,14 +433,18 @@ export function CheckoutPage() {
         return (
           <PaymentModal
             open={isPaymentOpen}
-            onClose={() => setIsPaymentOpen(false)}
+            onClose={() => {
+              setIsPaymentOpen(false);
+              focusBarcode();
+            }}
             totalAmount={totalAmount}
             isSubmitting={isSubmitting}
             hasOverStockItems={overStockList.length > 0}
             overStockItemsList={overStockList}
-            onConfirm={(payments) => {
+            onConfirm={async (payments) => {
               setIsPaymentOpen(false);
-              submitCheckout(payments);
+              const result = await submitCheckout(payments);
+              if (!result) focusBarcode();
             }}
           />
         );
@@ -449,6 +456,7 @@ export function CheckoutPage() {
         onClose={() => {
           setIsReturnModalOpen(false);
           setReturnModalPrefill({});
+          focusBarcode();
         }}
         prefillProductId={returnModalPrefill.productId}
         prefillKeyword={returnModalPrefill.keyword}
@@ -462,6 +470,7 @@ export function CheckoutPage() {
         onClose={() => {
           setInspectedOrder(null);
           setInspectedReturnItem(null);
+          focusBarcode();
         }}
         onSelectAnotherOrder={() => {
           if (inspectedReturnItem) {
@@ -480,14 +489,23 @@ export function CheckoutPage() {
       />
 
       {/* 收據 Modal */}
-      <ReceiptModal receipt={receipt} onClose={() => setReceipt(null)} />
+      <ReceiptModal
+        receipt={receipt}
+        onClose={() => {
+          setReceipt(null);
+          focusBarcode();
+        }}
+      />
 
       {/* 商品詳情 Modal */}
       <ProductDetailModal
         open={Boolean(detailProduct)}
         product={detailProduct}
         allProducts={allCatalogProducts}
-        onClose={() => setDetailProduct(null)}
+        onClose={() => {
+          setDetailProduct(null);
+          focusBarcode();
+        }}
         onAddToCart={
           detailSource === 'catalog'
             ? (p) => {

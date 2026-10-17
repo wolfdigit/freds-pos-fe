@@ -9,7 +9,7 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   return (
-    <div className="flex h-screen min-w-[1280px] flex-col bg-zinc-950">
+    <div className="flex h-screen flex-col bg-zinc-950">
       <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />

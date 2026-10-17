@@ -78,7 +78,7 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
 
       await productService.updateProduct(product.id, updates);
 
-      showToast('🎉 商品資訊已成功更新！', 'success');
+      showToast('商品資訊已成功更新！', 'success');
       onSuccess();
       onClose();
     } catch (err) {
@@ -95,13 +95,14 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
   };
 
   return (
-    <Modal open={!!product} onClose={onClose} title={`✏️ 編輯商品資訊：${product.sku}`}>
+    <Modal open={!!product} onClose={onClose} title={`編輯商品資訊：${product.sku}`}>
       <form onSubmit={handleSubmit} className="space-y-4 text-base">
         {/* 廠牌與比例 */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">廠牌 / 品牌 *</label>
+            <label htmlFor="edit-product-brand" className="mb-1 block text-sm font-medium text-zinc-300">廠牌 / 品牌 *</label>
             <Input
+              id="edit-product-brand"
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
               placeholder="例如: AutoArt, Spark"
@@ -109,8 +110,9 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">模型比例 (選填)</label>
+            <label htmlFor="edit-product-scale" className="mb-1 block text-sm font-medium text-zinc-300">模型比例 (選填)</label>
             <select
+              id="edit-product-scale"
               value={scale}
               onChange={(e) => setScale(e.target.value)}
               className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-cyan-400 focus:outline-none"
@@ -128,8 +130,9 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
         {/* 貨號與條碼 */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">貨號 (SKU) *</label>
+            <label htmlFor="edit-product-sku" className="mb-1 block text-sm font-medium text-zinc-300">貨號 (SKU) *</label>
             <Input
+              id="edit-product-sku"
               monospace
               value={sku}
               onChange={(e) => setSku(e.target.value)}
@@ -138,8 +141,9 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">國際條碼 (Barcode) *</label>
+            <label htmlFor="edit-product-barcode" className="mb-1 block text-sm font-medium text-zinc-300">國際條碼 (Barcode) *</label>
             <Input
+              id="edit-product-barcode"
               monospace
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}
@@ -151,8 +155,9 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
 
         {/* 商品品名 */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-zinc-300">商品品名 *</label>
+          <label htmlFor="edit-product-name" className="mb-1 block text-sm font-medium text-zinc-300">商品品名 *</label>
           <Input
+            id="edit-product-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="商品品名"
@@ -163,8 +168,9 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
         {/* 定價與規格 */}
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">建議售價 (MSRP / 門市定價) *</label>
+            <label htmlFor="edit-product-price" className="mb-1 block text-sm font-medium text-zinc-300">建議售價 (MSRP / 門市定價) *</label>
             <Input
+              id="edit-product-price"
               monospace
               type="number"
               min={0}
@@ -175,8 +181,9 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-zinc-300">規格說明 (選填)</label>
+            <label htmlFor="edit-product-spec" className="mb-1 block text-sm font-medium text-zinc-300">規格說明 (選填)</label>
             <Input
+              id="edit-product-spec"
               value={spec}
               onChange={(e) => setSpec(e.target.value)}
               placeholder="例如: 灣岸藍 / 合金全開 / 吊卡版"
@@ -184,8 +191,9 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-xs text-zinc-400">備註說明 (Note)</label>
+          <label htmlFor="edit-product-note" className="mb-1 block text-xs text-zinc-400">備註說明 (Note)</label>
           <Input
+            id="edit-product-note"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="例如: 現貨6、美國限定..."

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
 import { Button } from '@/components/common/Button';
+import { Input } from '@/components/common/Input';
+import { Modal } from '@/components/common/Modal';
 import { resetDemoData, isMockService, toggleMockMode } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -31,6 +33,9 @@ export function Header() {
   const now = useClock();
   const showToast = useToastStore((s) => s.showToast);
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [customStoreOpen, setCustomStoreOpen] = useState(false);
+  const [customStoreName, setCustomStoreName] = useState('');
+  const [customStoreError, setCustomStoreError] = useState('');
 
   const handleReset = () => {
     if (!confirmingReset) {
@@ -50,15 +55,25 @@ export function Header() {
   const handleStoreChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     if (val === '__CUSTOM__') {
-      const custom = window.prompt('請輸入新登入門市名稱：', storeName);
-      if (custom && custom.trim()) {
-        setStoreName(custom.trim());
-        showToast(`已成功更換登入門市為：「${custom.trim()}」`, 'success');
-      }
-    } else {
-      setStoreName(val);
-      showToast(`已成功更換登入門市為：「${val}」`, 'success');
+      setCustomStoreName('');
+      setCustomStoreError('');
+      setCustomStoreOpen(true);
+      return;
     }
+    setStoreName(val);
+    showToast(`已成功更換登入門市為：「${val}」`, 'success');
+  };
+
+  const handleCustomStoreSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = customStoreName.trim();
+    if (!name) {
+      setCustomStoreError('請填寫門市名稱');
+      return;
+    }
+    setStoreName(name);
+    showToast(`已成功更換登入門市為：「${name}」`, 'success');
+    setCustomStoreOpen(false);
   };
 
   const handleLogoutClick = () => {
@@ -71,7 +86,7 @@ export function Header() {
         <button
           onClick={() => setActiveTab(null)}
           title="回主選單"
-          className="font-extrabold text-cyan-400 tracking-wider hover:text-cyan-300 transition-colors"
+          className="rounded-sm font-extrabold text-cyan-400 tracking-wider hover:text-cyan-300 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
         >
           FRED'S POS
         </button>
@@ -83,18 +98,18 @@ export function Header() {
           <select
             value={availableStores.includes(storeName) ? storeName : '__CUSTOM__'}
             onChange={handleStoreChange}
-            className="rounded-lg bg-zinc-800/90 border border-zinc-700/80 px-2.5 py-1 text-sm font-semibold text-cyan-300 focus:border-cyan-400 focus:outline-none cursor-pointer hover:border-zinc-500 hover:bg-zinc-800 transition-all shadow-sm"
+            className="cursor-pointer rounded-lg border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-sm font-semibold text-cyan-300 shadow-sm transition-all hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             title="點擊更改登入門市"
           >
             {availableStores.map((s) => (
               <option key={s} value={s}>
-                🏢 {s}
+                {s}
               </option>
             ))}
             {!availableStores.includes(storeName) && (
-              <option value="__CUSTOM__">🏢 {storeName}</option>
+              <option value="__CUSTOM__">{storeName}</option>
             )}
-            <option value="__CUSTOM__">✏️ 自訂其他門市...</option>
+            <option value="__CUSTOM__">自訂其他門市...</option>
           </select>
         </div>
 
@@ -104,14 +119,14 @@ export function Header() {
         <div className="flex items-center gap-2 text-zinc-300 font-medium">
           <span>{cashierName}</span>
           <span className="rounded bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 text-[11px] font-mono text-cyan-300 font-semibold">
-            {useSessionStore((s) => s.userRole === 'admin' ? '👑 管理員' : '👤 店員')}
+            {useSessionStore((s) => s.userRole === 'admin' ? '管理員' : '店員')}
           </span>
           <button
             onClick={handleLogoutClick}
             title="未開放此功能"
-            className="rounded bg-zinc-800/80 hover:bg-rose-950/60 border border-zinc-700 hover:border-rose-700/80 px-2 py-0.5 text-xs text-zinc-300 hover:text-rose-300 transition-all shadow-sm"
+            className="rounded border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-xs text-zinc-300 shadow-sm transition-all hover:border-rose-700/80 hover:bg-rose-950/60 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
-            🚪 登出
+            登出
           </button>
         </div>
       </div>
@@ -122,16 +137,16 @@ export function Header() {
           type="button"
           onClick={toggleMockMode}
           title={isMockService ? '目前為：Mock 模式，點擊切換為真實 API 模式' : '目前為：真實 API 連線模式，點擊切換為 Mock 模式'}
-          className="cursor-pointer transition-transform active:scale-95 focus:outline-none"
+          className="cursor-pointer rounded-md transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-900"
         >
           {isMockService ? (
             <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-400 ring-1 ring-inset ring-amber-500/20 hover:ring-amber-500/40 transition-all">
-              <span>🧪 Mock 模式</span>
+              <span>Mock 模式</span>
               <span className="text-[10px] text-amber-500/80 font-mono">⇄ 切換</span>
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400 ring-1 ring-inset ring-emerald-500/20 hover:ring-emerald-500/40 transition-all">
-              <span>🌐 API 連線模式</span>
+              <span>API 連線模式</span>
               <span className="text-[10px] text-emerald-500/80 font-mono">⇄ 切換</span>
             </span>
           )}
@@ -142,7 +157,7 @@ export function Header() {
         <button
           onClick={toggleTheme}
           title={theme === 'dark' ? '切換為淺色主題' : '切換為暗色主題'}
-          className="flex items-center gap-1.5 rounded-lg border border-zinc-700/80 bg-zinc-800/80 hover:bg-zinc-800 hover:border-zinc-500 px-2.5 py-1 text-xs font-semibold text-zinc-200 transition-all shadow-sm"
+          className="flex items-center gap-1.5 rounded-lg border border-zinc-700/80 bg-zinc-800/80 px-2.5 py-1 text-xs font-semibold text-zinc-200 shadow-sm transition-all hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
         >
           <span>{theme === 'dark' ? '🌙' : '☀️'}</span>
           <span>{theme === 'dark' ? '暗色' : '淺色'}</span>
@@ -154,6 +169,29 @@ export function Header() {
           </Button>
         )}
       </div>
+
+      <Modal open={customStoreOpen} onClose={() => setCustomStoreOpen(false)} title="自訂登入門市">
+        <form onSubmit={handleCustomStoreSubmit} className="space-y-4 text-sm text-zinc-200">
+          <div>
+            <label htmlFor="custom-store-name" className="mb-1 block text-sm font-medium text-zinc-300">門市名稱</label>
+            <Input
+              id="custom-store-name"
+              value={customStoreName}
+              onChange={(e) => setCustomStoreName(e.target.value)}
+              placeholder="例如：信義概念店"
+            />
+            {customStoreError && <p className="mt-1 text-xs font-medium text-rose-300">{customStoreError}</p>}
+          </div>
+          <div className="flex justify-end gap-3 border-t border-zinc-800 pt-3">
+            <Button type="button" variant="secondary" onClick={() => setCustomStoreOpen(false)}>
+              取消
+            </Button>
+            <Button type="submit" variant="primary">
+              確認更換
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </header>
   );
 }

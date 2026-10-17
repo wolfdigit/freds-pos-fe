@@ -30,6 +30,7 @@ export function Sidebar() {
                 }
               }}
               title={item.label}
+              aria-label={item.label}
               className={cn(
                 'flex w-full items-center rounded-lg py-2.5 text-left text-base font-medium transition-all duration-150',
                 isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3',
@@ -38,7 +39,7 @@ export function Sidebar() {
                   : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100 border border-transparent'
               )}
             >
-              <span className="text-xl leading-none">{item.icon}</span>
+              <span className="text-xl leading-none" aria-hidden="true">{item.icon}</span>
               {!isSidebarCollapsed && <span className="truncate text-base">{item.label}</span>}
             </button>
 

@@ -107,7 +107,7 @@ export function StockTransferModal({
     }
 
     onApplyTransfer(product.id, fromLocation, toLocation, qty);
-    showToast('✨ 已將單項調撥暫存至編輯清單（請點擊儲存庫存變更存檔）', 'info');
+    showToast('已將單項調撥暫存至編輯清單（請點擊儲存庫存變更存檔）', 'info');
     onClose();
   };
 

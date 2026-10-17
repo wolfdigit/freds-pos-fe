@@ -42,19 +42,19 @@ export function PriceOverrideModal({ open, item, onClose, onConfirm }: PriceOver
           <p className="font-mono text-sm text-zinc-500">原牌價：{formatCurrency(item.originalPrice)}</p>
         </div>
         <div>
-          <label className="mb-1 block text-xs text-zinc-400">新單價</label>
+          <label htmlFor="price-override-amount" className="mb-1 block text-xs text-zinc-400">新單價</label>
           <Input
+            id="price-override-amount"
             monospace
             type="text"
             inputMode="decimal"
             value={price}
             onChange={(e) => setPrice(e.target.value.replace(/[^0-9]/g, ''))}
-            autoFocus
           />
         </div>
         <div>
-          <label className="mb-1 block text-xs text-zinc-400">改價原因（選填）</label>
-          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="例如：老闆特批" />
+          <label htmlFor="price-override-reason" className="mb-1 block text-xs text-zinc-400">改價原因（選填）</label>
+          <Input id="price-override-reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="例如：老闆特批" />
           <div className="mt-1.5 flex gap-1.5">
             {REASON_PRESETS.map((preset) => (
               <button
