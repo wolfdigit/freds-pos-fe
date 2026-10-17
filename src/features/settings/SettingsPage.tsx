@@ -36,6 +36,7 @@ export function SettingsPage() {
     storeName,
     stores,
     setStoreName,
+    fetchStores,
     addStore,
     removeStore,
     adminAccounts,
@@ -119,17 +120,18 @@ export function SettingsPage() {
   const handleDataRefresh = () => {
     reloadLocations();
     loadProducts();
+    fetchStores();
   };
 
   // 門市新增處理
-  const handleAddStoreSubmit = (e: React.FormEvent) => {
+  const handleAddStoreSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const clean = newStoreInput.trim();
     if (!clean) {
       showToast('請輸入門市名稱', 'error');
       return;
     }
-    const success = addStore(clean);
+    const success = await addStore(clean);
     if (success) {
       showToast(`成功新增門市：「${clean}」`, 'success');
       setNewStoreInput('');
@@ -139,12 +141,12 @@ export function SettingsPage() {
   };
 
   // 門市刪除處理
-  const handleRemoveStore = (name: string) => {
+  const handleRemoveStore = async (name: string) => {
     if (stores.length <= 1) {
       showToast('系統至少需保留一間門市，無法全數刪除', 'error');
       return;
     }
-    const success = removeStore(name);
+    const success = await removeStore(name);
     if (success) {
       showToast(`已刪除門市：「${name}」`, 'info');
     }

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useUiStore } from '@/store/uiStore';
+import { useSessionStore } from '@/store/sessionStore';
 import { CheckoutPage } from '@/features/checkout/CheckoutPage';
 import { InventoryPage } from '@/features/inventory/InventoryPage';
 import { CustomersPage } from '@/features/customers/CustomersPage';
@@ -10,8 +11,12 @@ import { getStateFromHash, getHashFromState } from '@/utils/hashRouter';
 
 export function App() {
   const { activeTab, setActiveTab, syncStateFromHash } = useUiStore();
+  const fetchStores = useSessionStore((s) => s.fetchStores);
 
   useEffect(() => {
+    // 初始開啟頁面時由 systemService 載入門市清單
+    fetchStores();
+
     // 初始開啟頁面時解析 URL Hash 並同步 Zustand Store
     const initialRoute = getStateFromHash(window.location.hash);
     syncStateFromHash(initialRoute.activeTab, initialRoute.selectedCustomerId);
@@ -28,7 +33,7 @@ export function App() {
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [syncStateFromHash]);
+  }, [syncStateFromHash, fetchStores]);
 
 
   return (

@@ -2,17 +2,20 @@ import type { IProductService } from './interfaces/IProductService';
 import type { ICheckoutService } from './interfaces/ICheckoutService';
 import type { ICustomerService } from './interfaces/ICustomerService';
 import type { ILocationService } from './interfaces/ILocationService';
+import type { ISystemService } from './interfaces/ISystemService';
 
 import { MockProductService } from './mock/mockProductService';
 import { MockCheckoutService } from './mock/mockCheckoutService';
 import { MockCustomerService } from './mock/mockCustomerService';
 import { MockLocationService } from './mock/mockLocationService';
+import { MockSystemService } from './mock/mockSystemService';
 import { ensureInitialized, resetDemoData } from './mock/storageHelper';
 
 import { HttpProductService } from './api/httpProductService';
 import { HttpCheckoutService } from './api/httpCheckoutService';
 import { HttpCustomerService } from './api/httpCustomerService';
 import { HttpLocationService } from './api/httpLocationService';
+import { HttpSystemService } from './api/httpSystemService';
 
 /**
  * 讀取運行期設定檔（public/config.js -> window.__APP_CONFIG__）為預設值
@@ -67,4 +70,9 @@ export const locationService: ILocationService = isMockService
   ? new MockLocationService()
   : new HttpLocationService();
 
+export const systemService: ISystemService = isMockService
+  ? new MockSystemService()
+  : new HttpSystemService();
+
 export { resetDemoData };
+export type { ISystemService };
