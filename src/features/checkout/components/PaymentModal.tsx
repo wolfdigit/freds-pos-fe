@@ -24,14 +24,14 @@ interface PaymentModalProps {
 }
 
 // 依需求 11：7 種指定付款方式
-const PAYMENT_METHODS: { type: PaymentMethodType; label: string; icon: string }[] = [
-  { type: 'cash', label: '現金', icon: '💵' },
-  { type: 'bank_transfer_ctbc', label: '轉帳(中信)', icon: '🏦' },
-  { type: 'bank_transfer_ubot', label: '轉帳(聯邦)', icon: '🏦' },
-  { type: 'credit_card_physical', label: '信用卡(實體)', icon: '💳' },
-  { type: 'credit_card_online', label: '信用卡(網路)', icon: '🌐' },
-  { type: 'line_pay', label: 'LINE Pay', icon: '📱' },
-  { type: 'cod', label: '貨到付款', icon: '📦' },
+const PAYMENT_METHODS: { type: PaymentMethodType; label: string }[] = [
+  { type: 'cash', label: '現金' },
+  { type: 'bank_transfer_ctbc', label: '轉帳(中信)' },
+  { type: 'bank_transfer_ubot', label: '轉帳(聯邦)' },
+  { type: 'credit_card_physical', label: '信用卡(實體)' },
+  { type: 'credit_card_online', label: '信用卡(網路)' },
+  { type: 'line_pay', label: 'LINE Pay' },
+  { type: 'cod', label: '貨到付款' },
 ];
 
 export function PaymentModal({
@@ -73,7 +73,7 @@ export function PaymentModal({
     <Modal
       open={open}
       onClose={onClose}
-      title={isNegative ? '↩️ 門市退換貨處置' : '💳 付款與收銀結帳'}
+      title={isNegative ? '門市退換貨處置' : '付款與收銀結帳'}
       widthClassName="max-w-2xl"
     >
       <div className="space-y-4 text-base">
@@ -116,7 +116,6 @@ export function PaymentModal({
                       : 'border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-white'
                   }`}
                 >
-                  <span className="text-lg">{m.icon}</span>
                   <span>{isNegative ? `${m.label}退款` : m.label}</span>
                 </button>
               );

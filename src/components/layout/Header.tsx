@@ -103,13 +103,13 @@ export function Header() {
           >
             {availableStores.map((s) => (
               <option key={s} value={s}>
-                🏢 {s}
+                {s}
               </option>
             ))}
             {!availableStores.includes(storeName) && (
-              <option value="__CUSTOM__">🏢 {storeName}</option>
+              <option value="__CUSTOM__">{storeName}</option>
             )}
-            <option value="__CUSTOM__">✏️ 自訂其他門市...</option>
+            <option value="__CUSTOM__">自訂其他門市...</option>
           </select>
         </div>
 
@@ -119,14 +119,14 @@ export function Header() {
         <div className="flex items-center gap-2 text-zinc-300 font-medium">
           <span>{cashierName}</span>
           <span className="rounded bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 text-[11px] font-mono text-cyan-300 font-semibold">
-            {useSessionStore((s) => s.userRole === 'admin' ? '👑 管理員' : '👤 店員')}
+            {useSessionStore((s) => s.userRole === 'admin' ? '管理員' : '店員')}
           </span>
           <button
             onClick={handleLogoutClick}
             title="未開放此功能"
             className="rounded border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-xs text-zinc-300 shadow-sm transition-all hover:border-rose-700/80 hover:bg-rose-950/60 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
-            🚪 登出
+            登出
           </button>
         </div>
       </div>
@@ -141,12 +141,12 @@ export function Header() {
         >
           {isMockService ? (
             <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-400 ring-1 ring-inset ring-amber-500/20 hover:ring-amber-500/40 transition-all">
-              <span>🧪 Mock 模式</span>
+              <span>Mock 模式</span>
               <span className="text-[10px] text-amber-500/80 font-mono">⇄ 切換</span>
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-0.5 text-xs font-medium text-emerald-400 ring-1 ring-inset ring-emerald-500/20 hover:ring-emerald-500/40 transition-all">
-              <span>🌐 API 連線模式</span>
+              <span>API 連線模式</span>
               <span className="text-[10px] text-emerald-500/80 font-mono">⇄ 切換</span>
             </span>
           )}
@@ -170,7 +170,7 @@ export function Header() {
         )}
       </div>
 
-      <Modal open={customStoreOpen} onClose={() => setCustomStoreOpen(false)} title="✏️ 自訂登入門市">
+      <Modal open={customStoreOpen} onClose={() => setCustomStoreOpen(false)} title="自訂登入門市">
         <form onSubmit={handleCustomStoreSubmit} className="space-y-4 text-sm text-zinc-200">
           <div>
             <label htmlFor="custom-store-name" className="mb-1 block text-sm font-medium text-zinc-300">門市名稱</label>

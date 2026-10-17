@@ -51,7 +51,7 @@ export function CreateLocationModal({
         isActive,
       });
 
-      showToast(`✨ 成功新增庫存地點：「${created.name}」`, 'success');
+      showToast(`成功新增庫存地點：「${created.name}」`, 'success');
       onSuccess(created);
       onClose();
       setName('');
@@ -66,7 +66,7 @@ export function CreateLocationModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="➕ 新增庫存據點" widthClassName="max-w-md">
+    <Modal open={open} onClose={onClose} title="新增庫存據點" widthClassName="max-w-md">
       <form onSubmit={handleSubmit} className="space-y-4 text-base">
         <div>
           <label htmlFor="create-location-name" className="mb-1 block text-sm font-semibold text-zinc-300">
@@ -82,7 +82,7 @@ export function CreateLocationModal({
             className="text-lg font-bold"
           />
           <span className="text-xs text-zinc-500 mt-1 block">
-            💡 系統將自動為此據點指派 UUID 唯一識別碼
+            系統將自動為此據點指派 UUID 唯一識別碼
           </span>
         </div>
 

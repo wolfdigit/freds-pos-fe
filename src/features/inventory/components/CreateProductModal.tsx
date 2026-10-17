@@ -94,9 +94,9 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
         : undefined;
 
       if (hasInitialStocks) {
-        showToast('🎉 新商品建檔成功！初始庫存已載入編輯列表，請點擊【儲存庫存變更】存檔', 'success');
+        showToast('新商品建檔成功！初始庫存已載入編輯列表，請點擊【儲存庫存變更】存檔', 'success');
       } else {
-        showToast('🎉 新商品建檔成功！', 'success');
+        showToast('新商品建檔成功！', 'success');
       }
       onSuccess(created, initialDrafts);
       onClose();
@@ -117,7 +117,7 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="✨ 新增模型商品建檔" widthClassName="max-w-2xl">
+    <Modal open={open} onClose={onClose} title="新增模型商品建檔" widthClassName="max-w-2xl">
       <form onSubmit={handleSubmit} className="space-y-4 text-left">
         {/* 1. 廠牌與比例 */}
         <div className="grid grid-cols-2 gap-3">
@@ -227,7 +227,7 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
         {/* 6. 初始各地點進貨庫存數量 */}
         <div>
           <label className="mb-2 block text-sm font-medium text-cyan-400">
-            📍 初始各地點進貨庫存數量 (建檔後寫入暫存草稿)
+            初始各地點進貨庫存數量 (建檔後寫入暫存草稿)
           </label>
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-2.5">

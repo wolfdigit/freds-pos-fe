@@ -81,7 +81,7 @@ export function CustomerBindCard() {
                 title="點擊前往客戶會員頁面"
               >
                 <span>{attachedCustomer.name}</span>
-                <span className="text-xs font-normal text-cyan-400/80">👤 查看會員 →</span>
+                <span className="text-xs font-normal text-cyan-400/80">查看會員 →</span>
               </button>
               <Badge color="cyan">{attachedCustomer.vipTierName}</Badge>
             </div>
@@ -108,7 +108,7 @@ export function CustomerBindCard() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => query.trim() && suggestions.length > 0 && setIsDropdownOpen(true)}
-          placeholder="🔍 輸入電話、姓名或信箱查詢會員 (即時自動展開清單)"
+          placeholder="輸入電話、姓名或信箱查詢會員 (即時自動展開清單)"
           className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2.5 pr-10 font-mono text-base text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
         />
         {query && (

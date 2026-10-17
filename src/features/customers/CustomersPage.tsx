@@ -58,7 +58,6 @@ export function CustomersPage() {
         <CustomerDetailPanel customer={selected} onEditClick={handleOpenEdit} />
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center text-zinc-500 select-none">
-          <p className="text-4xl mb-3">👤</p>
           <p className="text-base font-medium">請從左側列表選擇一位會員或點選「新增會員」</p>
         </div>
       )}

@@ -61,7 +61,7 @@ export function DeleteLocationModal({
       });
 
       showToast(
-        `🎉 ${res.message || `成功刪除「${location.name}」，庫存已安全移轉`}`,
+        `${res.message || `成功刪除「${location.name}」，庫存已安全移轉`}`,
         'success'
       );
       onSuccess(res);
@@ -77,7 +77,7 @@ export function DeleteLocationModal({
     <Modal
       open={!!location}
       onClose={onClose}
-      title={`🗑️ 刪除庫存據點與庫存轉移`}
+      title="刪除庫存據點與庫存轉移"
       widthClassName="max-w-lg"
     >
       <form onSubmit={handleDelete} className="space-y-4 text-base">

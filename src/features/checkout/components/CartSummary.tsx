@@ -152,7 +152,7 @@ export function CartSummary({
               : 'bg-cyan-500 hover:bg-cyan-400 text-zinc-950 shadow-cyan-950/50'
           }`}
         >
-          {totalAmount < 0 ? '↩️ 確認退貨處置' : '💳 結帳收銀'}
+          {totalAmount < 0 ? '確認退貨處置' : '結帳收銀'}
         </Button>
       </div>
     </div>

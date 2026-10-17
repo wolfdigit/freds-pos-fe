@@ -98,7 +98,7 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
   };
 
   return (
-    <Modal open={open} onClose={onClose} title={isEdit ? '✏️ 編輯客戶會員資料' : '➕ 新增客戶會員'}>
+    <Modal open={open} onClose={onClose} title={isEdit ? '編輯客戶會員資料' : '新增客戶會員'}>
       <form onSubmit={handleSubmit} className="space-y-4 text-sm text-zinc-200">
         <div>
           <label htmlFor="customer-name" className="mb-1 block text-xs font-medium text-zinc-400">

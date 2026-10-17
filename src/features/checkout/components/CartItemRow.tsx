@@ -355,7 +355,6 @@ export function ReturnCartItemRow({
               className="rounded bg-rose-900/50 border border-rose-700/60 px-1.5 py-0.5 text-xs font-mono text-rose-200 shrink-0 flex items-center gap-1 hover:bg-rose-800 transition-colors"
               title={originalOrderNumber ? `原始銷售單據: ${originalOrderNumber}（點擊查看原單明細）` : '原始銷售單據（點擊查看原單明細）'}
             >
-              <span>🧾</span>
               <span>{originalOrderLabel}</span>
             </span>
           ) : (

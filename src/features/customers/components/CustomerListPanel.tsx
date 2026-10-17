@@ -42,20 +42,20 @@ export function CustomerListPanel({
     <div className="flex h-full w-80 flex-col border-r border-zinc-800 pr-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h3 className="text-base font-bold text-zinc-100 flex items-center gap-2">
-          <span>👥 會員列表</span>
+          <span>會員列表</span>
           <span className="rounded-full bg-zinc-800 px-2 py-0.5 font-mono text-xs font-semibold text-cyan-400">
             {total}
           </span>
         </h3>
         <Button size="md" variant="primary" onClick={onAddClick} className="px-3.5 py-1.5 text-sm font-bold shadow-sm">
-          ➕ 新增會員
+          新增會員
         </Button>
       </div>
 
       <div className="relative">
         <Input
           monospace
-          placeholder="🔍 電話、姓名或信箱..."
+          placeholder="電話、姓名或信箱..."
           value={keyword}
           onChange={(e) => onKeywordChange(e.target.value)}
           className="pr-8 text-sm"
@@ -74,7 +74,6 @@ export function CustomerListPanel({
       <div className="mt-3 flex-1 space-y-1.5 overflow-y-auto pr-1">
         {customers.length === 0 ? (
           <div className="py-12 text-center text-xs text-zinc-500">
-            <p className="text-2xl mb-1">🔍</p>
             <p>未找到符合「{keyword}」的會員</p>
           </div>
         ) : (
@@ -99,7 +98,6 @@ export function CustomerListPanel({
                 </div>
                 <div className="mt-1.5 flex items-center justify-between font-mono text-xs">
                   <span className="text-zinc-400 flex items-center">
-                    <span className="select-none mr-1">📞</span>
                     <span className="select-text">{c.phone || '無電話'}</span>
                   </span>
                   {c.email && (

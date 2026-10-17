@@ -27,7 +27,7 @@ export function ReportsPage() {
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl font-bold tracking-tight text-zinc-100 flex items-center gap-2">
-              <span>📊</span> 營運日報表
+              營運日報表
             </h1>
             <span className="rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-xs font-semibold text-cyan-300 border border-cyan-500/20">
               結帳紀錄與收支加總
@@ -48,7 +48,6 @@ export function ReportsPage() {
             className="flex items-center gap-1 text-xs px-2.5 py-1.5"
             title="重新整理訂單數據"
           >
-            <span>🔄</span>
             <span>重新整理</span>
           </Button>
         </div>
@@ -60,7 +59,7 @@ export function ReportsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/60 pb-2.5">
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1">
-              <span>📅</span> 結算日期：
+結算日期：
             </span>
             <input
               type="date"
@@ -120,7 +119,7 @@ export function ReportsPage() {
         {/* 付款方式篩選列 */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-semibold text-zinc-400 shrink-0 flex items-center gap-1">
-            <span>💳</span> 付款篩選：
+付款篩選：
           </span>
           <div className="flex flex-wrap gap-1.5">
             {PAYMENT_METHOD_OPTIONS.map((option) => {
@@ -135,7 +134,6 @@ export function ReportsPage() {
                       : 'bg-zinc-950/80 text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-200'
                   }`}
                 >
-                  <span>{option.icon}</span>
                   <span>{option.label}</span>
                 </button>
               );

@@ -33,12 +33,12 @@ export type StockFilterType =
   | 'HAS_STOCK';
 
 const STOCK_FILTER_OPTIONS: { value: StockFilterType; label: string }[] = [
-  { value: 'ALL', label: '📊 全部庫存狀況' },
+  { value: 'ALL', label: '全部庫存狀況' },
   { value: 'STORE_LOW', label: '⚠️ 門市現貨低庫存 (≤ 2 台)' },
   { value: 'WAREHOUSE_LOW', label: '⚠️ 後方倉庫低庫存 (≤ 2 台)' },
   { value: 'STORE_OUT', label: '🚫 門市現貨缺貨 (= 0 台)' },
   { value: 'TOTAL_OUT', label: '🚫 全部據點皆無現貨 (= 0 台)' },
-  { value: 'HAS_STOCK', label: '📦 任一據點有現貨 (> 0 台)' },
+  { value: 'HAS_STOCK', label: '任一據點有現貨 (> 0 台)' },
 ];
 
 const DEFAULT_LOCATION_NAMES: Record<string, string> = {
@@ -268,7 +268,7 @@ export function InventoryPage() {
               type="text"
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              placeholder="🔍 搜尋貨號 / 車型品名 / 條碼 / 廠牌..."
+              placeholder="搜尋貨號 / 車型品名 / 條碼 / 廠牌..."
               className="w-full rounded-xl border border-zinc-700 bg-zinc-900 pl-4 pr-10 py-2.5 font-mono text-base text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400/20"
             />
             {keyword && (
@@ -316,7 +316,7 @@ export function InventoryPage() {
                 onClick={() => setIsConfirmModalOpen(true)}
                 className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold px-3 py-1 text-sm shadow-md"
               >
-                💾 儲存庫存變更
+                儲存庫存變更
               </Button>
             </div>
           )}
@@ -326,7 +326,7 @@ export function InventoryPage() {
             onClick={() => setIsRestockModalOpen(true)}
             className="flex items-center gap-1.5 px-4 py-2.5 text-base font-semibold border-emerald-500/40 text-emerald-300 hover:bg-emerald-950/40"
           >
-            📥 快速條碼進貨
+            快速條碼進貨
           </Button>
 
           <Button
@@ -337,7 +337,7 @@ export function InventoryPage() {
             }}
             className="flex items-center gap-1.5 px-4 py-2.5 text-base font-semibold border-cyan-500/40 text-cyan-300 hover:bg-cyan-950/40"
           >
-            ➕ 建立新商品
+            建立新商品
           </Button>
         </div>
       </div>

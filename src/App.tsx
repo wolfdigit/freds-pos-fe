@@ -36,8 +36,7 @@ export function App() {
       {activeTab === null && (
         <div className="flex h-full flex-col items-center justify-center text-center select-none px-4">
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-10 max-w-lg shadow-2xl backdrop-blur-sm">
-            <div className="text-5xl mb-4">🏎️</div>
-            <h2 className="text-2xl font-bold text-zinc-100 tracking-wide">
+<h2 className="text-2xl font-bold text-zinc-100 tracking-wide">
               歡迎使用 FRED'S POS 系統
             </h2>
             <p className="mt-3 text-base text-zinc-400 leading-relaxed">
@@ -49,7 +48,6 @@ export function App() {
                 className="flex items-center justify-between rounded-xl border border-zinc-700 bg-zinc-800/80 px-5 py-3.5 text-base font-semibold text-zinc-100 hover:border-cyan-500 hover:bg-cyan-950/30 hover:text-cyan-300 transition-all shadow-sm"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">🧾</span>
                   <span>出單 / 結帳櫃檯</span>
                 </div>
                 <span className="text-zinc-500 text-sm font-mono">前往 →</span>
@@ -59,7 +57,6 @@ export function App() {
                 className="flex items-center justify-between rounded-xl border border-zinc-700 bg-zinc-800/80 px-5 py-3.5 text-base font-semibold text-zinc-100 hover:border-cyan-500 hover:bg-cyan-950/30 hover:text-cyan-300 transition-all shadow-sm"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">📦</span>
                   <span>商品及庫存管理</span>
                 </div>
                 <span className="text-zinc-500 text-sm font-mono">前往 →</span>
@@ -69,7 +66,6 @@ export function App() {
                 className="flex items-center justify-between rounded-xl border border-zinc-700 bg-zinc-800/80 px-5 py-3.5 text-base font-semibold text-zinc-100 hover:border-cyan-500 hover:bg-cyan-950/30 hover:text-cyan-300 transition-all shadow-sm"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">👤</span>
                   <span>客戶會員管理</span>
                 </div>
                 <span className="text-zinc-500 text-sm font-mono">前往 →</span>
@@ -79,7 +75,6 @@ export function App() {
                 className="flex items-center justify-between rounded-xl border border-zinc-700 bg-zinc-800/80 px-5 py-3.5 text-base font-semibold text-zinc-100 hover:border-cyan-500 hover:bg-cyan-950/30 hover:text-cyan-300 transition-all shadow-sm"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">📊</span>
                   <span>營運日報表 (結帳統計)</span>
                 </div>
                 <span className="text-zinc-500 text-sm font-mono">前往 →</span>
@@ -89,7 +84,6 @@ export function App() {
                 className="flex items-center justify-between rounded-xl border border-zinc-700 bg-zinc-800/80 px-5 py-3.5 text-base font-semibold text-zinc-100 hover:border-cyan-500 hover:bg-cyan-950/30 hover:text-cyan-300 transition-all shadow-sm"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">⚙️</span>
                   <span>系統設定 (管理員)</span>
                 </div>
                 <span className="text-zinc-500 text-sm font-mono">前往 →</span>

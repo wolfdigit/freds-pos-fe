@@ -97,19 +97,19 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
     const p = payments[0];
     switch (p.type) {
       case 'cash':
-        return <Badge color="emerald">💵 現金</Badge>;
+        return <Badge color="emerald">現金</Badge>;
       case 'bank_transfer_ctbc':
-        return <Badge color="purple">🏦 轉帳(中信)</Badge>;
+        return <Badge color="purple">轉帳(中信)</Badge>;
       case 'bank_transfer_ubot':
-        return <Badge color="purple">🏦 轉帳(聯邦)</Badge>;
+        return <Badge color="purple">轉帳(聯邦)</Badge>;
       case 'credit_card_physical':
-        return <Badge color="cyan">💳 信用卡(實體)</Badge>;
+        return <Badge color="cyan">信用卡(實體)</Badge>;
       case 'credit_card_online':
-        return <Badge color="cyan">🌐 信用卡(網路)</Badge>;
+        return <Badge color="cyan">信用卡(網路)</Badge>;
       case 'line_pay':
-        return <Badge color="amber">📱 LINE Pay</Badge>;
+        return <Badge color="amber">LINE Pay</Badge>;
       case 'cod':
-        return <Badge color="zinc">📦 貨到付款</Badge>;
+        return <Badge color="zinc">貨到付款</Badge>;
       default:
         return <Badge color="zinc">{p.name || p.type}</Badge>;
     }
@@ -135,7 +135,6 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
   if (orders.length === 0) {
     return (
       <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/30 p-8 text-center">
-        <p className="text-4xl mb-2">🧾</p>
         <p className="text-base font-medium text-zinc-400">此會員目前無歷史結帳紀錄</p>
       </div>
     );
@@ -191,7 +190,7 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
                   onClick={() => handleReprint(order)}
                   className="px-3.5 py-1.5 text-sm font-semibold"
                 >
-                  🧾 補印收據
+                  補印收據
                 </Button>
               </div>
             </div>
@@ -237,7 +236,6 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
               {order.shippingFee > 0 && (
                 <div className="flex items-center justify-between rounded-xl bg-cyan-950/30 px-4 py-3 text-sm border border-cyan-800/40">
                   <div className="flex items-center gap-2.5 min-w-0 pr-3">
-                    <span className="select-none font-mono text-base font-bold text-cyan-400 shrink-0">🚚</span>
                     <span className="truncate text-base font-semibold text-cyan-200">門市運費 (超商 / 宅配)</span>
                   </div>
                   <div className="font-mono text-right shrink-0 text-base font-bold text-cyan-300">
@@ -251,10 +249,10 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
               <div className="flex items-center gap-4 flex-wrap">
                 <span className="text-zinc-400">商品小計: {formatCurrency(order.itemsSubtotal)}</span>
                 {order.shippingFee > 0 && (
-                  <span className="text-cyan-400 font-semibold">🚚 運費: +{formatCurrency(order.shippingFee)}</span>
+                  <span className="text-cyan-400 font-semibold">運費: +{formatCurrency(order.shippingFee)}</span>
                 )}
                 {order.discountAmount > 0 && (
-                  <span className="text-rose-400 font-semibold">✂️ 折讓: -{formatCurrency(order.discountAmount)}</span>
+                  <span className="text-rose-400 font-semibold">折讓: -{formatCurrency(order.discountAmount)}</span>
                 )}
               </div>
             </div>

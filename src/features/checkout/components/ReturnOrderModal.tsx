@@ -224,7 +224,7 @@ export function ReturnOrderModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="🔄 辦理退換貨（選擇原始售出單據商品）"
+      title="辦理退換貨（選擇原始售出單據商品）"
       widthClassName="max-w-5xl"
     >
       <div className="space-y-3.5 text-base">
@@ -320,7 +320,7 @@ export function ReturnOrderModal({
                 重置
               </button>
               <Button size="md" variant="primary" onClick={fetchOrders} disabled={isLoading} className="font-bold flex-1">
-                {isLoading ? '查詢中...' : '🔍 查詢'}
+                {isLoading ? '查詢中...' : '查詢'}
               </Button>
             </div>
           </div>
@@ -330,7 +330,6 @@ export function ReturnOrderModal({
         <div className="max-h-[360px] overflow-y-auto space-y-3 pr-1">
           {orders.length === 0 ? (
             <div className="py-12 text-center text-zinc-500 rounded-xl border border-dashed border-zinc-800">
-              <p className="text-2xl mb-1">🔍</p>
               <p className="text-sm">查無符合條件之歷史訂單，請調整搜尋條件</p>
             </div>
           ) : (
@@ -353,7 +352,7 @@ export function ReturnOrderModal({
                       <span className="font-mono text-zinc-400">{formatDateTime(order.createdAt)}</span>
                       {order.customerName && (
                         <span className="rounded bg-zinc-800 px-2 py-0.5 text-zinc-200">
-                          👤 {order.customerName} ({order.customerPhone})
+                          {order.customerName} ({order.customerPhone})
                         </span>
                       )}
                     </div>
@@ -457,7 +456,7 @@ export function ReturnOrderModal({
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-rose-900/60 pb-2">
               <div className="flex items-center gap-2">
                 <span className="font-bold text-rose-200 text-sm">
-                  📋 已勾選退貨品項清單 ({totalSelectedCount} 項，共 {totalSelectedQty} 件商品)
+                  已勾選退貨品項清單 ({totalSelectedCount} 項，共 {totalSelectedQty} 件商品)
                 </span>
                 <Badge color="rose">退貨折抵</Badge>
               </div>

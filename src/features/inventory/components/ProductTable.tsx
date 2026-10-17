@@ -87,7 +87,7 @@ export function ProductTable({
   if (products.length === 0) {
     return (
       <div className="flex h-52 flex-col items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-400">
-        <p className="text-base font-medium">🔍 找不到符合條件的商品</p>
+        <p className="text-base font-medium">找不到符合條件的商品</p>
         <p className="text-sm text-zinc-500 mt-1">請嘗試變更關鍵字或切換廠牌分類</p>
       </div>
     );
@@ -133,7 +133,6 @@ export function ProductTable({
                     {p.sku}
                   </p>
                   <p className="font-mono text-sm font-medium text-zinc-300 flex items-center gap-1 mt-0.5">
-                    <span>🏷️</span>
                     <span>{p.barcode || '無條碼'}</span>
                   </p>
                 </td>

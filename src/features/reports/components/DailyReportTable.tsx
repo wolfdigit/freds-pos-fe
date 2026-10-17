@@ -66,7 +66,7 @@ export function DailyReportTable({
     <div className="flex-1 min-h-0 flex flex-col rounded-xl border border-zinc-800 bg-zinc-900/70 overflow-hidden shadow-xl backdrop-blur-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/80 px-4 py-2.5 bg-zinc-950/40 shrink-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-bold text-zinc-100">📋 結帳與退換貨明細清單</span>
+          <span className="text-sm font-bold text-zinc-100">結帳與退換貨明細清單</span>
           <span className="rounded-full bg-cyan-500/10 px-2 py-0.5 text-xs font-mono font-semibold text-cyan-300 border border-cyan-500/20">
             {orders.length} 筆紀錄
           </span>
@@ -78,7 +78,6 @@ export function DailyReportTable({
 
       {orders.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center py-12 text-center px-4">
-          <div className="text-3xl mb-2">📭</div>
           <h3 className="text-sm font-semibold text-zinc-300">
             在 {selectedDate} 查無符合條件的結帳紀錄
           </h3>
@@ -97,7 +96,7 @@ export function DailyReportTable({
                   onClick={() => onSelectDate(d)}
                   className="rounded-md border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-xs font-mono text-cyan-300 hover:border-cyan-500 hover:bg-cyan-950/40 transition-colors"
                 >
-                  📅 {d}
+                  {d}
                 </button>
               ))}
             </div>
@@ -265,7 +264,7 @@ export function DailyReportTable({
                     <td colSpan={4} className="py-2.5 px-3">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-zinc-200">
-                          {stat.type === 'cash' ? '💵 現金支付加總' : `${stat.label} 付款加總`}
+                          {stat.type === 'cash' ? '現金支付加總' : `${stat.label} 付款加總`}
                         </span>
                         <span className="rounded bg-zinc-800/90 px-2 py-0.5 text-xs font-mono text-zinc-400 border border-zinc-700">
                           共 {stat.count} 筆交易
@@ -319,7 +318,7 @@ export function DailyReportTable({
                 <td colSpan={4} className="py-3 px-3">
                   <div className="flex items-center gap-2.5">
                     <span className="text-base font-extrabold text-zinc-100 tracking-wide flex items-center gap-1.5">
-                      <span className="text-lg">📊</span> 當日結算總計
+當日結算總計
                     </span>
                     <span className="rounded-lg bg-zinc-800 px-2.5 py-0.5 text-xs font-mono text-zinc-200 border border-zinc-700">
                       訂單共 <strong className="text-zinc-100">{summary.totalOrdersCount}</strong> 筆
@@ -340,7 +339,7 @@ export function DailyReportTable({
                 {/* 當日退貨件數總計 */}
                 <td className="py-3 px-3 text-center">
                   <div className="inline-flex items-center justify-center gap-1 rounded-lg border border-rose-500/40 bg-rose-950/40 px-2.5 py-0.5 text-xs font-mono font-extrabold text-rose-300">
-                    <span>🔄 退貨:</span>
+                    <span>退貨:</span>
                     <span className="text-sm">{summary.totalReturnedQuantity > 0 ? `-${summary.totalReturnedQuantity} 件` : '0 件'}</span>
                   </div>
                 </td>

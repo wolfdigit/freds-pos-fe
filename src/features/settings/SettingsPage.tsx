@@ -18,14 +18,13 @@ type SettingsSection = 'locations' | 'store_info' | 'security';
 interface SettingsTabConfig {
   id: SettingsSection;
   label: string;
-  icon: string;
   description: string;
 }
 
 const SETTINGS_TABS: SettingsTabConfig[] = [
-  { id: 'locations', label: '庫存據點管理', icon: '📍', description: '管理多門市、總倉與調度暫存據點' },
-  { id: 'store_info', label: '門市清單管理', icon: '🏪', description: '維護門市清單與切換目前營業門市' },
-  { id: 'security', label: 'OAuth 帳號權限', icon: '🛡️', description: 'Google 登入之管理員與店員 Gmail 名單維護' },
+  { id: 'locations', label: '庫存據點管理', description: '管理多門市、總倉與調度暫存據點' },
+  { id: 'store_info', label: '門市清單管理', description: '維護門市清單與切換目前營業門市' },
+  { id: 'security', label: 'OAuth 帳號權限', description: 'Google 登入之管理員與店員 Gmail 名單維護' },
 ];
 
 export function SettingsPage() {
@@ -132,7 +131,7 @@ export function SettingsPage() {
     }
     const success = addStore(clean);
     if (success) {
-      showToast(`✨ 成功新增門市：「${clean}」`, 'success');
+      showToast(`成功新增門市：「${clean}」`, 'success');
       setNewStoreInput('');
     } else {
       showToast(`門市「${clean}」已存在於清單中`, 'warning');
@@ -147,7 +146,7 @@ export function SettingsPage() {
     }
     const success = removeStore(name);
     if (success) {
-      showToast(`🗑️ 已刪除門市：「${name}」`, 'info');
+      showToast(`已刪除門市：「${name}」`, 'info');
     }
   };
 
@@ -161,7 +160,7 @@ export function SettingsPage() {
     }
     const success = addAdminAccount(clean, newAdminNameInput.trim(), newAdminNoteInput.trim());
     if (success) {
-      showToast(`👑 成功新增管理員：「${newAdminNameInput.trim() || clean}」`, 'success');
+      showToast(`成功新增管理員：「${newAdminNameInput.trim() || clean}」`, 'success');
       setNewAdminNameInput('');
       setNewAdminEmailInput('');
       setNewAdminNoteInput('');
@@ -178,7 +177,7 @@ export function SettingsPage() {
     }
     const success = removeAdminAccount(email);
     if (success) {
-      showToast(`🗑️ 已移除管理員 Gmail：「${email}」`, 'info');
+      showToast(`已移除管理員 Gmail：「${email}」`, 'info');
     }
   };
 
@@ -192,7 +191,7 @@ export function SettingsPage() {
     }
     const success = addStaffAccount(clean, newStaffNameInput.trim(), newStaffNoteInput.trim());
     if (success) {
-      showToast(`👤 成功新增店員：「${newStaffNameInput.trim() || clean}」`, 'success');
+      showToast(`成功新增店員：「${newStaffNameInput.trim() || clean}」`, 'success');
       setNewStaffNameInput('');
       setNewStaffEmailInput('');
       setNewStaffNoteInput('');
@@ -205,7 +204,7 @@ export function SettingsPage() {
   const handleRemoveStaffEmail = (email: string) => {
     const success = removeStaffAccount(email);
     if (success) {
-      showToast(`🗑️ 已移除店員 Gmail：「${email}」`, 'info');
+      showToast(`已移除店員 Gmail：「${email}」`, 'info');
     }
   };
 
@@ -220,7 +219,7 @@ export function SettingsPage() {
     } else {
       updateAdminAccount(email, data);
     }
-    showToast(`✨ 已更新「${email}」的名稱與附註`, 'success');
+    showToast(`已更新「${email}」的名稱與附註`, 'success');
     setEditingAccountEmail(null);
     setEditingNameValue('');
     setEditingNoteValue('');
@@ -245,7 +244,7 @@ export function SettingsPage() {
           </div>
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-500 text-left space-y-1">
-            <p className="text-zinc-400 font-semibold">💡 系統說明：</p>
+            <p className="text-zinc-400 font-semibold">系統說明：</p>
             <p>• 系統設定模組僅限在「管理員 Gmail 白名單」內之 Google 帳號存取。</p>
             <p>• 如需變更權限，請由公司主管理員於此頁面新增授權您的 Gmail。</p>
           </div>
@@ -284,7 +283,6 @@ export function SettingsPage() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-zinc-100 flex items-center gap-2">
-              <span>⚙️</span>
               <span>系統設定</span>
             </h1>
             <span className="rounded-full bg-emerald-950 border border-emerald-700/60 px-3 py-0.5 text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
@@ -306,8 +304,8 @@ export function SettingsPage() {
                 onChange={(e) => setUserRole(e.target.value)}
                 className="bg-transparent font-bold text-cyan-300 focus:outline-none cursor-pointer"
               >
-                <option value="admin">👑 admin (管理員)</option>
-                <option value="staff">👤 staff (一般店員)</option>
+                <option value="admin">admin (管理員)</option>
+                <option value="staff">staff (一般店員)</option>
               </select>
             </div>
           )}
@@ -332,7 +330,6 @@ export function SettingsPage() {
                   : 'border-transparent text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900/50'
               }`}
             >
-              <span className="text-lg">{tab.icon}</span>
               <span>{tab.label}</span>
             </button>
           );
@@ -359,7 +356,6 @@ export function SettingsPage() {
                 onClick={() => setIsCreateModalOpen(true)}
                 className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold px-4 py-1.5 flex items-center gap-2 shadow-sm text-sm"
               >
-                <span>➕</span>
                 <span>新增庫存據點</span>
               </Button>
             </div>
@@ -372,7 +368,6 @@ export function SettingsPage() {
                 </div>
               ) : locations.length === 0 ? (
                 <div className="flex h-64 flex-col items-center justify-center text-zinc-500">
-                  <span className="text-3xl mb-2">📍</span>
                   <span>目前尚未建立任何庫存據點</span>
                   <Button
                     size="sm"
@@ -467,7 +462,7 @@ export function SettingsPage() {
                                   onClick={() => setEditingLocation(loc)}
                                   className="text-xs px-2.5 py-1 border-zinc-700 hover:border-cyan-500 hover:text-cyan-300 whitespace-nowrap"
                                 >
-                                  ✏️ 編輯
+                                  編輯
                                 </Button>
 
                                 <Button
@@ -477,7 +472,7 @@ export function SettingsPage() {
                                   className="text-xs px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60 whitespace-nowrap"
                                   title="刪除此地點並將庫存全數轉移至目標據點"
                                 >
-                                  🗑️ 刪除 (轉移庫存)
+                                  刪除 (轉移庫存)
                                 </Button>
                               </div>
                             </td>
@@ -497,7 +492,6 @@ export function SettingsPage() {
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-6 max-w-2xl">
             <div>
               <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
-                <span>🏪</span>
                 <span>門市清單管理</span>
               </h3>
               <p className="mt-1 text-xs text-zinc-400">
@@ -518,7 +512,7 @@ export function SettingsPage() {
                 variant="primary"
                 className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold px-4 whitespace-nowrap"
               >
-                ➕ 新增門市
+                新增門市
               </Button>
             </form>
 
@@ -532,7 +526,6 @@ export function SettingsPage() {
                     className="flex items-center justify-between p-3.5 hover:bg-zinc-900/60 transition-colors"
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xl">🏬</span>
                       <div>
                         <span className="font-bold text-zinc-100 text-base">{store}</span>
                         {isCurrent && (
@@ -566,7 +559,7 @@ export function SettingsPage() {
                         className="text-xs px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60"
                         title={stores.length <= 1 ? '至少需保留一間門市' : `刪除門市「${store}」`}
                       >
-                        🗑️ 刪除
+                        刪除
                       </Button>
                     </div>
                   </div>
@@ -582,7 +575,6 @@ export function SettingsPage() {
             {/* 說明區塊 */}
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 space-y-2">
               <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
-                <span>🛡️</span>
                 <span>Google OAuth 帳號權限白名單</span>
               </h3>
               <p className="text-sm text-zinc-400 leading-relaxed">
@@ -591,12 +583,11 @@ export function SettingsPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* 👑 管理員 Gmail 名單 */}
+              {/* 管理員 Gmail 名單 */}
               <div className="rounded-2xl border border-amber-800/40 bg-zinc-900/60 p-5 space-y-4 flex flex-col">
                 <div>
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold text-amber-300 text-base flex items-center gap-2">
-                      <span>👑</span>
                       <span>系統管理員名單</span>
                     </h4>
                     <span className="font-mono text-xs text-amber-400 bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800">
@@ -646,7 +637,7 @@ export function SettingsPage() {
                       variant="primary"
                       className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold px-4 text-xs"
                     >
-                      ➕ 新增管理員
+                      新增管理員
                     </Button>
                   </div>
                 </form>
@@ -664,7 +655,6 @@ export function SettingsPage() {
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                            <span className="text-xs">🔑</span>
                             <span className="font-bold text-sm text-zinc-100">
                               {account.name || '未設定名稱'}
                             </span>
@@ -690,7 +680,7 @@ export function SettingsPage() {
                                 className="text-xs text-zinc-400 hover:text-cyan-300 px-2 py-1 rounded bg-zinc-800/60 border border-zinc-700/60"
                                 title="編輯名稱與附註說明"
                               >
-                                ✏️ 編輯
+                                編輯
                               </button>
                             )}
 
@@ -702,7 +692,7 @@ export function SettingsPage() {
                               className="text-xs px-2 py-1 bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60"
                               title={adminAccounts.length <= 1 ? '至少需保留一位管理員' : `移除管理員「${account.email}」`}
                             >
-                              🗑️
+                              刪除
                             </Button>
                           </div>
                         </div>
@@ -769,12 +759,11 @@ export function SettingsPage() {
                 </div>
               </div>
 
-              {/* 👤 一般店員 Gmail 名單 */}
+              {/* 一般店員 Gmail 名單 */}
               <div className="rounded-2xl border border-emerald-800/40 bg-zinc-900/60 p-5 space-y-4 flex flex-col">
                 <div>
                   <div className="flex items-center justify-between">
                     <h4 className="font-bold text-emerald-300 text-base flex items-center gap-2">
-                      <span>👤</span>
                       <span>一般店員名單</span>
                     </h4>
                     <span className="font-mono text-xs text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">
@@ -824,7 +813,7 @@ export function SettingsPage() {
                       variant="primary"
                       className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold px-4 text-xs"
                     >
-                      ➕ 新增店員
+                      新增店員
                     </Button>
                   </div>
                 </form>
@@ -847,7 +836,6 @@ export function SettingsPage() {
                         >
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                              <span className="text-xs">👤</span>
                               <span className="font-bold text-sm text-zinc-100">
                                 {account.name || '未設定名稱'}
                               </span>
@@ -873,7 +861,7 @@ export function SettingsPage() {
                                   className="text-xs text-zinc-400 hover:text-cyan-300 px-2 py-1 rounded bg-zinc-800/60 border border-zinc-700/60"
                                   title="編輯名稱與附註說明"
                                 >
-                                  ✏️ 編輯
+                                  編輯
                                 </button>
                               )}
 
@@ -884,7 +872,7 @@ export function SettingsPage() {
                                 className="text-xs px-2 py-1 bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60"
                                 title={`移除店員「${account.email}」`}
                               >
-                                🗑️
+                                刪除
                               </Button>
                             </div>
                           </div>

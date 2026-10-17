@@ -48,19 +48,19 @@ export function OrderDetailModal({
     const p = payments[0];
     switch (p.type) {
       case 'cash':
-        return <Badge color="emerald">💵 現金</Badge>;
+        return <Badge color="emerald">現金</Badge>;
       case 'bank_transfer_ctbc':
-        return <Badge color="purple">🏦 轉帳(中信)</Badge>;
+        return <Badge color="purple">轉帳(中信)</Badge>;
       case 'bank_transfer_ubot':
-        return <Badge color="purple">🏦 轉帳(聯邦)</Badge>;
+        return <Badge color="purple">轉帳(聯邦)</Badge>;
       case 'credit_card_physical':
-        return <Badge color="cyan">💳 信用卡(實體)</Badge>;
+        return <Badge color="cyan">信用卡(實體)</Badge>;
       case 'credit_card_online':
-        return <Badge color="cyan">🌐 信用卡(網路)</Badge>;
+        return <Badge color="cyan">信用卡(網路)</Badge>;
       case 'line_pay':
-        return <Badge color="amber">📱 LINE Pay</Badge>;
+        return <Badge color="amber">LINE Pay</Badge>;
       case 'cod':
-        return <Badge color="zinc">📦 貨到付款</Badge>;
+        return <Badge color="zinc">貨到付款</Badge>;
       default:
         return <Badge color="zinc">{p.name || p.type}</Badge>;
     }
@@ -71,7 +71,7 @@ export function OrderDetailModal({
     <Modal
       open={open}
       onClose={onClose}
-      title="🧾 原始銷售單據完整明細"
+      title="原始銷售單據完整明細"
       widthClassName="max-w-3xl"
     >
       <div className="space-y-4 text-sm max-h-[75vh] overflow-y-auto pr-1">
@@ -116,7 +116,7 @@ export function OrderDetailModal({
                     }}
                     className="ml-2 rounded bg-zinc-800 hover:bg-zinc-700 text-cyan-300 px-2 py-0.5 font-bold transition-colors text-[11px]"
                   >
-                    👤 前往會員專頁 ➔
+                    前往會員專頁 ➔
                   </button>
                 </div>
               ) : (
@@ -194,7 +194,7 @@ export function OrderDetailModal({
                     )}
                     {isCurrentReturn && (
                       <span className="shrink-0 rounded bg-rose-500 text-white px-2 py-0.5 text-xs font-bold shadow-sm select-none">
-                        ⭐ 本次退貨品項
+                        本次退貨品項
                       </span>
                     )}
                     {returned > 0 && (
@@ -204,7 +204,7 @@ export function OrderDetailModal({
                     )}
                     {item.note && (
                       <span className="shrink-0 rounded bg-zinc-800/80 px-2 py-0.5 text-xs text-amber-300/90 font-mono">
-                        📝 {item.note}
+                        {item.note}
                       </span>
                     )}
                   </div>
@@ -227,7 +227,7 @@ export function OrderDetailModal({
         <div className="grid grid-cols-2 gap-3 pt-1">
           {/* 左欄：發票與支付方式明細 */}
           <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5 space-y-2 text-xs font-mono">
-            <p className="text-zinc-400 font-bold border-b border-zinc-800/80 pb-1">💳 支付與發票明細</p>
+            <p className="text-zinc-400 font-bold border-b border-zinc-800/80 pb-1">支付與發票明細</p>
             <div className="space-y-1 text-zinc-300">
               {order.payments.map((p, i) => (
                 <div key={i} className="flex justify-between items-center">
@@ -254,7 +254,7 @@ export function OrderDetailModal({
 
           {/* 右欄：金額結算彙整 */}
           <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5 space-y-2 text-xs font-mono">
-            <p className="text-zinc-400 font-bold border-b border-zinc-800/80 pb-1">💰 金額結算彙整</p>
+            <p className="text-zinc-400 font-bold border-b border-zinc-800/80 pb-1">金額結算彙整</p>
             <div className="space-y-1.5 text-zinc-300">
               <div className="flex justify-between">
                 <span className="text-zinc-400">商品原價小計</span>
@@ -290,7 +290,7 @@ export function OrderDetailModal({
                 onClick={onSelectAnotherOrder}
                 className="text-xs font-semibold border-rose-800 bg-rose-950/40 text-rose-300 hover:bg-rose-900"
               >
-                🔄 重新挑選其他原單
+                重新挑選其他原單
               </Button>
             )}
             {onViewReceipt && (
@@ -300,7 +300,7 @@ export function OrderDetailModal({
                 onClick={() => onViewReceipt(order)}
                 className="text-xs font-semibold"
               >
-                🧾 預覽電子收據憑證
+                預覽電子收據憑證
               </Button>
             )}
           </div>

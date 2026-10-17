@@ -186,7 +186,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
       try {
         const results = await productService.searchProducts({ keyword: query });
         if (results.length === 0) {
-          showToast(`❌ 找不到條碼/貨號「${query}」對應的商品`, 'error');
+          showToast(`找不到條碼/貨號「${query}」對應的商品`, 'error');
           return;
         }
         setMatchedProducts(results);
@@ -215,7 +215,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
       return [...prev, { product: targetProduct!, targetLocation, restockQty: qty }];
     });
 
-    showToast(`➕ 已加入進貨: ${targetProduct.sku} (${qty}台)`, 'success');
+    showToast(`已加入進貨: ${targetProduct.sku} (${qty}台)`, 'success');
     setBarcodeInput('');
     setMatchedProducts([]);
     setQuantity('1');
@@ -247,7 +247,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
       next[index] = { ...next[index], product: newProduct };
       return next;
     });
-    showToast(`🔄 已將進貨項目切換為: ${newProduct.sku}`, 'info');
+    showToast(`已將進貨項目切換為: ${newProduct.sku}`, 'info');
   };
 
   const handleConfirmRestock = async () => {
@@ -291,7 +291,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
         note: '快速條碼進貨入庫',
       });
 
-      showToast(`🎉 成功完成 ${restockBatch.length} 項商品進貨入庫！`, 'success');
+      showToast(`成功完成 ${restockBatch.length} 項商品進貨入庫！`, 'success');
       onSuccess(adjustments);
       onClose();
     } catch {
@@ -302,7 +302,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="📥 快速條碼進貨模式" widthClassName="max-w-3xl">
+    <Modal open={open} onClose={onClose} title="快速條碼進貨模式" widthClassName="max-w-3xl">
       <div className="space-y-4 text-base">
         {/* 條碼掃描與 SKU 選擇區 */}
         <div className="rounded-xl border border-cyan-800/40 bg-cyan-950/20 p-4 space-y-3">
@@ -317,7 +317,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
                 value={barcodeInput}
                 onChange={(e) => handleBarcodeSearch(e.target.value)}
                 onKeyDown={handleBarcodeKeyDown}
-                placeholder="🔍 掃碼槍掃描條碼或輸入貨號..."
+                placeholder="掃碼槍掃描條碼或輸入貨號..."
                 className="text-lg font-bold border-cyan-500/50"
               />
             </div>
@@ -352,7 +352,6 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
           <div className="min-h-[140px] rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 flex flex-col justify-center">
             {productGroups.length === 0 ? (
               <div className="flex h-24 flex-col items-center justify-center text-zinc-500 font-mono text-sm">
-                <span className="text-2xl mb-1">🔍</span>
                 <span>請於上方掃描條碼或輸入貨號 SKU</span>
               </div>
             ) : productGroups.length === 1 ? (
@@ -427,7 +426,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
               /* 搜尋關鍵字匹配多筆不同條碼/商品：用卷軸列出所有選項 */
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs text-zinc-400">
-                  <span>🔍 找到 {productGroups.length} 組符合搜尋的品項（點擊選取）：</span>
+                  <span>找到 {productGroups.length} 組符合搜尋的品項（點擊選取）：</span>
                 </div>
                 <div className="max-h-48 overflow-y-auto space-y-2 pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-zinc-900 [&::-webkit-scrollbar-thumb]:bg-zinc-700">
                   {productGroups.map((group) => {
@@ -460,7 +459,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
                           </div>
                           {group.barcode && (
                             <span className="font-mono text-[11px] text-amber-300/80 shrink-0">
-                              🏷️ {group.barcode}
+                              {group.barcode}
                             </span>
                           )}
                         </div>
@@ -501,7 +500,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
               disabled={!barcodeInput.trim() && !selectedProduct}
               className="bg-cyan-500 text-zinc-950 font-bold px-4 py-2"
             >
-              ➕ 加入進貨批次清單
+              加入進貨批次清單
             </Button>
           </div>
         </div>
@@ -509,7 +508,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
         {/* 待入庫進貨批次清單 (同條碼多貨號支援下拉切換) */}
         <div>
           <h4 className="text-sm font-semibold text-zinc-300 mb-2 flex items-center justify-between">
-            <span>📦 待入庫進貨批次清單 ({restockBatch.length} 項)</span>
+            <span>待入庫進貨批次清單 ({restockBatch.length} 項)</span>
             {restockBatch.length > 0 && (
               <button
                 onClick={() => setRestockBatch([])}
@@ -540,7 +539,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <span className="font-mono text-xs text-amber-300 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded font-medium whitespace-nowrap">
-                        🏷️ {item.product.barcode || '無條碼'}
+                        {item.product.barcode || '無條碼'}
                       </span>
 
                       {/* 若有同條碼多貨號，提供下拉選單隨時切換 */}
@@ -615,7 +614,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
             disabled={isSubmitting || restockBatch.length === 0}
             className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold px-5"
           >
-            {isSubmitting ? '寫入進貨庫存中...' : '✅ 確認完成進貨 (產生理貨單)'}
+            {isSubmitting ? '寫入進貨庫存中...' : '確認完成進貨 (產生理貨單)'}
           </Button>
         </div>
       </div>

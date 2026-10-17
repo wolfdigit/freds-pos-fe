@@ -267,8 +267,7 @@ export function CheckoutPage() {
           >
             {salesItems.length === 0 && returnItems.length === 0 ? (
               <div className="flex h-48 flex-col items-center justify-center text-center text-zinc-500 py-8">
-                <p className="text-3xl">🛒</p>
-                <p className="mt-2 text-xs">目前無待結品項，請點擊左側商品或掃描條碼加入</p>
+                <p className="text-xs">目前無待結品項，請點擊左側商品或掃描條碼加入</p>
               </div>
             ) : salesItems.length === 0 ? (
               <div className="p-4 text-center text-zinc-500 text-xs border border-dashed border-zinc-800 rounded-lg select-none">
@@ -345,7 +344,7 @@ export function CheckoutPage() {
                     }}
                     className="rounded bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs px-2 py-0.5 border border-rose-700 font-bold transition-all shadow-sm"
                   >
-                    🔍 查原單退貨
+                    查原單退貨
                   </button>
                 </div>
               ) : (
@@ -361,7 +360,7 @@ export function CheckoutPage() {
                     }}
                     className="rounded bg-rose-900/60 hover:bg-rose-800 text-rose-200 text-xs px-2 py-0.5 border border-rose-700 font-bold transition-all shadow-sm"
                   >
-                    🔍 查原單退貨
+                    查原單退貨
                   </button>
                 </div>
               )}

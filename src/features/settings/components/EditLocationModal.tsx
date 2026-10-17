@@ -56,7 +56,7 @@ export function EditLocationModal({
         isActive,
       });
 
-      showToast(`✨ 成功修改庫存地點：「${updated.name}」`, 'success');
+      showToast(`成功修改庫存地點：「${updated.name}」`, 'success');
       onSuccess(updated);
       onClose();
     } catch {
@@ -67,7 +67,7 @@ export function EditLocationModal({
   };
 
   return (
-    <Modal open={!!location} onClose={onClose} title={`✏️ 編輯庫存據點：${location.name}`} widthClassName="max-w-md">
+    <Modal open={!!location} onClose={onClose} title={`編輯庫存據點：${location.name}`} widthClassName="max-w-md">
       <form onSubmit={handleSubmit} className="space-y-4 text-base">
         <div>
           <label htmlFor="edit-location-name" className="mb-1 block text-sm font-semibold text-zinc-300">

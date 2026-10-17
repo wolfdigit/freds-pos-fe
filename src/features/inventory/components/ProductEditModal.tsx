@@ -78,7 +78,7 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
 
       await productService.updateProduct(product.id, updates);
 
-      showToast('🎉 商品資訊已成功更新！', 'success');
+      showToast('商品資訊已成功更新！', 'success');
       onSuccess();
       onClose();
     } catch (err) {
@@ -95,7 +95,7 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
   };
 
   return (
-    <Modal open={!!product} onClose={onClose} title={`✏️ 編輯商品資訊：${product.sku}`}>
+    <Modal open={!!product} onClose={onClose} title={`編輯商品資訊：${product.sku}`}>
       <form onSubmit={handleSubmit} className="space-y-4 text-base">
         {/* 廠牌與比例 */}
         <div className="grid grid-cols-2 gap-3">

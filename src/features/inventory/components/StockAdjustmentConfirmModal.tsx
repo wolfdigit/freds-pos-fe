@@ -40,7 +40,7 @@ export function StockAdjustmentConfirmModal({
         note: note.trim() || undefined,
       });
 
-      showToast(`✅ 已成功更新 ${adjustments.length} 項商品庫存並紀錄操作日誌`, 'success');
+      showToast(`已成功更新 ${adjustments.length} 項商品庫存並紀錄操作日誌`, 'success');
       onSuccess(adjustments);
       onClose();
     } catch (err) {
@@ -51,7 +51,7 @@ export function StockAdjustmentConfirmModal({
   };
 
   return (
-    <Modal open={open} onClose={onClose} title="📋 庫存變更確認與操作紀錄" widthClassName="max-w-2xl">
+    <Modal open={open} onClose={onClose} title="庫存變更確認與操作紀錄" widthClassName="max-w-2xl">
       <div className="space-y-4 text-base">
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-300">
           ⚠️ 請核對以下庫存數量修改明細。點擊「確認存檔」後，系統將寫入資料庫並記錄操作人員與時間。
