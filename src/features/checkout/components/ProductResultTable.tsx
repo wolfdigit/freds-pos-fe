@@ -81,7 +81,7 @@ export function ProductResultTable({
             <th className="py-2 pl-2.5 pr-1.5 w-24 bg-zinc-950 truncate">廠牌 / 貨號</th>
             <th className="py-2 px-1.5 bg-zinc-950 truncate">品名 / 規格 (點擊加入)</th>
             <th className="py-2 px-1.5 w-16 text-right bg-zinc-950">定價</th>
-            <th className="py-2 pl-1 pr-2 w-12 text-center bg-zinc-950">詳情</th>
+            <th className="py-2 pl-1 pr-2 w-[5.5rem] text-center bg-zinc-950">詳情</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-800/60">
