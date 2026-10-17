@@ -67,7 +67,7 @@ src/
 
 ```typescript
 // src/services/interfaces/IProductService.ts
-import { Product, ProductSearchParams } from '@/types/product';
+import { Product, ProductSearchParams, ProductStatus } from '@/types/product';
 import {
   InventoryTransferRequest,
   StockAdjustRequest,
@@ -81,7 +81,7 @@ export interface IProductService {
   /** 依 ID 取得單一商品 */
   getProductById(id: string): Promise<Product | null>;
   /** 新增商品建檔 */
-  createProduct(product: Omit<Product, 'id' | 'totalStock' | 'preOrderPendingCount' | 'normalizedSku'>): Promise<Product>;
+  createProduct(product: Omit<Product, 'id' | 'totalStock' | 'preOrderPendingCount' | 'normalizedSku'> & { status?: ProductStatus }): Promise<Product>;
   /** 跨據點庫存調撥 (門市/倉庫/公司) */
   transferStock(request: InventoryTransferRequest): Promise<boolean>;
   /** 手動單一調整庫存數量 */
