@@ -218,7 +218,7 @@ export function CartItemRow({
                 onUpdateQuantity(next);
                 setQtyInput(String(next));
               }}
-              className="flex h-3.5 w-4 items-center justify-center text-[11px] text-zinc-300 hover:bg-cyan-900 hover:text-cyan-200 transition-colors"
+              className="flex h-5 w-8 items-center justify-center text-xs text-zinc-300 transition-colors hover:bg-cyan-900 hover:text-cyan-200"
               title="增加數量 (+1)"
             >
               ▲
@@ -232,7 +232,7 @@ export function CartItemRow({
                   setQtyInput(String(next));
                 }
               }}
-              className="flex h-3.5 w-4 items-center justify-center text-[11px] text-zinc-300 hover:bg-zinc-800 transition-colors border-t border-zinc-800"
+              className="flex h-5 w-8 items-center justify-center border-t border-zinc-800 text-xs text-zinc-300 transition-colors hover:bg-zinc-800"
               title="減少數量 (-1)"
             >
               ▼
@@ -392,7 +392,7 @@ export function ReturnCartItemRow({
                 onUpdateQuantity(-nextAbs);
                 setQtyInput(String(nextAbs));
               }}
-              className={`flex h-3.5 w-4 items-center justify-center text-[11px] transition-colors ${
+              className={`flex h-5 w-8 items-center justify-center text-xs transition-colors ${
                 isMaxReturnReached
                   ? 'text-zinc-600 bg-zinc-900/80 cursor-not-allowed'
                   : 'text-rose-300 hover:bg-rose-800'
@@ -414,7 +414,7 @@ export function ReturnCartItemRow({
                   setQtyInput(String(nextAbs));
                 }
               }}
-              className="flex h-3.5 w-4 items-center justify-center text-[11px] text-rose-300 hover:bg-rose-800 transition-colors border-t border-rose-900"
+              className="flex h-5 w-8 items-center justify-center border-t border-rose-900 text-xs text-rose-300 transition-colors hover:bg-rose-800"
               title="減少退貨數量 (-1)"
             >
               ▼

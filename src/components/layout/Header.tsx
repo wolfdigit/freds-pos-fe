@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
 import { Button } from '@/components/common/Button';
+import { Input } from '@/components/common/Input';
+import { Modal } from '@/components/common/Modal';
 import { resetDemoData, isMockService, toggleMockMode } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -31,6 +33,9 @@ export function Header() {
   const now = useClock();
   const showToast = useToastStore((s) => s.showToast);
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [customStoreOpen, setCustomStoreOpen] = useState(false);
+  const [customStoreName, setCustomStoreName] = useState('');
+  const [customStoreError, setCustomStoreError] = useState('');
 
   const handleReset = () => {
     if (!confirmingReset) {
@@ -50,15 +55,25 @@ export function Header() {
   const handleStoreChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     if (val === '__CUSTOM__') {
-      const custom = window.prompt('請輸入新登入門市名稱：', storeName);
-      if (custom && custom.trim()) {
-        setStoreName(custom.trim());
-        showToast(`已成功更換登入門市為：「${custom.trim()}」`, 'success');
-      }
-    } else {
-      setStoreName(val);
-      showToast(`已成功更換登入門市為：「${val}」`, 'success');
+      setCustomStoreName('');
+      setCustomStoreError('');
+      setCustomStoreOpen(true);
+      return;
     }
+    setStoreName(val);
+    showToast(`已成功更換登入門市為：「${val}」`, 'success');
+  };
+
+  const handleCustomStoreSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = customStoreName.trim();
+    if (!name) {
+      setCustomStoreError('請填寫門市名稱');
+      return;
+    }
+    setStoreName(name);
+    showToast(`已成功更換登入門市為：「${name}」`, 'success');
+    setCustomStoreOpen(false);
   };
 
   const handleLogoutClick = () => {
@@ -154,6 +169,28 @@ export function Header() {
           </Button>
         )}
       </div>
+
+      <Modal open={customStoreOpen} onClose={() => setCustomStoreOpen(false)} title="✏️ 自訂登入門市">
+        <form onSubmit={handleCustomStoreSubmit} className="space-y-4 text-sm text-zinc-200">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-zinc-300">門市名稱</label>
+            <Input
+              value={customStoreName}
+              onChange={(e) => setCustomStoreName(e.target.value)}
+              placeholder="例如：信義概念店"
+            />
+            {customStoreError && <p className="mt-1 text-xs font-medium text-rose-300">{customStoreError}</p>}
+          </div>
+          <div className="flex justify-end gap-3 border-t border-zinc-800 pt-3">
+            <Button type="button" variant="secondary" onClick={() => setCustomStoreOpen(false)}>
+              取消
+            </Button>
+            <Button type="submit" variant="primary">
+              確認更換
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </header>
   );
 }

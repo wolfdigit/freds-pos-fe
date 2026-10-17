@@ -20,6 +20,7 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
   const [vipTier, setVipTier] = useState<VipTier>('regular');
   const [note, setNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{ name?: string; phone?: string }>({});
   const showToast = useToastStore((s) => s.showToast);
 
   const isEdit = !!customer;
@@ -39,19 +40,17 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
         setVipTier('regular');
         setNote('');
       }
+      setErrors({});
     }
   }, [open, customer]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
-      showToast('請輸入客戶姓名', 'warning');
-      return;
-    }
-    if (!phone.trim()) {
-      showToast('請輸入手機號碼', 'warning');
-      return;
-    }
+    const next: { name?: string; phone?: string } = {};
+    if (!name.trim()) next.name = '請填寫客戶姓名';
+    if (!phone.trim()) next.phone = '請填寫手機號碼';
+    setErrors(next);
+    if (next.name || next.phone) return;
 
     setSubmitting(true);
     try {
@@ -109,8 +108,8 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
             placeholder="例如：陳冠宇 或 極速模型工作室"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            required
           />
+          {errors.name && <p className="mt-1 text-xs font-medium text-rose-300">{errors.name}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -123,8 +122,8 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
               placeholder="0912345678"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              required
             />
+            {errors.phone && <p className="mt-1 text-xs font-medium text-rose-300">{errors.phone}</p>}
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-zinc-400">電子信箱 (選填)</label>

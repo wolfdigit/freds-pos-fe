@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useProductList } from './hooks/useProductList';
 import { ProductTable } from './components/ProductTable';
 import { StockTransferModal } from './components/StockTransferModal';
@@ -11,6 +11,7 @@ import { ProductEditModal } from './components/ProductEditModal';
 import type { Product, StockLocation } from '@/types/product';
 import type { StockItemAdjustment, StockLocationChange } from '@/types/inventory';
 import { Button } from '@/components/common/Button';
+import { useUiStore } from '@/store/uiStore';
 
 const BRAND_TABS: string[] = [
   'ALL',
@@ -57,6 +58,17 @@ export function InventoryPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createPrefill, setCreatePrefill] = useState('');
+  const pendingCreate = useUiStore((s) => s.isProductCreateModalOpen);
+  const pendingKeyword = useUiStore((s) => s.productCreateKeyword);
+  const closeProductCreateModal = useUiStore((s) => s.closeProductCreateModal);
+
+  useEffect(() => {
+    if (!pendingCreate) return;
+    setCreatePrefill(pendingKeyword);
+    setIsCreateModalOpen(true);
+    closeProductCreateModal();
+  }, [pendingCreate, pendingKeyword, closeProductCreateModal]);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
 
@@ -319,7 +331,10 @@ export function InventoryPage() {
 
           <Button
             variant="secondary"
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={() => {
+              setCreatePrefill('');
+              setIsCreateModalOpen(true);
+            }}
             className="flex items-center gap-1.5 px-4 py-2.5 text-base font-semibold border-cyan-500/40 text-cyan-300 hover:bg-cyan-950/40"
           >
             ➕ 建立新商品
@@ -368,6 +383,7 @@ export function InventoryPage() {
       {/* 新增商品建檔彈窗 */}
       <CreateProductModal
         open={isCreateModalOpen}
+        initialKeyword={createPrefill}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={handleCreateProductSuccess}
       />

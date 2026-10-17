@@ -238,7 +238,10 @@ export function CheckoutPage() {
               setDetailSource('catalog');
               setDetailProduct(product);
             }}
-            onCreateNew={() => showToast('新商品建檔功能請至「商品及庫存」頁面', 'info')}
+            onCreateNew={() => {
+              ui.openProductCreateModal(keyword.trim());
+              ui.setActiveTab('inventory');
+            }}
           />
         </div>
       </section>

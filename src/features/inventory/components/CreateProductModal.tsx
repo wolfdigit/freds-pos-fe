@@ -12,11 +12,12 @@ interface CreateProductModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess: (product: Product, initialDrafts?: Record<StockLocation, number>) => void;
+  initialKeyword?: string;
 }
 
 const SCALE_OPTIONS: ModelScale[] = ['1:18', '1:43', '1:64', '1:24', '1:12', '配件周邊'];
 
-export function CreateProductModal({ open, onClose, onSuccess }: CreateProductModalProps) {
+export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = '' }: CreateProductModalProps) {
   const showToast = useToastStore((s) => s.showToast);
 
   const [brand, setBrand] = useState('AutoArt');
@@ -34,14 +35,17 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
   const [companyStock, setCompanyStock] = useState('0');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // 每次進入彈窗時重置所有輸入欄位
+  // 每次進入彈窗時重置欄位，並帶入結帳搜尋關鍵字
   useEffect(() => {
     if (open) {
+      const seed = initialKeyword.trim();
+      const looksLikeSku = seed.length > 0 && !/\s/.test(seed);
       setBrand('AutoArt');
-      setSku('');
+      setSku(looksLikeSku ? seed : '');
       setBarcode('');
-      setName('');
+      setName(seed);
       setScale('');
       setSpec('');
       setListPrice('');
@@ -49,26 +53,21 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
       setStoreStock('0');
       setWarehouseStock('0');
       setCompanyStock('0');
+      setErrors({});
     }
-  }, [open]);
+  }, [open, initialKeyword]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sku.trim() || !name.trim() || !brand.trim()) {
-      showToast('請填寫廠牌、貨號與商品品名', 'error');
-      return;
-    }
-
-    if (!barcode.trim()) {
-      showToast('請填寫國際條碼 (Barcode)', 'error');
-      return;
-    }
-
+    const next: Record<string, string> = {};
+    if (!brand.trim()) next.brand = '請填寫商品廠牌';
+    if (!sku.trim()) next.sku = '請填寫商品貨號';
+    if (!barcode.trim()) next.barcode = '請填寫國際條碼';
+    if (!name.trim()) next.name = '請填寫商品品名';
     const price = Number(listPrice);
-    if (isNaN(price) || price < 0) {
-      showToast('請輸入正確的定價', 'error');
-      return;
-    }
+    if (listPrice.trim() === '' || Number.isNaN(price) || price < 0) next.listPrice = '請填寫正確的門市定價';
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
 
     setIsSubmitting(true);
     try {
@@ -128,8 +127,8 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
               value={brand}
               onChange={(e) => setBrand(e.target.value)}
               placeholder="例如: AutoArt, Spark, Mini GT"
-              required
             />
+            {errors.brand && <p className="mt-1 text-xs font-medium text-rose-300">{errors.brand}</p>}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-300">模型比例 (選填)</label>
@@ -153,12 +152,13 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-300">商品貨號 (SKU) *</label>
             <Input
+              id="create-product-sku"
               monospace
               value={sku}
               onChange={(e) => setSku(e.target.value)}
               placeholder="例如: AA-79122"
-              required
             />
+            {errors.sku && <p className="mt-1 text-xs font-medium text-rose-300">{errors.sku}</p>}
           </div>
           <div>
             <label className="mb-1 block text-sm font-medium text-zinc-300">國際條碼 (Barcode) *</label>
@@ -167,8 +167,8 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
               value={barcode}
               onChange={(e) => setBarcode(e.target.value)}
               placeholder="掃描或手動輸入國際條碼"
-              required
             />
+            {errors.barcode && <p className="mt-1 text-xs font-medium text-rose-300">{errors.barcode}</p>}
           </div>
         </div>
 
@@ -176,11 +176,12 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
         <div>
           <label className="mb-1 block text-sm font-medium text-zinc-300">商品品名 *</label>
           <Input
+            id="create-product-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="例如: Nissan Skyline GT-R R34 V-Spec II"
-            required
           />
+          {errors.name && <p className="mt-1 text-xs font-medium text-rose-300">{errors.name}</p>}
         </div>
 
         {/* 4. 規格與定價 */}
@@ -202,8 +203,8 @@ export function CreateProductModal({ open, onClose, onSuccess }: CreateProductMo
               value={listPrice}
               onChange={(e) => setListPrice(e.target.value)}
               placeholder="6800"
-              required
             />
+            {errors.listPrice && <p className="mt-1 text-xs font-medium text-rose-300">{errors.listPrice}</p>}
           </div>
         </div>
 

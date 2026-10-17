@@ -62,7 +62,7 @@ export const ProductSearchBar = forwardRef<HTMLInputElement, ProductSearchBarPro
             key={b}
             onClick={() => onBrandChange(b)}
             className={cn(
-              'whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium transition-colors',
+              'min-h-10 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors',
               brand === b
                 ? 'bg-cyan-500 text-zinc-950 font-bold'
                 : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'

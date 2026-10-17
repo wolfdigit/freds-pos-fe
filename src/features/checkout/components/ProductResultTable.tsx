@@ -156,9 +156,9 @@ export function ProductResultTable({
                       onViewDetail(currentProduct);
                     }}
                     title="查看商品詳細資訊"
-                    className="inline-flex items-center justify-center rounded border border-zinc-700 bg-zinc-800 px-1.5 py-0.5 text-[11px] font-semibold text-zinc-300 hover:border-cyan-400 hover:text-cyan-300 hover:bg-zinc-700 transition-colors whitespace-nowrap"
+                    className="inline-flex h-10 min-w-[4.5rem] items-center justify-center whitespace-nowrap rounded border border-zinc-700 bg-zinc-800 px-2.5 text-sm font-semibold text-zinc-300 transition-colors hover:border-cyan-400 hover:bg-zinc-700 hover:text-cyan-300"
                   >
-                    ℹ
+                    ℹ 詳情
                   </button>
                 </td>
               </tr>
