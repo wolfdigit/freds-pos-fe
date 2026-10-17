@@ -107,7 +107,7 @@ export function ProductTable({
               </th>
             ))}
             <th className="px-4 py-3.5 text-right font-bold bg-zinc-900">預估總計</th>
-            <th className="sticky right-0 z-20 min-w-[90px] bg-zinc-900 px-4 py-3.5 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.45)]">操作</th>
+            <th className="sticky right-0 z-20 min-w-[7.25rem] whitespace-nowrap bg-zinc-900 px-4 py-3.5 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.45)]">操作</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-800/80">
@@ -205,13 +205,13 @@ export function ProductTable({
                 </td>
 
                 {/* 操作按鈕 (單項調撥) */}
-                <td className="sticky right-0 z-10 bg-zinc-950 px-4 py-3.5 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.35)] group-hover:bg-zinc-900">
+                <td className="sticky right-0 z-10 min-w-[7.25rem] whitespace-nowrap bg-zinc-950 px-4 py-3.5 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.35)] group-hover:bg-zinc-900">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       onTransfer(p);
                     }}
-                    className="rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-cyan-300 transition-colors"
+                    className="whitespace-nowrap rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-1.5 text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-cyan-300 transition-colors"
                     title="跨據點庫存調撥"
                   >
                     ⇄ 調撥

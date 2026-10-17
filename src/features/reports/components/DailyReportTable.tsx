@@ -107,14 +107,14 @@ export function DailyReportTable({
           <table className="w-full text-left text-sm border-collapse">
             <thead className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950 text-xs font-semibold uppercase text-zinc-400 shadow-sm">
               <tr>
-                <th className="py-2.5 px-3">單號 / 狀態</th>
-                <th className="py-2.5 px-3">時間 / 收銀員</th>
-                <th className="py-2.5 px-3">顧客 / 會員</th>
-                <th className="py-2.5 px-3">品項摘要</th>
-                <th className="py-2.5 px-3">付款方式與金額</th>
-                <th className="py-2.5 px-3 text-center">退貨件數</th>
-                <th className="py-2.5 px-3 text-right">訂單總額</th>
-                <th className="py-2.5 px-3 text-center">操作</th>
+                <th className="min-w-[7.25rem] py-2.5 px-3">單號 / 狀態</th>
+                <th className="min-w-[4.5rem] py-2.5 px-3">時間 / 收銀員</th>
+                <th className="min-w-[3rem] py-2.5 px-3">顧客 / 會員</th>
+                <th className="w-[17rem] py-2.5 px-3">品項摘要</th>
+                <th className="min-w-[7rem] whitespace-nowrap py-2.5 px-3">付款方式與金額</th>
+                <th className="min-w-[5.5rem] py-2.5 px-3 text-center">退貨件數</th>
+                <th className="min-w-[5.75rem] whitespace-nowrap py-2.5 px-3 text-right">訂單總額</th>
+                <th className="min-w-[6.5rem] whitespace-nowrap py-2.5 px-3 text-center">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800/60 font-sans">
@@ -167,7 +167,7 @@ export function DailyReportTable({
                     </td>
 
                     {/* 品項摘要 */}
-                    <td className="py-3 px-3 max-w-xs">
+                    <td className="max-w-[17rem] py-3 px-3">
                       <div className="space-y-1">
                         {order.items.slice(0, 2).map((item, idx) => (
                           <div
@@ -233,12 +233,12 @@ export function DailyReportTable({
                     </td>
 
                     {/* 操作按鈕 */}
-                    <td className="py-3 px-3 text-center">
+                    <td className="min-w-[6.5rem] whitespace-nowrap py-3 px-3 text-center">
                       <Button
                         size="sm"
                         variant="secondary"
                         onClick={() => setSelectedOrder(order)}
-                        className="text-xs px-2.5 py-1"
+                        className="whitespace-nowrap text-xs px-2.5 py-1"
                       >
                         查看明細
                       </Button>
