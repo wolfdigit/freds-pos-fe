@@ -1,12 +1,12 @@
 import { useUiStore, type ActiveTab } from '@/store/uiStore';
 import { cn } from '@/utils/cn';
 
-const NAV_ITEMS: { id: ActiveTab; label: string; shortLabel: string; description: string }[] = [
-  { id: 'checkout', label: '出單 / 結帳櫃檯', shortLabel: '結帳', description: '出單及商品結帳櫃檯' },
-  { id: 'inventory', label: '商品及庫存', shortLabel: '庫存', description: '商品與庫存管理' },
-  { id: 'customers', label: '客戶會員', shortLabel: '會員', description: '客戶與會員管理' },
-  { id: 'reports', label: '營運日報表', shortLabel: '報表', description: '營運日報表、結帳紀錄與收支加總' },
-  { id: 'settings', label: '系統設定', shortLabel: '設定', description: '系統與庫存地點設定 (管理員)' },
+const NAV_ITEMS: { id: ActiveTab; label: string; icon: string; description: string }[] = [
+  { id: 'checkout', label: '出單 / 結帳櫃檯', icon: '🧾', description: '出單及商品結帳櫃檯' },
+  { id: 'inventory', label: '商品及庫存', icon: '📦', description: '商品與庫存管理' },
+  { id: 'customers', label: '客戶會員', icon: '👤', description: '客戶與會員管理' },
+  { id: 'reports', label: '營運日報表', icon: '📊', description: '營運日報表、結帳紀錄與收支加總' },
+  { id: 'settings', label: '系統設定', icon: '⚙️', description: '系統與庫存地點設定 (管理員)' },
 ];
 
 export function Sidebar() {
@@ -30,6 +30,7 @@ export function Sidebar() {
                 }
               }}
               title={item.label}
+              aria-label={item.label}
               className={cn(
                 'flex w-full items-center rounded-lg py-2.5 text-left text-base font-medium transition-all duration-150',
                 isSidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3',
@@ -38,11 +39,8 @@ export function Sidebar() {
                   : 'text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100 border border-transparent'
               )}
             >
-              {isSidebarCollapsed ? (
-                <span className="text-xs font-bold leading-none">{item.shortLabel}</span>
-              ) : (
-                <span className="truncate text-base">{item.label}</span>
-              )}
+              <span className="text-xl leading-none" aria-hidden="true">{item.icon}</span>
+              {!isSidebarCollapsed && <span className="truncate text-base">{item.label}</span>}
             </button>
 
             {/* Hover 浮動提示文字 Bubble */}
