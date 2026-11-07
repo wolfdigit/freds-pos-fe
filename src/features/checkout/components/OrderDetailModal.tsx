@@ -300,7 +300,7 @@ export function OrderDetailModal({
                 onClick={() => onViewReceipt(order)}
                 className="text-xs font-semibold"
               >
-                預覽電子收據憑證
+                預覽結帳明細
               </Button>
             )}
           </div>

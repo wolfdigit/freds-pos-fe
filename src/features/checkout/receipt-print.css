@@ -1,0 +1,196 @@
+/*
+ * 結帳明細列印版。螢幕上移出視窗外，列印時只留這張 80mm 紙、72mm 內容。
+ * 頁高由 printReceipt.ts 依內容寫入兩個長度，不使用不合法的 `size: 80mm auto`。
+ */
+
+#receipt-print-root {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 80mm;
+  margin: 0;
+  padding: 0;
+  background: #ffffff;
+  color: #000000;
+  color-scheme: light;
+  visibility: hidden;
+  pointer-events: none;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+.receipt-print-sheet {
+  box-sizing: border-box;
+  width: 72mm;
+  max-height: none;
+  height: auto;
+  margin: 0 auto;
+  padding: 3mm 0 4mm;
+  overflow: visible;
+  background: #ffffff;
+  color: #000000;
+  font-family: "Microsoft JhengHei", "PingFang TC", "Noto Sans CJK TC", "Noto Sans TC", "WenQuanYi Micro Hei", "Droid Sans Fallback", sans-serif;
+  font-size: 3.2mm;
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+.receipt-print-sheet * {
+  box-sizing: border-box;
+  color: #000000;
+  background: transparent;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+.receipt-head,
+.receipt-item,
+.receipt-summary,
+.receipt-payments,
+.receipt-disclaimer {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.receipt-brand,
+.receipt-doc-type,
+.receipt-meta,
+.receipt-disclaimer {
+  margin: 0;
+  text-align: center;
+}
+
+.receipt-brand {
+  font-size: 5mm;
+  font-weight: 800;
+  letter-spacing: 0.15mm;
+}
+
+.receipt-doc-type {
+  margin-top: 0.8mm;
+  font-size: 3.6mm;
+  font-weight: 700;
+}
+
+.receipt-meta {
+  margin-top: 0.4mm;
+  font-size: 3mm;
+}
+
+.receipt-rule {
+  height: 0;
+  margin: 2mm 0;
+  border: 0;
+  border-top: 0.3mm dashed #000000;
+}
+
+.receipt-item {
+  padding: 1.2mm 0 1.4mm;
+  border-bottom: 0.2mm solid #000000;
+}
+
+.receipt-name {
+  margin: 0;
+  font-size: 3.3mm;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.receipt-return-tag {
+  margin-right: 1mm;
+  font-weight: 800;
+}
+
+.receipt-nums,
+.receipt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 2mm;
+}
+
+.receipt-nums > span:first-child,
+.receipt-row > span:first-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.receipt-nums {
+  margin-top: 0.8mm;
+  font-size: 3mm;
+}
+
+.receipt-nums span,
+.receipt-row span:last-child {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.receipt-amount {
+  margin-left: auto;
+  font-weight: 800;
+  text-align: right;
+}
+
+.receipt-summary,
+.receipt-payments {
+  margin: 0;
+}
+
+.receipt-row {
+  margin: 0.6mm 0;
+}
+
+.receipt-grand {
+  margin-top: 1.2mm;
+  padding-top: 1.2mm;
+  border-top: 0.45mm solid #000000;
+  font-size: 4mm;
+  font-weight: 800;
+}
+
+.receipt-disclaimer {
+  margin-top: 2.5mm;
+  font-size: 2.7mm;
+  font-weight: 700;
+}
+
+@media print {
+  @page {
+    margin: 0;
+  }
+
+  html:has(#receipt-print-root),
+  body:has(#receipt-print-root) {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    color-scheme: light !important;
+    height: auto !important;
+  }
+
+  body:has(#receipt-print-root) > *:not(#receipt-print-root) {
+    display: none !important;
+  }
+
+  #receipt-print-root {
+    display: block !important;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 80mm !important;
+    visibility: visible !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  .receipt-no-print {
+    display: none !important;
+  }
+}

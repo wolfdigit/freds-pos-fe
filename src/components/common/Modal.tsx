@@ -6,11 +6,12 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   children: ReactNode;
+  footer?: ReactNode;
   widthClassName?: string;
   zIndexClassName?: string;
 }
 
-export function Modal({ open, onClose, title, children, widthClassName = 'max-w-lg', zIndexClassName = 'z-50' }: ModalProps) {
+export function Modal({ open, onClose, title, children, footer, widthClassName = 'max-w-lg', zIndexClassName = 'z-50' }: ModalProps) {
   const titleId = useId();
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export function Modal({ open, onClose, title, children, widthClassName = 'max-w-
         <div className="flex-1 overflow-y-auto p-5">
           {children}
         </div>
+        {footer ? <div className="shrink-0 border-t border-zinc-800/80 px-5 py-3">{footer}</div> : null}
       </div>
     </div>
   );
