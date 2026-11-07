@@ -4,6 +4,7 @@ import { useUiStore } from '@/store/uiStore';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Modal } from '@/components/common/Modal';
+import { hasPermission } from '@/auth/permissions';
 import { storeSwitchNotice } from '@/auth/storeSwitch';
 import { resetDemoData, isMockService, canToggleMockMode, toggleMockMode } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
@@ -127,7 +128,9 @@ export function Header() {
             {!availableStores.includes(storeName) && storeName && (
               <option value={storeName}>{storeName}</option>
             )}
-            {isMockService && <option value="__CUSTOM__">自訂其他門市...</option>}
+            {isMockService && hasPermission(userRole, 'store.manage') && (
+              <option value="__CUSTOM__">自訂其他門市...</option>
+            )}
           </select>
         </div>
 

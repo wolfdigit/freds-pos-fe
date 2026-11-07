@@ -292,6 +292,10 @@ describe('live Google session', () => {
     role = 'staff';
     await expect(httpClient.get('/system/oauth/accounts')).rejects.toThrow('需要管理員權限');
     await waitFor(() => expect(useAuthStore.getState().user?.role).toBe('staff'));
+    const { hasPermission } = await import('@/auth/permissions');
+    expect(hasPermission(useAuthStore.getState().user?.role, 'store.manage')).toBe(false);
+    expect(hasPermission(useAuthStore.getState().user?.role, 'store.select')).toBe(true);
+    expect(hasPermission(useAuthStore.getState().user?.role, 'whitelist.manage')).toBe(false);
     expect(localStorage.getItem('AUTH_TOKEN')).toBe('pos-session');
     expect(useAuthStore.getState().phase).toBe('ready');
 
@@ -299,6 +303,56 @@ describe('live Google session', () => {
     expect(useAuthStore.getState().phase).toBe('needs-store');
     expect(localStorage.getItem('AUTH_TOKEN')).toBe('pos-session');
     stop();
+  });
+
+  it('lets staff switch the login store through the auth endpoint', async () => {
+    localStorage.setItem('AUTH_TOKEN', 'pos-session');
+    localStorage.setItem(
+      'FREDS_POS_CART:acct-staff',
+      JSON.stringify({ items: [{ productId: 'p1', quantity: 1 }], attachedCustomer: null, shippingFee: 0, orderNote: '留下' })
+    );
+    const staff = { id: 'acct-staff', email: 'clerk@example.com', name: '店員', role: 'staff' };
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        calls.push(`${init?.method ?? 'GET'} ${url}`);
+        if (url.endsWith('/auth/me') || url.endsWith('/auth/store')) {
+          const storeName = url.endsWith('/auth/store') ? '官網' : '奇可門市';
+          return json({
+            expiresAt: '2099-01-01T00:00:00.000Z',
+            storeSelected: true,
+            storeName,
+            user: staff,
+          });
+        }
+        if (url.endsWith('/auth/stores')) {
+          return json([
+            { name: '奇可門市', isDefault: true },
+            { name: '官網', isDefault: false },
+          ]);
+        }
+        if (url.includes('/system/stores')) {
+          return json({ code: 'AUTH_FORBIDDEN', message: '需要管理員權限' }, 403);
+        }
+        return json({ code: 'NOT_FOUND', message: 'no' }, 404);
+      })
+    );
+    const { useAuthStore, switchLoginStore } = await import('@/store/authStore');
+    const { useSessionStore } = await import('@/store/sessionStore');
+    const { useCartStore } = await import('@/store/cartStore');
+    await useAuthStore.getState().restore();
+    await useSessionStore.getState().fetchStores();
+    expect(useCartStore.getState().orderNote).toBe('留下');
+    const result = await switchLoginStore('官網');
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.cartItemCount).toBe(1);
+    expect(useAuthStore.getState().storeName).toBe('官網');
+    expect(useCartStore.getState().orderNote).toBe('留下');
+    expect(calls.some((call) => call.startsWith('GET') && call.includes('/auth/stores'))).toBe(true);
+    expect(calls.some((call) => call.startsWith('POST') && call.endsWith('/auth/store'))).toBe(true);
+    expect(calls.some((call) => call.includes('/system/stores'))).toBe(false);
   });
 
   it('does not trust a stale demo session blob', async () => {

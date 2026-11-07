@@ -1,7 +1,16 @@
 export type PosRole = 'admin' | 'staff';
 
-/** Central permission names. Finer rules should be added here instead of scattered role checks. */
-export type Permission = 'business.access' | 'whitelist.manage' | 'store.createInitial';
+/**
+ * Central permission names. Split a case here when admin and staff should diverge.
+ * `store.select` is choosing or switching the login store.
+ * `store.manage` is creating and deleting stores in settings.
+ */
+export type Permission =
+  | 'business.access'
+  | 'store.select'
+  | 'store.manage'
+  | 'store.createInitial'
+  | 'whitelist.manage';
 
 export function normalizeRole(role: string | null | undefined): PosRole | null {
   const value = (role ?? '').trim().toLowerCase();
@@ -12,7 +21,7 @@ export function normalizeRole(role: string | null | undefined): PosRole | null {
 export function hasPermission(role: string | null | undefined, permission: Permission): boolean {
   const normalized = normalizeRole(role);
   if (!normalized) return false;
-  if (permission === 'business.access') return true;
+  if (permission === 'business.access' || permission === 'store.select') return true;
   return normalized === 'admin';
 }
 

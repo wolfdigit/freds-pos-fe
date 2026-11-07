@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { hasPermission } from '@/auth/permissions';
+import { authApi } from '@/services/api/httpAuthService';
 import { isMockService, systemService } from '@/services';
 import { INITIAL_STORES } from '@/services/mock/mockDataSeed';
 import type { AuthUser } from '@/types/auth';
@@ -63,7 +64,7 @@ export const useSessionStore = create<SessionStore>()(
 
       fetchStores: async () => {
         try {
-          const storeDtos = await systemService.getStores();
+          const storeDtos = isMockService ? await systemService.getStores() : await authApi.listStores();
           const names = (storeDtos || []).map((store) => store.name);
           if (!isMockService) {
             set({ stores: names });
@@ -85,6 +86,7 @@ export const useSessionStore = create<SessionStore>()(
       },
 
       addStore: async (name) => {
+        if (!hasPermission(get().userRole, 'store.manage')) return false;
         const clean = name.trim();
         if (!clean) return false;
         try {
@@ -101,6 +103,7 @@ export const useSessionStore = create<SessionStore>()(
       },
 
       removeStore: async (name) => {
+        if (!hasPermission(get().userRole, 'store.manage')) return false;
         try {
           await systemService.deleteStore(name);
           if (isMockService) {

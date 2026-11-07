@@ -45,6 +45,7 @@ export function SettingsPage() {
   const showToast = useToastStore((s) => s.showToast);
 
   const canManageWhitelist = hasPermission(userRole, 'whitelist.manage');
+  const canManageStores = hasPermission(userRole, 'store.manage');
   const { locations, isLoading, reloadLocations } = useLocations();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -71,10 +72,13 @@ export function SettingsPage() {
   }, [reloadLocations, loadProducts]);
 
   useEffect(() => {
-    if (!canManageWhitelist && activeSection === 'security') {
+    if (
+      (activeSection === 'security' && !canManageWhitelist) ||
+      (activeSection === 'store_info' && !canManageStores)
+    ) {
       setActiveSection('locations');
     }
-  }, [canManageWhitelist, activeSection]);
+  }, [activeSection, canManageStores, canManageWhitelist]);
 
   // 各據點現有庫存統計
   const locationStockStats = useMemo(() => {
@@ -107,6 +111,10 @@ export function SettingsPage() {
   // 門市新增處理
   const handleAddStoreSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageStores) {
+      showToast('只有管理員可以使用門市清單管理', 'error');
+      return;
+    }
     const clean = newStoreInput.trim();
     if (!clean) {
       showToast('請輸入門市名稱', 'error');
@@ -123,6 +131,10 @@ export function SettingsPage() {
 
   // 門市刪除處理
   const handleRemoveStore = async (name: string) => {
+    if (!canManageStores) {
+      showToast('只有管理員可以使用門市清單管理', 'error');
+      return;
+    }
     if (stores.length <= 1) {
       showToast('系統至少需保留一間門市，無法全數刪除', 'error');
       return;
@@ -136,7 +148,11 @@ export function SettingsPage() {
     }
   };
 
-  const visibleTabs = SETTINGS_TABS.filter((tab) => tab.id !== 'security' || canManageWhitelist);
+  const visibleTabs = SETTINGS_TABS.filter((tab) => {
+    if (tab.id === 'security') return canManageWhitelist;
+    if (tab.id === 'store_info') return canManageStores;
+    return true;
+  });
   const activeLocationsCount = locations.filter((l) => l.isActive !== false).length;
   const totalStockAllLocations = Object.values(locationStockStats).reduce((acc, curr) => acc + curr.totalQty, 0);
 
@@ -155,7 +171,9 @@ export function SettingsPage() {
             </span>
           </div>
           <p className="mt-1 text-sm text-zinc-400">
-            全域系統參數維護 • 庫存據點管理、門市清單與使用者管理
+            {canManageStores
+              ? '全域系統參數維護 • 庫存據點管理、門市清單與使用者管理'
+              : '全域系統參數維護 • 庫存據點管理'}
           </p>
         </div>
 
@@ -352,14 +370,14 @@ export function SettingsPage() {
         )}
 
         {/* 2. 門市基本設定模組 (僅增刪門市清單) */}
-        {activeSection === 'store_info' && (
+        {activeSection === 'store_info' && canManageStores && (
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-6 max-w-2xl">
             <div>
               <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
                 <span>門市清單管理</span>
               </h3>
               <p className="mt-1 text-xs text-zinc-400">
-                維護所有營業分店門市名稱，並可指定系統目前使用的登入門市。
+                新增或刪除門市。登入門市的選擇與切換仍用上方的登入門市，店員也可以換，不必重新跟 Google 驗證。
               </p>
             </div>
 

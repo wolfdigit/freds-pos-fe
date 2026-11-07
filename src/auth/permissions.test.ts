@@ -13,6 +13,10 @@ describe('permissions', () => {
     expect(hasPermission('staff', 'whitelist.manage')).toBe(false);
     expect(hasPermission('admin', 'whitelist.manage')).toBe(true);
     expect(hasPermission('manager', 'business.access')).toBe(false);
+    expect(hasPermission('staff', 'store.select')).toBe(true);
+    expect(hasPermission('admin', 'store.select')).toBe(true);
+    expect(hasPermission('staff', 'store.manage')).toBe(false);
+    expect(hasPermission('admin', 'store.manage')).toBe(true);
     expect(hasPermission('staff', 'store.createInitial')).toBe(false);
     expect(hasPermission('admin', 'store.createInitial')).toBe(true);
   });
