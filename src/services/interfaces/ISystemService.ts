@@ -17,7 +17,7 @@ export interface ISystemService {
   /** 刪除門市分店 (對應 DELETE /system/stores/{storeName}) */
   deleteStore(storeName: string): Promise<DeleteStoreResponse>;
 
-  /** 白名單 (對應 /system/oauth/accounts，僅管理員) */
+  /** 使用者管理 (對應 /system/oauth/accounts，僅管理員) */
   listAccounts(): Promise<OAuthAccountDto[]>;
   createAccount(request: CreateOAuthAccountRequest): Promise<OAuthAccountDto>;
   updateAccount(email: string, request: UpdateOAuthAccountRequest): Promise<OAuthAccountDto>;

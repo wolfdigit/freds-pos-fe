@@ -15,7 +15,7 @@ describe('settings access', () => {
     render(<SettingsPage />);
     expect(await screen.findByRole('button', { name: '庫存據點管理' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '門市清單管理' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '帳號白名單' })).not.toBeInTheDocument();
-    expect(screen.queryByText('只有管理員可以管理白名單。')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '使用者管理' })).not.toBeInTheDocument();
+    expect(screen.queryByText('只有管理員可以使用使用者管理。')).not.toBeInTheDocument();
   });
 });

@@ -43,7 +43,7 @@ export function WhitelistAccountsPanel({
     try {
       setAccounts(await service.listAccounts());
     } catch (err) {
-      setError(errorMessage(err, '無法讀取白名單'));
+      setError(errorMessage(err, '無法讀取使用者管理'));
     } finally {
       setLoading(false);
     }
@@ -58,7 +58,7 @@ export function WhitelistAccountsPanel({
         if (!cancelled) setAccounts(rows);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(errorMessage(err, '無法讀取白名單'));
+        if (!cancelled) setError(errorMessage(err, '無法讀取使用者管理'));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -139,7 +139,7 @@ export function WhitelistAccountsPanel({
   };
 
   if (!hasPermission(actorRole, 'whitelist.manage')) {
-    return <p className="text-sm text-zinc-300">只有管理員可以管理白名單。</p>;
+    return <p className="text-sm text-zinc-300">只有管理員可以使用使用者管理。</p>;
   }
 
   if (loading && accounts.length === 0) {
@@ -153,9 +153,9 @@ export function WhitelistAccountsPanel({
   return (
     <div className="max-w-5xl space-y-4">
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-        <h3 className="text-lg font-bold text-zinc-100">Google 帳號白名單</h3>
+        <h3 className="text-lg font-bold text-zinc-100">使用者管理</h3>
         <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-          登入只比對已驗證的 email。這裡的名單存在後端，不是這台瀏覽器的示範帳號。只有管理員可以新增、修改與刪除。
+          登入只比對已驗證的 email。使用者資料存在後端，不是這台瀏覽器的示範帳號。只有管理員可以新增、修改與刪除。
         </p>
       </div>
       <form onSubmit={createAccount} className="grid gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 md:grid-cols-5">

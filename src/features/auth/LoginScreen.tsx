@@ -45,7 +45,7 @@ export function LoginScreen() {
         <p className="text-sm font-semibold tracking-wide text-cyan-300">FRED'S POS</p>
         <h1 className="mt-2 text-2xl font-bold">使用 Google 帳號登入</h1>
         <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-          只使用 Google 已驗證的 email 比對後端白名單。不會要求 Gmail 權限，也不會在這裡建立新帳號。
+          只使用 Google 已驗證的 email 比對使用者管理中的帳號。不會要求 Gmail 權限，也不會在這裡建立新帳號。
         </p>
         <div className="mt-6 min-h-11" ref={buttonHost} />
         {submitting && (

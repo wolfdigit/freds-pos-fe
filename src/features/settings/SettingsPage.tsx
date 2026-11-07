@@ -27,7 +27,7 @@ interface SettingsTabConfig {
 const SETTINGS_TABS: SettingsTabConfig[] = [
   { id: 'locations', label: '庫存據點管理', description: '管理多門市、總倉與調度暫存據點' },
   { id: 'store_info', label: '門市清單管理', description: '維護門市清單與切換目前營業門市' },
-  { id: 'security', label: '帳號白名單', description: '後端 Google 帳號白名單，僅管理員可維護' },
+  { id: 'security', label: '使用者管理', description: '使用者管理，僅管理員可維護' },
 ];
 
 export function SettingsPage() {
@@ -155,7 +155,7 @@ export function SettingsPage() {
             </span>
           </div>
           <p className="mt-1 text-sm text-zinc-400">
-            全域系統參數維護 • 庫存據點管理、門市清單與 Google 登入帳號權限
+            全域系統參數維護 • 庫存據點管理、門市清單與使用者管理
           </p>
         </div>
 

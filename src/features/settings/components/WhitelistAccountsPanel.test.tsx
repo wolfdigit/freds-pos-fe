@@ -39,7 +39,7 @@ describe('whitelist panel', () => {
     const { rerender } = render(
       <WhitelistAccountsPanel actorEmail="clerk@example.com" actorRole="staff" service={denied} />
     );
-    expect(screen.getByText('只有管理員可以管理白名單。')).toBeInTheDocument();
+    expect(screen.getByText('只有管理員可以使用使用者管理。')).toBeInTheDocument();
 
     const service = serviceWith([adminAccount, staffAccount]);
     rerender(<WhitelistAccountsPanel actorEmail="owner@example.com" actorRole="admin" service={service} />);
