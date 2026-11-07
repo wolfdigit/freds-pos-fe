@@ -355,6 +355,128 @@ describe('live Google session', () => {
     expect(calls.some((call) => call.includes('/system/stores'))).toBe(false);
   });
 
+  it('shows every auth store for a signed-in staff member, including after a one-store session restore', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem('AUTH_TOKEN', 'pos-session');
+    localStorage.setItem(
+      'FREDS_POS_SESSION',
+      JSON.stringify({
+        state: { storeName: '台北旗艦店', stores: ['台北旗艦店'] },
+        version: 3,
+      })
+    );
+    localStorage.setItem(
+      'FREDS_POS_CART:acct-staff',
+      JSON.stringify({
+        items: [{ productId: 'p1', quantity: 1 }],
+        attachedCustomer: null,
+        shippingFee: 0,
+        orderNote: '留下',
+      })
+    );
+    const staff = { id: 'acct-staff', email: 'clerk@example.com', name: '店員', role: 'staff' };
+    const calls: string[] = [];
+    vi.resetModules();
+    window.__APP_CONFIG__ = liveConfig;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        calls.push(`${init?.method ?? 'GET'} ${url}`);
+        if (url.endsWith('/auth/me')) {
+          return json({
+            expiresAt: '2099-01-01T00:00:00.000Z',
+            storeSelected: true,
+            storeName: '台北旗艦店',
+            user: staff,
+          });
+        }
+        if (url.endsWith('/auth/stores')) {
+          return json([
+            { name: '台北旗艦店', isDefault: true },
+            { name: '奇可門市', isDefault: false },
+            { name: '官網', isDefault: false },
+          ]);
+        }
+        if (url.endsWith('/auth/store')) {
+          return json({
+            expiresAt: '2099-01-01T00:00:00.000Z',
+            storeSelected: true,
+            storeName: '官網',
+            user: staff,
+          });
+        }
+        if (url.includes('/system/stores')) {
+          return json({ code: 'AUTH_FORBIDDEN', message: '需要管理員權限' }, 403);
+        }
+        return json({ code: 'NOT_FOUND', message: 'no' }, 404);
+      })
+    );
+
+    const { useSessionStore } = await import('@/store/sessionStore');
+    const { useAuthStore } = await import('@/store/authStore');
+    const { useCartStore } = await import('@/store/cartStore');
+    const { Header } = await import('@/components/layout/Header');
+    await useSessionStore.persist.rehydrate();
+    expect(useSessionStore.getState().stores).toEqual([]);
+
+    await useAuthStore.getState().restore();
+    render(<Header />);
+
+    expect(await screen.findByRole('option', { name: '台北旗艦店' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '奇可門市' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: '官網' })).toBeInTheDocument();
+    expect(calls.some((call) => call.startsWith('GET') && call.includes('/auth/stores'))).toBe(true);
+    expect(calls.some((call) => call.includes('/system/stores'))).toBe(false);
+    expect(useCartStore.getState().orderNote).toBe('留下');
+
+    await user.selectOptions(screen.getByRole('combobox', { name: '登入門市' }), '官網');
+    await waitFor(() => expect(useSessionStore.getState().storeName).toBe('官網'));
+    expect(useCartStore.getState().items).toHaveLength(1);
+    expect(useCartStore.getState().orderNote).toBe('留下');
+    expect(calls.some((call) => call.startsWith('POST') && call.endsWith('/auth/store'))).toBe(true);
+  });
+
+  it('does not present a failed store list as a single-store dropdown', async () => {
+    localStorage.setItem('AUTH_TOKEN', 'pos-session');
+    localStorage.setItem(
+      'FREDS_POS_SESSION',
+      JSON.stringify({
+        state: { storeName: '台北旗艦店', stores: ['台北旗艦店'] },
+        version: 3,
+      })
+    );
+    const staff = { id: 'acct-staff', email: 'clerk@example.com', name: '店員', role: 'staff' };
+    vi.resetModules();
+    window.__APP_CONFIG__ = liveConfig;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('/auth/me')) {
+          return json({
+            expiresAt: '2099-01-01T00:00:00.000Z',
+            storeSelected: true,
+            storeName: '台北旗艦店',
+            user: staff,
+          });
+        }
+        if (url.endsWith('/auth/stores')) {
+          return json({ code: 'AUTH_FORBIDDEN', message: '無法讀取門市清單' }, 403);
+        }
+        return json({ code: 'NOT_FOUND', message: 'no' }, 404);
+      })
+    );
+    const { useAuthStore } = await import('@/store/authStore');
+    const { Header } = await import('@/components/layout/Header');
+    await useAuthStore.getState().restore();
+    render(<Header />);
+    expect(await screen.findByRole('alert')).toHaveTextContent('無法讀取門市清單');
+    expect(screen.queryByRole('combobox', { name: '登入門市' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: '台北旗艦店' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '重試' })).toBeInTheDocument();
+  });
+
   it('does not trust a stale demo session blob', async () => {
     localStorage.setItem(
       'FREDS_POS_SESSION',

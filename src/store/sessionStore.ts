@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { errorMessage } from '@/auth/businessError';
 import { displayAccountName } from '@/auth/displayName';
 import { hasPermission } from '@/auth/permissions';
 import { authApi } from '@/services/api/httpAuthService';
@@ -14,9 +15,13 @@ export interface OAuthUser {
   role: string;
 }
 
+export type StoreListStatus = 'idle' | 'loading' | 'ready' | 'error';
+
 interface SessionStore {
   storeName: string;
   stores: string[];
+  storeListStatus: StoreListStatus;
+  storeListError: string | null;
   cashierId: string;
   cashierName: string;
   userRole: string;
@@ -36,6 +41,8 @@ interface SessionStore {
 const mockIdentity = {
   storeName: INITIAL_STORES[0]?.name ?? '',
   stores: INITIAL_STORES.map((store) => store.name),
+  storeListStatus: 'ready' as const,
+  storeListError: null,
   cashierId: 'staff-001',
   cashierName: '店長 Fred',
   userRole: 'admin',
@@ -50,11 +57,15 @@ const mockIdentity = {
 const blankIdentity = {
   storeName: '',
   stores: [] as string[],
+  storeListStatus: 'idle' as const,
+  storeListError: null,
   cashierId: '',
   cashierName: '',
   userRole: '',
   oauthUser: { id: '', name: '', email: '', role: '' } satisfies OAuthUser,
 };
+
+let storeListRequest: Promise<string[]> | null = null;
 
 export const useSessionStore = create<SessionStore>()(
   persist(
@@ -63,27 +74,48 @@ export const useSessionStore = create<SessionStore>()(
 
       setStoreName: (name) => set({ storeName: name }),
 
-      fetchStores: async () => {
-        try {
-          const storeDtos = isMockService ? await systemService.getStores() : await authApi.listStores();
-          const names = (storeDtos || []).map((store) => store.name);
-          if (!isMockService) {
-            set({ stores: names });
-            return names;
+      fetchStores: () => {
+        if (storeListRequest) return storeListRequest;
+        let resolveRequest: (names: string[]) => void = () => undefined;
+        const request = new Promise<string[]>((resolve) => {
+          resolveRequest = resolve;
+        });
+        storeListRequest = request;
+        void (async () => {
+          if (get().stores.length === 0) {
+            set({ storeListStatus: 'loading', storeListError: null });
           }
-          if (names.length > 0) {
-            set((state) => {
-              const currentStore = state.storeName;
-              const newStore = names.includes(currentStore) ? currentStore : names[0];
-              return { stores: names, storeName: newStore };
+          try {
+            const storeDtos = isMockService ? await systemService.getStores() : await authApi.listStores();
+            const names = (storeDtos || []).map((store) => store.name).filter((name) => name.trim());
+            if (!isMockService) {
+              set({ stores: names, storeListStatus: 'ready', storeListError: null });
+              resolveRequest(names);
+              return;
+            }
+            if (names.length > 0) {
+              set((state) => {
+                const currentStore = state.storeName;
+                const newStore = names.includes(currentStore) ? currentStore : names[0];
+                return { stores: names, storeName: newStore, storeListStatus: 'ready', storeListError: null };
+              });
+              resolveRequest(names);
+              return;
+            }
+            set({ storeListStatus: 'ready', storeListError: null });
+            resolveRequest(get().stores);
+          } catch (err) {
+            console.error('Failed to fetch login stores:', err);
+            set({
+              storeListStatus: 'error',
+              storeListError: errorMessage(err, '無法讀取門市清單'),
             });
-            return names;
+            resolveRequest(get().stores);
+          } finally {
+            if (storeListRequest === request) storeListRequest = null;
           }
-          return get().stores;
-        } catch (err) {
-          console.error('Failed to fetch stores from systemService:', err);
-          return get().stores;
-        }
+        })();
+        return request;
       },
 
       addStore: async (name) => {
@@ -150,11 +182,11 @@ export const useSessionStore = create<SessionStore>()(
     }),
     {
       name: 'FREDS_POS_SESSION',
-      version: 3,
-      partialize: (state) => ({
-        storeName: state.storeName,
-        stores: state.stores,
-      }),
+      version: 4,
+      partialize: (state) =>
+        isMockService
+          ? { storeName: state.storeName, stores: state.stores }
+          : { storeName: state.storeName },
       migrate: (persistedState) => {
         const raw = (persistedState ?? {}) as { storeName?: unknown; stores?: unknown };
         const storeName = typeof raw.storeName === 'string' ? raw.storeName : '';
@@ -162,7 +194,7 @@ export const useSessionStore = create<SessionStore>()(
           ? raw.stores.filter((store): store is string => typeof store === 'string')
           : [];
         if (!isMockService) {
-          return { storeName: '', stores: [] } as unknown as SessionStore;
+          return { storeName: '' } as unknown as SessionStore;
         }
         return { storeName, stores } as unknown as SessionStore;
       },

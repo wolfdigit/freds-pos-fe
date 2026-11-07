@@ -29,7 +29,17 @@ function formatClock(date: Date): string {
 }
 
 export function Header() {
-  const { storeName, stores, cashierName, userRole, oauthUser, setStoreName } = useSessionStore();
+  const {
+    storeName,
+    stores,
+    storeListStatus,
+    storeListError,
+    cashierName,
+    userRole,
+    oauthUser,
+    setStoreName,
+    fetchStores,
+  } = useSessionStore();
   const cashierLabel = displayAccountName(oauthUser.name, oauthUser.email) || cashierName;
   const logout = useAuthStore((state) => state.logout);
   const setActiveTab = useUiStore((s) => s.setActiveTab);
@@ -40,6 +50,10 @@ export function Header() {
   const [customStoreOpen, setCustomStoreOpen] = useState(false);
   const [customStoreName, setCustomStoreName] = useState('');
   const [customStoreError, setCustomStoreError] = useState('');
+
+  useEffect(() => {
+    void fetchStores();
+  }, [fetchStores, oauthUser.id]);
 
   const handleReset = () => {
     if (!confirmingReset) {
@@ -54,7 +68,10 @@ export function Header() {
     setTimeout(() => window.location.reload(), 800);
   };
 
-  const availableStores = stores && stores.length > 0 ? stores : [storeName];
+  const listedStores = stores.filter((name) => name.trim());
+  const availableStores =
+    storeName && !listedStores.includes(storeName) ? [storeName, ...listedStores] : listedStores;
+  const showStoreChoices = listedStores.length > 0;
 
   const handleStoreChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
@@ -115,26 +132,41 @@ export function Header() {
         {/* 可更改登入門市選單 */}
         <div className="flex items-center gap-1.5 text-zinc-300 font-medium">
           <span className="text-zinc-400 text-xs">登入門市:</span>
-          <select
-            value={storeName}
-            onChange={handleStoreChange}
-            aria-label="登入門市"
-            className="cursor-pointer rounded-lg border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-sm font-semibold text-cyan-300 shadow-sm transition-all hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
-            title="點擊更改登入門市"
-          >
-            {availableStores.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-            {!availableStores.includes(storeName) && storeName && (
-              <option value={storeName}>{storeName}</option>
-            )}
-            {isMockService && hasPermission(userRole, 'store.manage') && (
-              <option value="__CUSTOM__">自訂其他門市...</option>
-            )}
-          </select>
+          {showStoreChoices ? (
+            <select
+              value={storeName}
+              onChange={handleStoreChange}
+              aria-label="登入門市"
+              className="cursor-pointer rounded-lg border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-sm font-semibold text-cyan-300 shadow-sm transition-all hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+              title="點擊更改登入門市"
+            >
+              {availableStores.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+              {isMockService && hasPermission(userRole, 'store.manage') && (
+                <option value="__CUSTOM__">自訂其他門市...</option>
+              )}
+            </select>
+          ) : (
+            <span className="text-sm font-semibold text-cyan-300">{storeName || '讀取門市清單'}</span>
+          )}
+          {storeListStatus === 'error' && (
+            <button
+              type="button"
+              onClick={() => void fetchStores()}
+              className="rounded border border-rose-800 px-2 py-0.5 text-xs text-rose-300"
+            >
+              重試
+            </button>
+          )}
         </div>
+        {storeListError && (
+          <p className="text-xs text-rose-300" role="alert">
+            {storeListError}
+          </p>
+        )}
 
         <span className="text-zinc-600">|</span>
 

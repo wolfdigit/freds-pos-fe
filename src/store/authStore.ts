@@ -78,6 +78,9 @@ function applyAuthState(state: AuthState): void {
     bindCartToUser(null);
   }
   armExpiry(state.expiresAt);
+  if (phase === 'ready' && !isMockService) {
+    void useSessionStore.getState().fetchStores();
+  }
   useAuthStore.setState({
     phase,
     user: state.user,
