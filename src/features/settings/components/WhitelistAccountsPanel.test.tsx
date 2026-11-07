@@ -82,6 +82,8 @@ describe('whitelist panel', () => {
     render(<WhitelistAccountsPanel actorEmail="owner@example.com" actorRole="admin" service={service} />);
 
     expect(await screen.findByText('僅限已加入的 Google 帳號登入。')).toBeInTheDocument();
+    expect(screen.getAllByPlaceholderText('顯示名稱').length).toBeGreaterThan(0);
+    expect(screen.queryByPlaceholderText(/可留白/)).not.toBeInTheDocument();
     expect(screen.getAllByText('blank@example.com').length).toBeGreaterThan(0);
 
     await user.type(screen.getByLabelText('Email'), 'new@example.com');
@@ -96,6 +98,8 @@ describe('whitelist panel', () => {
 
     const editButtons = screen.getAllByRole('button', { name: '編輯' });
     await user.click(editButtons[1]!);
+    expect(screen.getByLabelText('named@example.com 顯示名稱')).toHaveAttribute('placeholder', '顯示名稱');
+    expect(screen.queryByPlaceholderText(/可留白/)).not.toBeInTheDocument();
     await user.clear(screen.getByLabelText('named@example.com 顯示名稱'));
     await user.click(screen.getByRole('button', { name: '儲存' }));
     expect(service.updateAccount).toHaveBeenCalledWith('named@example.com', {

@@ -158,7 +158,7 @@ export function WhitelistAccountsPanel({
         <p className="mt-2 text-sm leading-relaxed text-zinc-400">僅限已加入的 Google 帳號登入。</p>
       </div>
       <form onSubmit={createAccount} className="grid gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 md:grid-cols-5">
-        <Input aria-label="顯示名稱" value={name} onChange={(event) => setName(event.target.value)} placeholder="顯示名稱（可留白）" />
+        <Input aria-label="顯示名稱" value={name} onChange={(event) => setName(event.target.value)} placeholder="顯示名稱" />
         <Input aria-label="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="email" required />
         <select
           aria-label="角色"
@@ -234,7 +234,7 @@ export function WhitelistAccountsPanel({
                     aria-label={`${account.email} 顯示名稱`}
                     value={editName}
                     onChange={(event) => setEditName(event.target.value)}
-                    placeholder="顯示名稱（可留白）"
+                    placeholder="顯示名稱"
                   />
                   <Input aria-label={`${account.email} 附註`} value={editNote} onChange={(event) => setEditNote(event.target.value)} />
                   <select
