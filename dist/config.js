@@ -10,8 +10,11 @@ window.__APP_CONFIG__ = {
   USE_MOCK: true,
 
   // 後端真實 API Base URL（當 USE_MOCK 為 false 時使用）
-  API_BASE_URL: 'http://localhost:8000/api/v1',
+  API_BASE_URL: "http://localhost:8000/api/v1",
 
   // API 請求逾時時間（毫秒）
   API_TIMEOUT_MS: 15000,
+
+  // Google Identity Services 網頁用戶端 ID。空字串代表登入未設定，業務畫面保持關閉。
+  GOOGLE_CLIENT_ID: "",
 };

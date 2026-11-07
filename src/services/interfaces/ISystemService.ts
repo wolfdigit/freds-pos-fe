@@ -1,4 +1,11 @@
-import type { StoreDto, CreateStoreRequest, DeleteStoreResponse } from '@/types/system';
+import type {
+  StoreDto,
+  CreateStoreRequest,
+  DeleteStoreResponse,
+  OAuthAccountDto,
+  CreateOAuthAccountRequest,
+  UpdateOAuthAccountRequest,
+} from '@/types/system';
 
 export interface ISystemService {
   /** 取得所有門市分店清單 (對應 GET /system/stores) */
@@ -9,4 +16,10 @@ export interface ISystemService {
 
   /** 刪除門市分店 (對應 DELETE /system/stores/{storeName}) */
   deleteStore(storeName: string): Promise<DeleteStoreResponse>;
+
+  /** 使用者管理 (對應 /system/oauth/accounts，僅管理員) */
+  listAccounts(): Promise<OAuthAccountDto[]>;
+  createAccount(request: CreateOAuthAccountRequest): Promise<OAuthAccountDto>;
+  updateAccount(email: string, request: UpdateOAuthAccountRequest): Promise<OAuthAccountDto>;
+  deleteAccount(email: string): Promise<void>;
 }

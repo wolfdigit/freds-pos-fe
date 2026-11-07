@@ -1,8 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { bootstrapClientState } from './auth/bootstrap';
 import { App } from './App';
 import './index.css';
 import { useThemeStore, applyTheme } from './store/themeStore';
+
+bootstrapClientState();
 
 // 確保初始渲染時正確套用主題 class
 applyTheme(useThemeStore.getState().theme);

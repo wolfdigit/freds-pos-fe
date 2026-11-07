@@ -26,6 +26,8 @@ export function useCheckoutWorkflow() {
 
     setIsSubmitting(true);
     try {
+      // 門市與收銀員由後端 session 決定。不要在 body 帶 branchId。
+      // 庫存仍走既有的門市現貨檢查，換登入門市不會改扣其他庫存據點。
       const payload: CreateOrderPayload = {
         customerId: attachedCustomer?.id,
         items: items.map((i) => ({

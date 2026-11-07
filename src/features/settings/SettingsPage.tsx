@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { hasPermission } from '@/auth/permissions';
+import { storeSwitchNotice } from '@/auth/storeSwitch';
 import { useSessionStore } from '@/store/sessionStore';
-import { useUiStore } from '@/store/uiStore';
+import { switchLoginStore } from '@/store/authStore';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Spinner } from '@/components/feedback/Spinner';
@@ -9,6 +11,7 @@ import { useLocations } from '@/features/inventory/hooks/useLocations';
 import { CreateLocationModal } from './components/CreateLocationModal';
 import { EditLocationModal } from './components/EditLocationModal';
 import { DeleteLocationModal } from './components/DeleteLocationModal';
+import { WhitelistAccountsPanel } from './components/WhitelistAccountsPanel';
 import type { StockLocationDto } from '@/types/inventory';
 import type { Product } from '@/types/product';
 import { productService, isMockService } from '@/services';
@@ -24,36 +27,25 @@ interface SettingsTabConfig {
 const SETTINGS_TABS: SettingsTabConfig[] = [
   { id: 'locations', label: '庫存據點管理', description: '管理多門市、總倉與調度暫存據點' },
   { id: 'store_info', label: '門市清單管理', description: '維護門市清單與切換目前營業門市' },
-  { id: 'security', label: 'OAuth 帳號權限', description: 'Google 登入之管理員與店員 Gmail 名單維護' },
+  { id: 'security', label: '使用者管理', description: '使用者管理，僅管理員可維護' },
 ];
 
 export function SettingsPage() {
   const {
     userRole,
-    cashierName,
-    isSystemAdmin,
     setUserRole,
     storeName,
     stores,
-    setStoreName,
     fetchStores,
     addStore,
     removeStore,
-    adminAccounts,
-    staffAccounts,
-    addAdminAccount,
-    updateAdminAccount,
-    removeAdminAccount,
-    addStaffAccount,
-    updateStaffAccount,
-    removeStaffAccount,
     oauthUser,
   } = useSessionStore();
 
-  const setActiveTab = useUiStore((s) => s.setActiveTab);
   const showToast = useToastStore((s) => s.showToast);
 
-  const isAdmin = isSystemAdmin();
+  const canManageWhitelist = hasPermission(userRole, 'whitelist.manage');
+  const canManageStores = hasPermission(userRole, 'store.manage');
   const { locations, isLoading, reloadLocations } = useLocations();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -65,20 +57,6 @@ export function SettingsPage() {
   // 新增門市輸入欄位
   const [newStoreInput, setNewStoreInput] = useState('');
 
-  // 新增管理員/店員 名稱、Gmail 與附註輸入欄位
-  const [newAdminNameInput, setNewAdminNameInput] = useState('');
-  const [newAdminEmailInput, setNewAdminEmailInput] = useState('');
-  const [newAdminNoteInput, setNewAdminNoteInput] = useState('');
-
-  const [newStaffNameInput, setNewStaffNameInput] = useState('');
-  const [newStaffEmailInput, setNewStaffEmailInput] = useState('');
-  const [newStaffNoteInput, setNewStaffNoteInput] = useState('');
-
-  // 帳號編輯狀態 (名稱 + 附註)
-  const [editingAccountEmail, setEditingAccountEmail] = useState<string | null>(null);
-  const [editingNameValue, setEditingNameValue] = useState('');
-  const [editingNoteValue, setEditingNoteValue] = useState('');
-
   const loadProducts = useCallback(async () => {
     try {
       const data = await productService.searchProducts({});
@@ -89,11 +67,18 @@ export function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    if (isAdmin) {
-      reloadLocations();
-      loadProducts();
+    reloadLocations();
+    loadProducts();
+  }, [reloadLocations, loadProducts]);
+
+  useEffect(() => {
+    if (
+      (activeSection === 'security' && !canManageWhitelist) ||
+      (activeSection === 'store_info' && !canManageStores)
+    ) {
+      setActiveSection('locations');
     }
-  }, [isAdmin, reloadLocations, loadProducts]);
+  }, [activeSection, canManageStores, canManageWhitelist]);
 
   // 各據點現有庫存統計
   const locationStockStats = useMemo(() => {
@@ -126,6 +111,10 @@ export function SettingsPage() {
   // 門市新增處理
   const handleAddStoreSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageStores) {
+      showToast('只有管理員可以使用門市清單管理', 'error');
+      return;
+    }
     const clean = newStoreInput.trim();
     if (!clean) {
       showToast('請輸入門市名稱', 'error');
@@ -142,6 +131,10 @@ export function SettingsPage() {
 
   // 門市刪除處理
   const handleRemoveStore = async (name: string) => {
+    if (!canManageStores) {
+      showToast('只有管理員可以使用門市清單管理', 'error');
+      return;
+    }
     if (stores.length <= 1) {
       showToast('系統至少需保留一間門市，無法全數刪除', 'error');
       return;
@@ -149,132 +142,17 @@ export function SettingsPage() {
     const success = await removeStore(name);
     if (success) {
       showToast(`已刪除門市：「${name}」`, 'info');
+      if (!isMockService && storeName === name) {
+        showToast('已刪除目前登入門市。請再選擇一間登入門市，訂單才會歸到新的門市。', 'warning', 8000);
+      }
     }
   };
 
-  // 新增管理員 Gmail 處理
-  const handleAddAdminEmailSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = newAdminEmailInput.trim().toLowerCase();
-    if (!clean || !clean.includes('@')) {
-      showToast('請輸入有效的 Gmail / 電子信箱格式', 'error');
-      return;
-    }
-    const success = addAdminAccount(clean, newAdminNameInput.trim(), newAdminNoteInput.trim());
-    if (success) {
-      showToast(`成功新增管理員：「${newAdminNameInput.trim() || clean}」`, 'success');
-      setNewAdminNameInput('');
-      setNewAdminEmailInput('');
-      setNewAdminNoteInput('');
-    } else {
-      showToast(`該帳號「${clean}」已在管理員名單中`, 'warning');
-    }
-  };
-
-  // 刪除管理員 Gmail 處理
-  const handleRemoveAdminEmail = (email: string) => {
-    if (adminAccounts.length <= 1) {
-      showToast('系統至少需保留一位系統管理員，無法全部刪除', 'error');
-      return;
-    }
-    const success = removeAdminAccount(email);
-    if (success) {
-      showToast(`已移除管理員 Gmail：「${email}」`, 'info');
-    }
-  };
-
-  // 新增店員 Gmail 處理
-  const handleAddStaffEmailSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const clean = newStaffEmailInput.trim().toLowerCase();
-    if (!clean || !clean.includes('@')) {
-      showToast('請輸入有效的 Gmail / 電子信箱格式', 'error');
-      return;
-    }
-    const success = addStaffAccount(clean, newStaffNameInput.trim(), newStaffNoteInput.trim());
-    if (success) {
-      showToast(`成功新增店員：「${newStaffNameInput.trim() || clean}」`, 'success');
-      setNewStaffNameInput('');
-      setNewStaffEmailInput('');
-      setNewStaffNoteInput('');
-    } else {
-      showToast(`該帳號「${clean}」已在店員名單中`, 'warning');
-    }
-  };
-
-  // 刪除店員 Gmail 處理
-  const handleRemoveStaffEmail = (email: string) => {
-    const success = removeStaffAccount(email);
-    if (success) {
-      showToast(`已移除店員 Gmail：「${email}」`, 'info');
-    }
-  };
-
-  // 儲存帳號編輯 (名稱 + 附註)
-  const handleSaveAccountEdit = (email: string, isStaff: boolean) => {
-    const data = {
-      name: editingNameValue.trim(),
-      note: editingNoteValue.trim(),
-    };
-    if (isStaff) {
-      updateStaffAccount(email, data);
-    } else {
-      updateAdminAccount(email, data);
-    }
-    showToast(`已更新「${email}」的名稱與附註`, 'success');
-    setEditingAccountEmail(null);
-    setEditingNameValue('');
-    setEditingNoteValue('');
-  };
-
-  // 1. 若 OAuth 驗證身分未具備管理員權限 (Non-admin)
-  if (!isAdmin) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center select-none px-4">
-        <div className="w-full max-w-md rounded-2xl border border-rose-800/50 bg-zinc-950/90 p-8 shadow-2xl backdrop-blur-md text-center space-y-5 animate-fade-in">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-950/80 border border-rose-700/60 text-3xl shadow-inner shadow-rose-900">
-            ⛔
-          </div>
-
-          <div>
-            <h2 className="text-2xl font-bold text-zinc-100 tracking-wide">
-              存取權限不足
-            </h2>
-            <p className="mt-2 text-sm text-zinc-400 leading-relaxed">
-              您目前的 Google 登入帳號「<strong className="text-zinc-200">{oauthUser?.email || cashierName}</strong>」角色為 <span className="font-mono text-rose-300 font-bold bg-rose-950/60 px-2 py-0.5 rounded border border-rose-800/40">{userRole}</span>，未在系統管理員 Gmail 白名單中。
-            </p>
-          </div>
-
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 text-xs text-zinc-500 text-left space-y-1">
-            <p className="text-zinc-400 font-semibold">系統說明：</p>
-            <p>• 系統設定模組僅限在「管理員 Gmail 白名單」內之 Google 帳號存取。</p>
-            <p>• 如需變更權限，請由公司主管理員於此頁面新增授權您的 Gmail。</p>
-          </div>
-
-          <div className="pt-2 flex flex-col gap-2">
-            <Button
-              variant="primary"
-              onClick={() => setActiveTab(null)}
-              className="w-full bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold py-2.5"
-            >
-              返回首頁
-            </Button>
-
-            {isMockService && (
-              <button
-                onClick={() => setUserRole('admin')}
-                className="text-xs text-zinc-500 hover:text-cyan-400 underline pt-1 font-mono"
-              >
-                [示範環境切換] 切換為管理員身分 (admin)
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // 2. OAuth 驗證具備管理員權限 (Admin)
+  const visibleTabs = SETTINGS_TABS.filter((tab) => {
+    if (tab.id === 'security') return canManageWhitelist;
+    if (tab.id === 'store_info') return canManageStores;
+    return true;
+  });
   const activeLocationsCount = locations.filter((l) => l.isActive !== false).length;
   const totalStockAllLocations = Object.values(locationStockStats).reduce((acc, curr) => acc + curr.totalQty, 0);
 
@@ -289,11 +167,13 @@ export function SettingsPage() {
             </h1>
             <span className="rounded-full bg-emerald-950 border border-emerald-700/60 px-3 py-0.5 text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
-              Google OAuth 管理員驗證通過
+              {canManageWhitelist ? '管理員' : '店員'}
             </span>
           </div>
           <p className="mt-1 text-sm text-zinc-400">
-            全域系統參數維護 • 庫存據點管理、門市清單與 Google 登入帳號權限
+            {canManageStores
+              ? '全域系統參數維護 • 庫存據點管理、門市清單與使用者管理'
+              : '全域系統參數維護 • 庫存據點管理'}
           </p>
         </div>
 
@@ -313,14 +193,14 @@ export function SettingsPage() {
           )}
 
           <span className="text-xs text-zinc-400 font-mono">
-            登入帳號: <strong className="text-cyan-300">{oauthUser?.email || 'admin@gmail.com'}</strong>
+            登入帳號: <strong className="text-cyan-300">{oauthUser?.email || '未設定'}</strong>
           </span>
         </div>
       </div>
 
       {/* 系統設定多模組分頁選單 (Sub-navigation Tabs) */}
       <div className="flex border-b border-zinc-800 gap-2">
-        {SETTINGS_TABS.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isCurrent = activeSection === tab.id;
           return (
             <button
@@ -490,14 +370,14 @@ export function SettingsPage() {
         )}
 
         {/* 2. 門市基本設定模組 (僅增刪門市清單) */}
-        {activeSection === 'store_info' && (
+        {activeSection === 'store_info' && canManageStores && (
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-6 max-w-2xl">
             <div>
               <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
                 <span>門市清單管理</span>
               </h3>
               <p className="mt-1 text-xs text-zinc-400">
-                維護所有營業分店門市名稱，並可指定系統目前使用的登入門市。
+                新增或刪除門市。登入門市的選擇與切換仍用上方的登入門市，店員也可以換，不必重新跟 Google 驗證。
               </p>
             </div>
 
@@ -544,8 +424,15 @@ export function SettingsPage() {
                           size="sm"
                           variant="secondary"
                           onClick={() => {
-                            setStoreName(store);
-                            showToast(`已切換目前登入門市為「${store}」`, 'info');
+                            void (async () => {
+                              const result = await switchLoginStore(store);
+                              if (!result.ok) {
+                                showToast(result.message, 'error');
+                                return;
+                              }
+                              if (result.cartItemCount > 0) showToast(storeSwitchNotice(store), 'warning', 8000);
+                              else showToast(`已切換目前登入門市為「${store}」`, 'info');
+                            })();
                           }}
                           className="text-xs px-2.5 py-1 border-zinc-700 hover:border-emerald-500 hover:text-emerald-300"
                         >
@@ -571,378 +458,8 @@ export function SettingsPage() {
           </div>
         )}
 
-        {/* 3. OAuth 角色權限模組 (增刪管理員/店員 Gmail 與附註欄位) */}
-        {activeSection === 'security' && (
-          <div className="space-y-6 max-w-5xl">
-            {/* 說明區塊 */}
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5 space-y-2">
-              <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
-                <span>Google OAuth 帳號權限白名單</span>
-              </h3>
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                本系統整合 Google 登入。使用者透過 Google 登入 (OAuth) 時，系統將比對其 Gmail 信箱，自動賦予「<strong>系統管理員 (admin)</strong>」或「<strong>一般店員 (staff)</strong>」角色權限，並可自訂每位成員的備註說明。
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* 管理員 Gmail 名單 */}
-              <div className="rounded-2xl border border-amber-800/40 bg-zinc-900/60 p-5 space-y-4 flex flex-col">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-amber-300 text-base flex items-center gap-2">
-                      <span>系統管理員名單</span>
-                    </h4>
-                    <span className="font-mono text-xs text-amber-400 bg-amber-950/80 px-2 py-0.5 rounded border border-amber-800">
-                      {adminAccounts.length} 位
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    具備系統最高權限：可進入系統設定、管理庫存據點、門市與帳號白名單。
-                  </p>
-                </div>
-
-                {/* 新增管理員 名稱、Gmail 與附註 */}
-                <form onSubmit={handleAddAdminEmailSubmit} className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/80 p-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-6 gap-2">
-                    <div className="sm:col-span-2">
-                      <Input
-                        type="text"
-                        value={newAdminNameInput}
-                        onChange={(e) => setNewAdminNameInput(e.target.value)}
-                        placeholder="名稱 (如: 店長 Fred)"
-                        className="text-sm font-semibold"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <Input
-                        type="email"
-                        value={newAdminEmailInput}
-                        onChange={(e) => setNewAdminEmailInput(e.target.value)}
-                        placeholder="Gmail (必填)"
-                        className="text-sm"
-                        required
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <Input
-                        type="text"
-                        value={newAdminNoteInput}
-                        onChange={(e) => setNewAdminNoteInput(e.target.value)}
-                        placeholder="附註說明 (選填)"
-                        className="text-sm"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      className="bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold px-4 text-xs"
-                    >
-                      新增管理員
-                    </Button>
-                  </div>
-                </form>
-
-                {/* 管理員清單 */}
-                <div className="flex-1 rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden divide-y divide-zinc-800">
-                  {adminAccounts.map((account) => {
-                    const isSelf = oauthUser?.email?.toLowerCase() === account.email.toLowerCase();
-                    const isEditing = editingAccountEmail === account.email;
-
-                    return (
-                      <div
-                        key={account.email}
-                        className="p-3 hover:bg-zinc-900/60 transition-colors space-y-2"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                            <span className="font-bold text-sm text-zinc-100">
-                              {account.name || '未設定名稱'}
-                            </span>
-                            <span className="font-mono text-xs text-amber-300/80 bg-amber-950/40 px-2 py-0.5 rounded border border-amber-900/40">
-                              {account.email}
-                            </span>
-                            {isSelf && (
-                              <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-1.5 py-0.2 rounded font-bold whitespace-nowrap">
-                                您目前登入中
-                              </span>
-                            )}
-                          </div>
-
-                          <div className="flex items-center gap-1.5 shrink-0">
-                            {!isEditing && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingAccountEmail(account.email);
-                                  setEditingNameValue(account.name || '');
-                                  setEditingNoteValue(account.note || '');
-                                }}
-                                className="text-xs text-zinc-400 hover:text-cyan-300 px-2 py-1 rounded bg-zinc-800/60 border border-zinc-700/60"
-                                title="編輯名稱與附註說明"
-                              >
-                                編輯
-                              </button>
-                            )}
-
-                            <Button
-                              size="sm"
-                              variant="danger"
-                              onClick={() => handleRemoveAdminEmail(account.email)}
-                              disabled={adminAccounts.length <= 1}
-                              className="text-xs px-2 py-1 bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60"
-                              title={adminAccounts.length <= 1 ? '至少需保留一位管理員' : `移除管理員「${account.email}」`}
-                            >
-                              刪除
-                            </Button>
-                          </div>
-                        </div>
-
-                        {/* 名稱與附註顯示或編輯欄位 */}
-                        {isEditing ? (
-                          <div className="space-y-2 pt-1 bg-zinc-900/80 p-2.5 rounded-lg border border-zinc-700">
-                            <div className="grid grid-cols-2 gap-2">
-                              <div>
-                                <label className="block text-[11px] text-zinc-400 font-semibold mb-1">名稱/姓名</label>
-                                <Input
-                                  value={editingNameValue}
-                                  onChange={(e) => setEditingNameValue(e.target.value)}
-                                  placeholder="名稱 (如: 店長 Fred)"
-                                  className="text-xs py-1"
-                                  autoFocus
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[11px] text-zinc-400 font-semibold mb-1">附註說明</label>
-                                <Input
-                                  value={editingNoteValue}
-                                  onChange={(e) => setEditingNoteValue(e.target.value)}
-                                  placeholder="附註 (如: 資訊主管)"
-                                  className="text-xs py-1"
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') handleSaveAccountEdit(account.email, false);
-                                  }}
-                                />
-                              </div>
-                            </div>
-                            <div className="flex justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() => setEditingAccountEmail(null)}
-                                className="px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200"
-                              >
-                                取消
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleSaveAccountEdit(account.email, false)}
-                                className="px-3 py-1 text-xs bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded font-bold"
-                              >
-                                儲存變更
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-xs text-zinc-400 flex items-center gap-1.5 pl-5">
-                            <span className="text-zinc-500">附註:</span>
-                            {account.note ? (
-                              <span className="text-zinc-300 font-medium bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
-                                {account.note}
-                              </span>
-                            ) : (
-                              <span className="text-zinc-600 italic">無備註</span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 一般店員 Gmail 名單 */}
-              <div className="rounded-2xl border border-emerald-800/40 bg-zinc-900/60 p-5 space-y-4 flex flex-col">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-bold text-emerald-300 text-base flex items-center gap-2">
-                      <span>一般店員名單</span>
-                    </h4>
-                    <span className="font-mono text-xs text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800">
-                      {staffAccounts.length} 位
-                    </span>
-                  </div>
-                  <p className="text-xs text-zinc-400 mt-1">
-                    具備前台 POS 操作權限：一般結帳收銀、客戶查詢與庫存查詢。
-                  </p>
-                </div>
-
-                {/* 新增店員 名稱、Gmail 與附註 */}
-                <form onSubmit={handleAddStaffEmailSubmit} className="space-y-2 rounded-xl border border-zinc-800 bg-zinc-950/80 p-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-6 gap-2">
-                    <div className="sm:col-span-2">
-                      <Input
-                        type="text"
-                        value={newStaffNameInput}
-                        onChange={(e) => setNewStaffNameInput(e.target.value)}
-                        placeholder="名稱 (如: 王小美)"
-                        className="text-sm font-semibold"
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <Input
-                        type="email"
-                        value={newStaffEmailInput}
-                        onChange={(e) => setNewStaffEmailInput(e.target.value)}
-                        placeholder="Gmail (必填)"
-                        className="text-sm"
-                        required
-                      />
-                    </div>
-                    <div className="sm:col-span-2">
-                      <Input
-                        type="text"
-                        value={newStaffNoteInput}
-                        onChange={(e) => setNewStaffNoteInput(e.target.value)}
-                        placeholder="附註說明 (選填)"
-                        className="text-sm"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex justify-end">
-                    <Button
-                      type="submit"
-                      variant="primary"
-                      className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold px-4 text-xs"
-                    >
-                      新增店員
-                    </Button>
-                  </div>
-                </form>
-
-                {/* 店員清單 */}
-                <div className="flex-1 rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden divide-y divide-zinc-800">
-                  {staffAccounts.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-zinc-500">
-                      目前尚未加入任何店員 Gmail
-                    </div>
-                  ) : (
-                    staffAccounts.map((account) => {
-                      const isSelf = oauthUser?.email?.toLowerCase() === account.email.toLowerCase();
-                      const isEditing = editingAccountEmail === account.email;
-
-                      return (
-                        <div
-                          key={account.email}
-                          className="p-3 hover:bg-zinc-900/60 transition-colors space-y-2"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                              <span className="font-bold text-sm text-zinc-100">
-                                {account.name || '未設定名稱'}
-                              </span>
-                              <span className="font-mono text-xs text-emerald-300/80 bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-900/40">
-                                {account.email}
-                              </span>
-                              {isSelf && (
-                                <span className="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-1.5 py-0.2 rounded font-bold whitespace-nowrap">
-                                  您目前登入中
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {!isEditing && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setEditingAccountEmail(account.email);
-                                    setEditingNameValue(account.name || '');
-                                    setEditingNoteValue(account.note || '');
-                                  }}
-                                  className="text-xs text-zinc-400 hover:text-cyan-300 px-2 py-1 rounded bg-zinc-800/60 border border-zinc-700/60"
-                                  title="編輯名稱與附註說明"
-                                >
-                                  編輯
-                                </button>
-                              )}
-
-                              <Button
-                                size="sm"
-                                variant="danger"
-                                onClick={() => handleRemoveStaffEmail(account.email)}
-                                className="text-xs px-2 py-1 bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60"
-                                title={`移除店員「${account.email}」`}
-                              >
-                                刪除
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* 名稱與附註顯示或編輯欄位 */}
-                          {isEditing ? (
-                            <div className="space-y-2 pt-1 bg-zinc-900/80 p-2.5 rounded-lg border border-zinc-700">
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className="block text-[11px] text-zinc-400 font-semibold mb-1">名稱/姓名</label>
-                                  <Input
-                                    value={editingNameValue}
-                                    onChange={(e) => setEditingNameValue(e.target.value)}
-                                    placeholder="名稱 (如: 王小美)"
-                                    className="text-xs py-1"
-                                    autoFocus
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[11px] text-zinc-400 font-semibold mb-1">附註說明</label>
-                                  <Input
-                                    value={editingNoteValue}
-                                    onChange={(e) => setEditingNoteValue(e.target.value)}
-                                    placeholder="附註 (如: 早班收銀)"
-                                    className="text-xs py-1"
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') handleSaveAccountEdit(account.email, true);
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                              <div className="flex justify-end gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingAccountEmail(null)}
-                                  className="px-2.5 py-1 text-xs text-zinc-400 hover:text-zinc-200"
-                                >
-                                  取消
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSaveAccountEdit(account.email, true)}
-                                  className="px-3 py-1 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded font-bold"
-                                >
-                                  儲存變更
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div className="text-xs text-zinc-400 flex items-center gap-1.5 pl-5">
-                              <span className="text-zinc-500">附註:</span>
-                              {account.note ? (
-                                <span className="text-zinc-300 font-medium bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
-                                  {account.note}
-                                </span>
-                              ) : (
-                                <span className="text-zinc-600 italic">無備註</span>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+        {activeSection === 'security' && canManageWhitelist && (
+          <WhitelistAccountsPanel actorEmail={oauthUser.email || ''} actorRole={userRole} />
         )}
       </div>
 

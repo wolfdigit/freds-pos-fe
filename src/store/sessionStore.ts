@@ -1,103 +1,125 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { systemService } from '@/services';
+import { errorMessage } from '@/auth/businessError';
+import { displayAccountName } from '@/auth/displayName';
+import { hasPermission } from '@/auth/permissions';
+import { authApi } from '@/services/api/httpAuthService';
+import { isMockService, systemService } from '@/services';
 import { INITIAL_STORES } from '@/services/mock/mockDataSeed';
-
-export interface OAuthAccount {
-  email: string;
-  name?: string;
-  note?: string;
-}
+import type { AuthUser } from '@/types/auth';
 
 export interface OAuthUser {
   id: string;
   name: string;
   email?: string;
-  role: 'admin' | 'staff' | string;
-  roles?: string[];
-  avatarUrl?: string;
+  role: string;
 }
+
+export type StoreListStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface SessionStore {
   storeName: string;
   stores: string[];
+  storeListStatus: StoreListStatus;
+  storeListError: string | null;
   cashierId: string;
   cashierName: string;
-  userRole: 'admin' | 'staff' | string;
+  userRole: string;
   oauthUser: OAuthUser;
 
-  adminAccounts: OAuthAccount[];
-  staffAccounts: OAuthAccount[];
-
-  // 門市管理 (對接 ISystemService / systemService)
   setStoreName: (name: string) => void;
   fetchStores: () => Promise<string[]>;
   addStore: (name: string) => Promise<boolean>;
   removeStore: (name: string) => Promise<boolean>;
 
-  // 登入角色
-  setUserRole: (role: 'admin' | 'staff' | string) => void;
-  setOAuthUser: (user: Partial<OAuthUser>) => void;
+  setUserRole: (role: string) => void;
+  applyAuthenticatedUser: (user: AuthUser, storeName: string | null) => void;
+  clearIdentity: () => void;
   isSystemAdmin: () => boolean;
-
-  // OAuth 管理員與店員帳號 (包含名稱與附註)
-  addAdminAccount: (email: string, name?: string, note?: string) => boolean;
-  updateAdminAccount: (email: string, data: { name?: string; note?: string }) => void;
-  removeAdminAccount: (email: string) => boolean;
-
-  addStaffAccount: (email: string, name?: string, note?: string) => boolean;
-  updateStaffAccount: (email: string, data: { name?: string; note?: string }) => void;
-  removeStaffAccount: (email: string) => boolean;
 }
+
+const mockIdentity = {
+  storeName: INITIAL_STORES[0]?.name ?? '',
+  stores: INITIAL_STORES.map((store) => store.name),
+  storeListStatus: 'ready' as const,
+  storeListError: null,
+  cashierId: 'staff-001',
+  cashierName: '店長 Fred',
+  userRole: 'admin',
+  oauthUser: {
+    id: 'staff-001',
+    name: '店長 Fred',
+    email: 'fred@gmail.com',
+    role: 'admin',
+  } satisfies OAuthUser,
+};
+
+const blankIdentity = {
+  storeName: '',
+  stores: [] as string[],
+  storeListStatus: 'idle' as const,
+  storeListError: null,
+  cashierId: '',
+  cashierName: '',
+  userRole: '',
+  oauthUser: { id: '', name: '', email: '', role: '' } satisfies OAuthUser,
+};
+
+let storeListRequest: Promise<string[]> | null = null;
 
 export const useSessionStore = create<SessionStore>()(
   persist(
     (set, get) => ({
-      storeName: INITIAL_STORES[0].name,
-      stores: INITIAL_STORES.map((s) => s.name),
-      cashierId: 'staff-001',
-      cashierName: '店長 Fred',
-      userRole: 'admin',
-      oauthUser: {
-        id: 'staff-001',
-        name: '店長 Fred',
-        email: 'fred@gmail.com',
-        role: 'admin',
-        roles: ['admin', 'manager', 'cashier'],
-      },
-
-      adminAccounts: [
-        { email: 'fred@gmail.com', name: '店長 Fred', note: '系統最高管理員 / 總部' },
-        { email: 'admin@gmail.com', name: '資訊管理員', note: '資訊維運管理處' },
-      ],
-      staffAccounts: [
-        { email: 'clerk01@gmail.com', name: '王小美', note: '奇可門市早班店員' },
-        { email: 'clerk02@gmail.com', name: '李大同', note: '奇可門市晚班店員' },
-        { email: 'staff@gmail.com', name: '門市支援', note: '支援收銀專員' },
-      ],
+      ...(isMockService ? mockIdentity : blankIdentity),
 
       setStoreName: (name) => set({ storeName: name }),
 
-      fetchStores: async () => {
-        try {
-          const storeDtos = await systemService.getStores();
-          const names = (storeDtos || []).map((s) => s.name);
-          if (names.length > 0) {
-            set((state) => {
-              const currentStore = state.storeName;
-              const newStore = names.includes(currentStore) ? currentStore : names[0];
-              return { stores: names, storeName: newStore };
-            });
-            return names;
+      fetchStores: () => {
+        if (storeListRequest) return storeListRequest;
+        let resolveRequest: (names: string[]) => void = () => undefined;
+        const request = new Promise<string[]>((resolve) => {
+          resolveRequest = resolve;
+        });
+        storeListRequest = request;
+        void (async () => {
+          if (get().stores.length === 0) {
+            set({ storeListStatus: 'loading', storeListError: null });
           }
-          return get().stores;
-        } catch (err) {
-          console.error('Failed to fetch stores from systemService:', err);
-          return get().stores;
-        }
+          try {
+            const storeDtos = isMockService ? await systemService.getStores() : await authApi.listStores();
+            const names = (storeDtos || []).map((store) => store.name).filter((name) => name.trim());
+            if (!isMockService) {
+              set({ stores: names, storeListStatus: 'ready', storeListError: null });
+              resolveRequest(names);
+              return;
+            }
+            if (names.length > 0) {
+              set((state) => {
+                const currentStore = state.storeName;
+                const newStore = names.includes(currentStore) ? currentStore : names[0];
+                return { stores: names, storeName: newStore, storeListStatus: 'ready', storeListError: null };
+              });
+              resolveRequest(names);
+              return;
+            }
+            set({ storeListStatus: 'ready', storeListError: null });
+            resolveRequest(get().stores);
+          } catch (err) {
+            console.error('Failed to fetch login stores:', err);
+            set({
+              storeListStatus: 'error',
+              storeListError: errorMessage(err, '無法讀取門市清單'),
+            });
+            resolveRequest(get().stores);
+          } finally {
+            if (storeListRequest === request) storeListRequest = null;
+          }
+        })();
+        return request;
       },
 
       addStore: async (name) => {
+        if (!hasPermission(get().userRole, 'store.manage')) return false;
         const clean = name.trim();
         if (!clean) return false;
         try {
@@ -114,12 +136,17 @@ export const useSessionStore = create<SessionStore>()(
       },
 
       removeStore: async (name) => {
+        if (!hasPermission(get().userRole, 'store.manage')) return false;
         try {
           await systemService.deleteStore(name);
-          const current = get().stores;
-          const next = current.filter((s) => s !== name);
-          const newActive = get().storeName === name ? next[0] : get().storeName;
-          set({ stores: next, storeName: newActive });
+          if (isMockService) {
+            const current = get().stores;
+            const next = current.filter((store) => store !== name);
+            const newActive = get().storeName === name ? (next[0] ?? '') : get().storeName;
+            set({ stores: next, storeName: newActive });
+          } else {
+            set((state) => ({ stores: state.stores.filter((store) => store !== name) }));
+          }
           return true;
         } catch (err) {
           console.error('Failed to remove store via systemService:', err);
@@ -127,153 +154,49 @@ export const useSessionStore = create<SessionStore>()(
         }
       },
 
-      setUserRole: (role) =>
+      setUserRole: (role) => {
+        if (!isMockService) return;
         set((state) => ({
           userRole: role,
           oauthUser: { ...state.oauthUser, role },
-        })),
+        }));
+      },
 
-      setOAuthUser: (user) =>
-        set((state) => {
-          const email = (user.email || state.oauthUser.email || '').toLowerCase().trim();
-          let calculatedRole = user.role || state.userRole;
-          let calculatedName = user.name || state.cashierName;
-
-          // 依據 Gmail 白名單自動計算角色與名稱
-          if (email) {
-            const adminMatch = state.adminAccounts.find((a) => a.email.toLowerCase() === email);
-            const staffMatch = state.staffAccounts.find((a) => a.email.toLowerCase() === email);
-
-            if (adminMatch) {
-              calculatedRole = 'admin';
-              if (adminMatch.name) calculatedName = adminMatch.name;
-            } else if (staffMatch) {
-              calculatedRole = 'staff';
-              if (staffMatch.name) calculatedName = staffMatch.name;
-            }
-          }
-
-          return {
-            oauthUser: { ...state.oauthUser, ...user, name: calculatedName, role: calculatedRole },
-            cashierName: calculatedName,
-            cashierId: user.id || state.cashierId,
-            userRole: calculatedRole,
-          };
+      applyAuthenticatedUser: (user, storeName) =>
+        set({
+          cashierId: user.id,
+          cashierName: displayAccountName(user.name, user.email),
+          userRole: user.role,
+          oauthUser: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+          },
+          storeName: storeName ?? '',
         }),
 
-      isSystemAdmin: () => {
-        const { userRole, oauthUser, adminAccounts } = get();
-        const userEmail = (oauthUser.email || '').toLowerCase().trim();
-        if (userEmail && adminAccounts.some((a) => a.email.toLowerCase() === userEmail)) {
-          return true;
-        }
-        return (
-          userRole === 'admin' ||
-          userRole === 'manager' ||
-          oauthUser.role === 'admin' ||
-          (oauthUser.roles?.includes('admin') ?? false)
-        );
-      },
+      clearIdentity: () => set({ ...blankIdentity }),
 
-      addAdminAccount: (email, name = '', note = '') => {
-        const clean = email.trim().toLowerCase();
-        if (!clean) return false;
-        const { adminAccounts, staffAccounts } = get();
-        if (adminAccounts.some((a) => a.email.toLowerCase() === clean)) return false;
-
-        // 若原在 staffAccounts 則移轉
-        const newStaff = staffAccounts.filter((a) => a.email.toLowerCase() !== clean);
-        set({
-          adminAccounts: [
-            ...adminAccounts,
-            { email: clean, name: name.trim(), note: note.trim() },
-          ],
-          staffAccounts: newStaff,
-        });
-        return true;
-      },
-
-      updateAdminAccount: (email, data) => {
-        const clean = email.trim().toLowerCase();
-        const { adminAccounts } = get();
-        set({
-          adminAccounts: adminAccounts.map((a) =>
-            a.email.toLowerCase() === clean
-              ? {
-                  ...a,
-                  name: data.name !== undefined ? data.name.trim() : a.name,
-                  note: data.note !== undefined ? data.note.trim() : a.note,
-                }
-              : a
-          ),
-        });
-      },
-
-      removeAdminAccount: (email) => {
-        const clean = email.trim().toLowerCase();
-        const { adminAccounts } = get();
-        if (adminAccounts.length <= 1) return false; // 至少保留一位管理員
-        set({
-          adminAccounts: adminAccounts.filter((a) => a.email.toLowerCase() !== clean),
-        });
-        return true;
-      },
-
-      addStaffAccount: (email, name = '', note = '') => {
-        const clean = email.trim().toLowerCase();
-        if (!clean) return false;
-        const { adminAccounts, staffAccounts } = get();
-        if (staffAccounts.some((a) => a.email.toLowerCase() === clean)) return false;
-
-        // 若原在 adminAccounts 則移轉
-        const newAdmin = adminAccounts.filter((a) => a.email.toLowerCase() !== clean);
-        set({
-          staffAccounts: [
-            ...staffAccounts,
-            { email: clean, name: name.trim(), note: note.trim() },
-          ],
-          adminAccounts: newAdmin,
-        });
-        return true;
-      },
-
-      updateStaffAccount: (email, data) => {
-        const clean = email.trim().toLowerCase();
-        const { staffAccounts } = get();
-        set({
-          staffAccounts: staffAccounts.map((a) =>
-            a.email.toLowerCase() === clean
-              ? {
-                  ...a,
-                  name: data.name !== undefined ? data.name.trim() : a.name,
-                  note: data.note !== undefined ? data.note.trim() : a.note,
-                }
-              : a
-          ),
-        });
-      },
-
-      removeStaffAccount: (email) => {
-        const clean = email.trim().toLowerCase();
-        const { staffAccounts } = get();
-        set({
-          staffAccounts: staffAccounts.filter((a) => a.email.toLowerCase() !== clean),
-        });
-        return true;
-      },
+      isSystemAdmin: () => hasPermission(get().userRole, 'whitelist.manage'),
     }),
     {
       name: 'FREDS_POS_SESSION',
-      version: 2,
-      migrate: (persistedState: any, version: number) => {
-        if (!version || version < 2) {
-          return {
-            ...persistedState,
-            storeName: INITIAL_STORES[0].name,
-            stores: INITIAL_STORES.map((s) => s.name),
-          };
+      version: 4,
+      partialize: (state) =>
+        isMockService
+          ? { storeName: state.storeName, stores: state.stores }
+          : { storeName: state.storeName },
+      migrate: (persistedState) => {
+        const raw = (persistedState ?? {}) as { storeName?: unknown; stores?: unknown };
+        const storeName = typeof raw.storeName === 'string' ? raw.storeName : '';
+        const stores = Array.isArray(raw.stores)
+          ? raw.stores.filter((store): store is string => typeof store === 'string')
+          : [];
+        if (!isMockService) {
+          return { storeName: '' } as unknown as SessionStore;
         }
-        return persistedState;
+        return { storeName, stores } as unknown as SessionStore;
       },
     }
   )
