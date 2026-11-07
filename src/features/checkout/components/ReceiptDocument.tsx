@@ -25,10 +25,22 @@ interface ReceiptModel {
   lines: ReceiptLine[];
   itemsSubtotalLabel: string;
   shippingLabel: string | null;
-  discountLabel: string | null;
+  discountNote: string | null;
   totalCaption: string;
   totalAmountLabel: string;
   payments: ReceiptPaymentLine[];
+}
+
+/**
+ * 改價折讓是原牌價與成交單價的差額，結帳時已計入各列 unitPrice / subtotal。
+ * 商品小計是這些成交小計的加總，結帳總額 = 商品小計 + 運費。
+ * 折讓不再以負項排進這個加總，避免被再扣一次。
+ */
+function buildDiscountNote(discountAmount: number): string | null {
+  if (!discountAmount) return null;
+  const amountLabel = formatCurrency(Math.abs(discountAmount));
+  const caption = discountAmount > 0 ? '改價折讓' : '改價加價';
+  return `${caption} ${amountLabel}，已計入品項單價`;
 }
 
 function buildReceiptModel(order: CheckoutOrder): ReceiptModel {
@@ -48,7 +60,7 @@ function buildReceiptModel(order: CheckoutOrder): ReceiptModel {
     })),
     itemsSubtotalLabel: formatCurrency(order.itemsSubtotal),
     shippingLabel: order.shippingFee > 0 ? `+${formatCurrency(order.shippingFee)}` : null,
-    discountLabel: order.discountAmount !== 0 ? `-${formatCurrency(order.discountAmount)}` : null,
+    discountNote: buildDiscountNote(order.discountAmount),
     totalCaption: order.totalAmount < 0 ? '退款總額' : '結帳總額',
     totalAmountLabel: formatCurrency(order.totalAmount),
     payments: payments.map((payment, index) => ({
@@ -105,16 +117,11 @@ function ScreenReceipt({ model }: { model: ReceiptModel }) {
             <span>{model.shippingLabel}</span>
           </div>
         ) : null}
-        {model.discountLabel ? (
-          <div className="flex justify-between text-amber-400">
-            <span>折讓</span>
-            <span>{model.discountLabel}</span>
-          </div>
-        ) : null}
         <div className="flex justify-between border-t border-zinc-800 pt-1 text-base font-bold text-cyan-300">
           <span>{model.totalCaption}</span>
           <span>{model.totalAmountLabel}</span>
         </div>
+        {model.discountNote ? <p className="text-xs text-amber-400">{model.discountNote}</p> : null}
       </div>
       <div className="space-y-1 border-t border-dashed border-zinc-700 pt-2 text-zinc-400">
         {model.payments.map((payment) => (
@@ -168,16 +175,11 @@ function PrintReceipt({ model }: { model: ReceiptModel }) {
             <span>{model.shippingLabel}</span>
           </div>
         ) : null}
-        {model.discountLabel ? (
-          <div className="receipt-row">
-            <span>折讓</span>
-            <span>{model.discountLabel}</span>
-          </div>
-        ) : null}
         <div className="receipt-row receipt-grand">
           <span>{model.totalCaption}</span>
           <span>{model.totalAmountLabel}</span>
         </div>
+        {model.discountNote ? <p className="receipt-discount-note">{model.discountNote}</p> : null}
       </div>
       <div className="receipt-rule" />
       <div className="receipt-payments">
