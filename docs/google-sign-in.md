@@ -1,6 +1,8 @@
 # Google 登入與門市工作階段
 
-這份說明對齊後端 PR [freds-pos-be#11](https://github.com/wolfdigit/freds-pos-be/pull/11) 分支 `cursor/google-account-signin-9344` 的 `prompts/auth/01-fe-contract.md`。前端沒有用真實 Google 帳號跑過端對端登入；下面的設定完成前，不能把登入當成已經在正式環境驗證過。
+這份說明對齊後端 PR [freds-pos-be#11](https://github.com/wolfdigit/freds-pos-be/pull/11) 的 `prompts/auth/01-fe-contract.md`。前端沒有用真實 Google 帳號跑過端對端登入；下面的設定完成前，不能把登入當成已經在正式環境驗證過。
+
+Vercel 預覽要用的 Git 分支名稱，前端與後端都是 `oauth`。預覽網址以該分支的 Vercel GitHub check 上的 Preview 連結為準，不要用手猜的 `*.vercel.app` 別名。後端 `oauth` 由後端作業建立；這份前端說明不代替後端推分支。
 
 ## 行為
 
@@ -24,7 +26,7 @@
 1. 建立或選一個 Google Cloud 專案。
 2. 設定 OAuth 同意畫面。範圍維持預設的 OpenID email，不要加 Gmail API。
 3. 建立憑證：OAuth 用戶端 ID，應用程式類型選「網頁應用程式」。
-4. 已授權的 JavaScript 來源填前端網址，例如本地 `http://localhost:5173` 與正式的 Vercel 來源。不要把 client secret 放進這個前端。
+4. 已授權的 JavaScript 來源填「前端 `oauth` 分支」在 Vercel check 上的 Preview 來源（含 `https://`，不含路徑），以及需要時的 `http://localhost:5173`。不要填後端網址，也不要把 client secret 放進前端。每次部署自己的網址如果和分支 Preview 不同，Google 不會把它當成同一個來源。
 5. 複製用戶端 ID。它會出現在瀏覽器裡，這是公開值，不是密鑰。
 
 ## 前端環境
@@ -34,7 +36,7 @@
 | 變數 | 用途 |
 | --- | --- |
 | `VITE_USE_MOCK=false` | 正式切換。`true` 仍是本地示範資料，不經 Google。 |
-| `VITE_API_BASE_URL` | 例如 `https://<backend>.vercel.app/api/v1` |
+| `VITE_API_BASE_URL` | 後端 `oauth` 分支的 Vercel Preview，加上 `/api/v1`。用該分支 check 上的實際 Preview 網址，不要猜。 |
 | `VITE_GOOGLE_CLIENT_ID` | 網頁用戶端 ID。空白時真實 API 模式會停在「Google 登入尚未設定」，不開業務畫面。 |
 | `VITE_API_TIMEOUT_MS` | 既有逾時，預設 15000。 |
 
@@ -42,16 +44,33 @@
 
 ## 後端環境
 
-以前端不修改的後端 PR 為準：
+變數名稱以後端 `src/core/config.py` 與 `.env.example` 為準。預覽請只加在 Vercel 專案 `freds-pos-be` 的 Preview，並把 Git 分支限在 `oauth`，不要改 Production。
 
 | 變數 | 用途 |
 | --- | --- |
-| `GOOGLE_CLIENT_ID` | 與前端同一個用戶端 ID。可以是逗號分隔的多個 ID。沒設定時登入回 `503` `AUTH_NOT_CONFIGURED`。 |
-| `AUTH_BOOTSTRAP_ADMIN_EMAIL` | 只在 `oauth_account` 還是空的時建立第一位管理員。不要填前端示範信箱。 |
-| `AUTH_BOOTSTRAP_ADMIN_NAME` | 選填。第一位管理員的顯示名稱。 |
-| `DEBUG=false` | 正式環境。 |
+| `SQLALCHEMY_DATABASE_URI` | 資料庫連線。程式預設 `sqlite:///./freds_pos.db`。`postgres://` 與 `postgresql://` 會被改成 `postgresql+psycopg2://`。預覽要用自己的資料庫，不要和正式環境共用同一條連線。 |
+| `GOOGLE_CLIENT_ID` | 與前端同一個網頁用戶端 ID。可逗號分隔。沒設定時登入回 `503` `AUTH_NOT_CONFIGURED`。 |
+| `AUTH_BOOTSTRAP_ADMIN_EMAIL` | 只在 `oauth_account` 還是空的時建立第一位管理員。不要填 `fred@gmail.com`、`admin@gmail.com`、`clerk01@gmail.com`、`clerk02@gmail.com`、`staff@gmail.com`。 |
+| `AUTH_BOOTSTRAP_ADMIN_NAME` | 選填。空白時顯示名稱用 email。 |
+| `DEBUG` | 預覽與正式都設 `false`。`true` 時會打開 `/docs` 與 `/api/v1/openapi.json`。 |
+| `BACKEND_CORS_ORIGINS` | 額外允許的前端來源，逗號或 JSON 陣列。程式另外用正則允許 `https://*.vercel.app`，所以 Vercel 預覽來源不必逐一加進這份清單。 |
+| `APP_ENV` 或 `ENVIRONMENT` | 選填。有值時會再讀 `.env.{APP_ENV}`。 |
+
+倉庫裡沒有在 Vercel 建置時自動執行 `alembic upgrade head` 的設定。migration 要由人對「預覽那條」`SQLALCHEMY_DATABASE_URI` 執行，而且要在開放登入測試之前。這份說明沒有執行 migration，也沒有改任何環境變數。
 
 第一位管理員來自由部署環境提供的信箱，不是前端種子名單。名單裡有資料之後，這個變數不會再補權限。
+
+## 預覽測試順序
+
+1. 後端作業把同一份登入改動推到分支 `oauth`。等該分支的 Vercel check 出現 Preview 連結。
+2. 對那條預覽資料庫執行 `alembic upgrade head`。目前登入相關 revision 含 `c8e2a4b71d90`。
+3. 在後端 Preview、分支 `oauth` 設定上表的變數。`GOOGLE_CLIENT_ID` 與前端相同。然後讓該分支重新建置，讓新的環境變數進到運行中的程式。
+4. 在前端專案 `freds-pos-fe` 的 Preview、分支 `oauth` 設定 `VITE_USE_MOCK=false`、`VITE_API_BASE_URL=<後端 Preview>/api/v1`、`VITE_GOOGLE_CLIENT_ID=<同一個用戶端 ID>`。這些值是在 `npm run build` 的 `generate:config` 寫進 `config.js`，只改 Vercel 變數而不重新建置不會改變已經上線的 `config.js`。
+5. 打開前端 `oauth` 的 Preview 後，先看 `/config.js`。要看到 `USE_MOCK: false`、後端 Preview 的 API 位址，以及非空白的 `GOOGLE_CLIENT_ID`。目前舊的前端 PR 預覽仍是 `USE_MOCK: true` 與 `http://localhost:8000/api/v1`，那個網址不是 `oauth` 分支。
+6. Google 已授權的 JavaScript 來源填前端 `oauth` Preview 的來源。用白名單裡的 Google 帳號登入，再選門市。
+7. 前端已經在畫面上擋住刪除最後一間門市。後端現在也回 `409`，body 是 `{ "code": "LAST_STORE", "message": "至少要保留一間門市" }`。若請求真的打到 API，現有 HTTP client 會顯示後端的 `message`。
+
+跨來源：前端把 `Authorization` 放在 header，不送 cookie。後端 CORS 對 `https://*.vercel.app` 的預檢會回傳該前端來源，並允許 `authorization`。這不代表 Vercel Deployment Protection 已經關掉。若之後預覽被 Vercel 登入頁擋住，瀏覽器從另一個專案呼叫 API 會先碰到保護頁，FastAPI 的 CORS 幫不上忙。探測當下那兩個舊分支預覽沒有被登入頁擋住；這不是端對端登入已成功，也還不是 `oauth` 分支的結果。
 
 ## 一起上線
 
