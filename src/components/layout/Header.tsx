@@ -4,6 +4,7 @@ import { useUiStore } from '@/store/uiStore';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Modal } from '@/components/common/Modal';
+import { displayAccountName } from '@/auth/displayName';
 import { hasPermission } from '@/auth/permissions';
 import { storeSwitchNotice } from '@/auth/storeSwitch';
 import { resetDemoData, isMockService, canToggleMockMode, toggleMockMode } from '@/services';
@@ -28,7 +29,8 @@ function formatClock(date: Date): string {
 }
 
 export function Header() {
-  const { storeName, stores, cashierName, userRole, setStoreName } = useSessionStore();
+  const { storeName, stores, cashierName, userRole, oauthUser, setStoreName } = useSessionStore();
+  const cashierLabel = displayAccountName(oauthUser.name, oauthUser.email) || cashierName;
   const logout = useAuthStore((state) => state.logout);
   const setActiveTab = useUiStore((s) => s.setActiveTab);
   const { theme, toggleTheme } = useThemeStore();
@@ -138,7 +140,7 @@ export function Header() {
 
         {/* 使用者名稱、OAuth 角色與登出按鈕 */}
         <div className="flex items-center gap-2 text-zinc-300 font-medium">
-          <span>{cashierName}</span>
+          <span>{cashierLabel}</span>
           <span className="rounded bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 text-[11px] font-mono text-cyan-300 font-semibold">
             {userRole === 'admin' ? '管理員' : userRole === 'staff' ? '店員' : '未登入'}
           </span>

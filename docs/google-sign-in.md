@@ -16,7 +16,7 @@ Vercel 預覽要用的 Git 分支名稱，前端與後端都是 `oauth`。預覽
 - 購物車鍵是 `FREDS_POS_CART:<whitelist user.id>`。登出、過期、關分頁都留著。未確認身份前不讀、不改購物車。
 - 升級時只刪除舊的未歸屬鍵 `FREDS_POS_CART`。不刪其他 localStorage，也不刪已經按帳號分開的購物車。
 - `FREDS_POS_SESSION` 裡舊的示範身份、角色與瀏覽器裡的示範帳號不再當成登入依據。真實 API 模式的身份只採 `GET /auth/me`。
-- 使用者管理呼叫 `GET/POST /api/v1/system/oauth/accounts` 與 `PUT/DELETE /api/v1/system/oauth/accounts/{email}`。只有管理員看得到這個分頁。不能刪自己、不能改自己的角色，最後一位管理員不能刪除或降權；後端仍以 `409` `ACCOUNT_SELF_PROTECTED` 或 `ACCOUNT_LAST_ADMIN` 作準。
+- 使用者管理的說明是「僅限已加入的 Google 帳號登入。」呼叫 `GET/POST /api/v1/system/oauth/accounts` 與 `PUT/DELETE /api/v1/system/oauth/accounts/{email}`。只有管理員看得到這個分頁。顯示名稱可留白；沒填時畫面以信箱顯示，更新時會送出空字串。不能刪自己、不能改自己的角色，最後一位管理員不能刪除或降權；後端仍以 `409` `ACCOUNT_SELF_PROTECTED` 或 `ACCOUNT_LAST_ADMIN` 作準。
 - 門市清單管理（新增、刪除）只限管理員，走 `/api/v1/system/stores`。店員仍用 `GET /api/v1/auth/stores` 看門市，並用 `POST /api/v1/auth/store` 選門市或換門市，不必重新跟 Google 驗證。上方的登入門市選單會保留。
 - 部署設定 `USE_MOCK: false` 時，畫面上的 Mock 切換無效，也不能靠 `localStorage['USE_MOCK']` 回到示範身份。
 

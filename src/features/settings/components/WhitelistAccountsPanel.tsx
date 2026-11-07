@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { displayAccountName } from '@/auth/displayName';
 import {
   accountGuardMessage,
   deletionBlock,
@@ -154,12 +155,10 @@ export function WhitelistAccountsPanel({
     <div className="max-w-5xl space-y-4">
       <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
         <h3 className="text-lg font-bold text-zinc-100">使用者管理</h3>
-        <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-          登入只比對已驗證的 email。使用者資料存在後端，不是這台瀏覽器的示範帳號。只有管理員可以新增、修改與刪除。
-        </p>
+        <p className="mt-2 text-sm leading-relaxed text-zinc-400">僅限已加入的 Google 帳號登入。</p>
       </div>
       <form onSubmit={createAccount} className="grid gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/40 p-4 md:grid-cols-5">
-        <Input aria-label="顯示名稱" value={name} onChange={(event) => setName(event.target.value)} placeholder="顯示名稱" required />
+        <Input aria-label="顯示名稱" value={name} onChange={(event) => setName(event.target.value)} placeholder="顯示名稱（可留白）" />
         <Input aria-label="Email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="email" required />
         <select
           aria-label="角色"
@@ -195,7 +194,7 @@ export function WhitelistAccountsPanel({
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="font-semibold text-zinc-100">
-                    {account.name || account.email}
+                    {displayAccountName(account.name, account.email)}
                     {isSelf && <span className="ml-2 text-xs text-cyan-300">目前登入</span>}
                   </p>
                   <p className="text-sm text-zinc-400">
@@ -210,7 +209,7 @@ export function WhitelistAccountsPanel({
                     variant="secondary"
                     onClick={() => {
                       setEditingEmail(account.email);
-                      setEditName(account.name || '');
+                      setEditName(account.name ?? '');
                       setEditNote(account.note || '');
                       setEditRole(normalizeRole(account.role) === 'admin' ? 'admin' : 'staff');
                     }}
@@ -231,7 +230,12 @@ export function WhitelistAccountsPanel({
               </div>
               {editing && (
                 <div className="grid gap-2 md:grid-cols-4">
-                  <Input aria-label={`${account.email} 顯示名稱`} value={editName} onChange={(event) => setEditName(event.target.value)} />
+                  <Input
+                    aria-label={`${account.email} 顯示名稱`}
+                    value={editName}
+                    onChange={(event) => setEditName(event.target.value)}
+                    placeholder="顯示名稱（可留白）"
+                  />
                   <Input aria-label={`${account.email} 附註`} value={editNote} onChange={(event) => setEditNote(event.target.value)} />
                   <select
                     aria-label={`${account.email} 角色`}

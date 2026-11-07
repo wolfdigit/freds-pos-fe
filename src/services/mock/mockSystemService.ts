@@ -81,7 +81,7 @@ export class MockSystemService implements ISystemService {
     const role = normalizeRole(request.role);
     const name = (request.name || '').trim();
     if (!role) throw new BusinessError('ACCOUNT_ROLE_INVALID', '角色只允許 admin 或 staff');
-    if (!name || name.length > 128) {
+    if (name.length > 128) {
       throw new BusinessError('ACCOUNT_NAME_REQUIRED', '請設定 128 字以內的顯示名稱');
     }
     const accounts = readMockAccounts();
@@ -127,7 +127,7 @@ export class MockSystemService implements ISystemService {
     let name = current.name ?? '';
     if (request.name !== undefined && request.name !== null) {
       name = request.name.trim();
-      if (!name || name.length > 128) {
+      if (name.length > 128) {
         throw new BusinessError('ACCOUNT_NAME_REQUIRED', '請設定 128 字以內的顯示名稱');
       }
     }

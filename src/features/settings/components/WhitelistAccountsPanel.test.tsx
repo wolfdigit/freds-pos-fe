@@ -62,6 +62,49 @@ describe('whitelist panel', () => {
     });
   });
 
+  it('uses the exact subtitle and keeps a blank display name', async () => {
+    const user = userEvent.setup();
+    const unnamed: OAuthAccountDto = {
+      id: 'acct-blank',
+      email: 'blank@example.com',
+      role: 'staff',
+      name: '   ',
+      note: null,
+    };
+    const named: OAuthAccountDto = {
+      id: 'acct-named',
+      email: 'named@example.com',
+      role: 'staff',
+      name: '早班',
+      note: null,
+    };
+    const service = serviceWith([unnamed, named]);
+    render(<WhitelistAccountsPanel actorEmail="owner@example.com" actorRole="admin" service={service} />);
+
+    expect(await screen.findByText('僅限已加入的 Google 帳號登入。')).toBeInTheDocument();
+    expect(screen.getAllByText('blank@example.com').length).toBeGreaterThan(0);
+
+    await user.type(screen.getByLabelText('Email'), 'new@example.com');
+    await user.type(screen.getByLabelText('顯示名稱'), '   ');
+    await user.click(screen.getByRole('button', { name: '新增帳號' }));
+    expect(service.createAccount).toHaveBeenCalledWith({
+      email: 'new@example.com',
+      role: 'staff',
+      name: '',
+      note: null,
+    });
+
+    const editButtons = screen.getAllByRole('button', { name: '編輯' });
+    await user.click(editButtons[1]!);
+    await user.clear(screen.getByLabelText('named@example.com 顯示名稱'));
+    await user.click(screen.getByRole('button', { name: '儲存' }));
+    expect(service.updateAccount).toHaveBeenCalledWith('named@example.com', {
+      name: '',
+      note: '',
+      role: 'staff',
+    });
+  });
+
   it('does not send a self demotion', async () => {
     const user = userEvent.setup();
     const service = serviceWith([adminAccount, { ...staffAccount, role: 'admin', id: 'acct-admin-2', email: 'other@example.com' }]);

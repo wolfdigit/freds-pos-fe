@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { displayAccountName } from '@/auth/displayName';
 import { hasPermission } from '@/auth/permissions';
 import { authApi } from '@/services/api/httpAuthService';
 import { isMockService, systemService } from '@/services';
@@ -132,7 +133,7 @@ export const useSessionStore = create<SessionStore>()(
       applyAuthenticatedUser: (user, storeName) =>
         set({
           cashierId: user.id,
-          cashierName: user.name,
+          cashierName: displayAccountName(user.name, user.email),
           userRole: user.role,
           oauthUser: {
             id: user.id,
