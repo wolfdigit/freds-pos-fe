@@ -1,9 +1,28 @@
+import { readBusinessError } from '@/auth/businessError';
 import { useToastStore } from '@/components/feedback/toastStore';
+
+export interface AuthFailureNotice {
+  status: number;
+  code: string | null;
+  message: string;
+  hadBearer: boolean;
+  endpoint: string;
+}
+
+type AuthFailureListener = (failure: AuthFailureNotice) => void;
+const authFailureListeners = new Set<AuthFailureListener>();
+
+export function subscribeAuthFailure(listener: AuthFailureListener): () => void {
+  authFailureListeners.add(listener);
+  return () => authFailureListeners.delete(listener);
+}
 
 export interface RequestOptions extends RequestInit {
   timeoutMs?: number;
   /** 是否靜音特定錯誤（例如單一查詢 404 時不彈出 Toast，但仍印 console） */
   silentToast?: boolean;
+  /** Auth restore and login handle their own session transitions. */
+  skipAuthHandler?: boolean;
 }
 
 export class ApiError extends Error {
@@ -12,7 +31,8 @@ export class ApiError extends Error {
     public status: number,
     public statusText: string,
     public url: string,
-    public responseBody?: unknown
+    public responseBody?: unknown,
+    public code: string | null = null
   ) {
     super(message);
     this.name = 'ApiError';
@@ -51,6 +71,7 @@ export class HttpClient {
     };
 
     const token = localStorage.getItem('AUTH_TOKEN');
+    const hadBearer = Boolean(token);
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -121,13 +142,14 @@ export class HttpClient {
       const status = response.status;
       let userFriendlyMsg = '';
 
+      const businessError = readBusinessError(responseBody);
       const bodyMessage =
-        typeof responseBody === 'object' && responseBody !== null
-          ? (responseBody as any).message ||
-            (typeof (responseBody as any).detail === 'string'
-              ? (responseBody as any).detail
-              : (responseBody as any).detail?.message)
-          : undefined;
+        businessError.message ||
+        (typeof responseBody === 'object' && responseBody !== null
+          ? typeof (responseBody as { detail?: unknown }).detail === 'string'
+            ? (responseBody as { detail: string }).detail
+            : undefined
+          : undefined);
 
       if (bodyMessage && typeof bodyMessage === 'string') {
         userFriendlyMsg = bodyMessage;
@@ -151,12 +173,24 @@ export class HttpClient {
         });
       }
 
+      if (!options.skipAuthHandler) {
+        const notice: AuthFailureNotice = {
+          status,
+          code: businessError.code,
+          message: userFriendlyMsg,
+          hadBearer,
+          endpoint,
+        };
+        authFailureListeners.forEach((listener) => listener(notice));
+      }
+
       throw new ApiError(
         userFriendlyMsg,
         status,
         response.statusText,
         url,
-        responseBody
+        responseBody,
+        businessError.code
       );
     }
 

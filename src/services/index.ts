@@ -18,24 +18,31 @@ import { HttpLocationService } from './api/httpLocationService';
 import { HttpSystemService } from './api/httpSystemService';
 
 /**
- * 讀取運行期設定檔（public/config.js -> window.__APP_CONFIG__）為預設值
- * 支援透過右上角切換按鈕寫入 localStorage ('USE_MOCK') 即時覆蓋模式
+ * 讀取運行期設定檔（public/config.js -> window.__APP_CONFIG__）為預設值。
+ * 開發設定為 Mock 時，仍可用 localStorage USE_MOCK 覆寫。
+ * 部署設定 USE_MOCK=false 時，不接受覆寫，避免略過 Google 登入。
  */
-export const isMockService = typeof window !== 'undefined'
-  ? (() => {
-      const stored = localStorage.getItem('USE_MOCK');
-      if (stored !== null) {
-        return stored === 'true';
-      }
-      return window.__APP_CONFIG__?.USE_MOCK ?? true;
-    })()
-  : true;
+function resolveUseMock(): boolean {
+  if (typeof window === 'undefined') return true;
+  const configValue = window.__APP_CONFIG__?.USE_MOCK;
+  if (configValue === false) return false;
+  const stored = localStorage.getItem('USE_MOCK');
+  if (stored !== null) return stored === 'true';
+  return configValue ?? true;
+}
+
+export const isMockService = resolveUseMock();
+
+/** Live config cannot be switched into the local demo. */
+export const canToggleMockMode =
+  typeof window === 'undefined' || window.__APP_CONFIG__?.USE_MOCK !== false;
 
 /**
  * 即時切換 Mock / API 連線模式並重新載入頁面
  * 若切換後的模式與 public/config.js 預設值一致，則主動清除 localStorage，以確保後續修改 config.js 直接生效
  */
 export const toggleMockMode = (): void => {
+  if (!canToggleMockMode) return;
   if (typeof window !== 'undefined') {
     const nextMode = !isMockService;
     const configDefault = window.__APP_CONFIG__?.USE_MOCK ?? true;

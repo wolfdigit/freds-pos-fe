@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
+import { AuthGate } from '@/features/auth/AuthGate';
 import { useUiStore } from '@/store/uiStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { CheckoutPage } from '@/features/checkout/CheckoutPage';
@@ -10,6 +11,14 @@ import { ReportsPage } from '@/features/reports/ReportsPage';
 import { getStateFromHash, getHashFromState } from '@/utils/hashRouter';
 
 export function App() {
+  return (
+    <AuthGate>
+      <AuthenticatedApp />
+    </AuthGate>
+  );
+}
+
+function AuthenticatedApp() {
   const { activeTab, setActiveTab, syncStateFromHash } = useUiStore();
   const fetchStores = useSessionStore((s) => s.fetchStores);
 

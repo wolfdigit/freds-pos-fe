@@ -1,5 +1,12 @@
 import type { ISystemService } from '@/services/interfaces/ISystemService';
-import type { StoreDto, CreateStoreRequest, DeleteStoreResponse } from '@/types/system';
+import type {
+  StoreDto,
+  CreateStoreRequest,
+  DeleteStoreResponse,
+  OAuthAccountDto,
+  CreateOAuthAccountRequest,
+  UpdateOAuthAccountRequest,
+} from '@/types/system';
 import { httpClient } from './httpClient';
 
 export class HttpSystemService implements ISystemService {
@@ -14,5 +21,25 @@ export class HttpSystemService implements ISystemService {
 
   async deleteStore(storeName: string): Promise<DeleteStoreResponse> {
     return httpClient.delete<DeleteStoreResponse>(`/system/stores/${encodeURIComponent(storeName)}`);
+  }
+
+  async listAccounts(): Promise<OAuthAccountDto[]> {
+    const data = await httpClient.get<OAuthAccountDto[]>('/system/oauth/accounts');
+    return data || [];
+  }
+
+  async createAccount(request: CreateOAuthAccountRequest): Promise<OAuthAccountDto> {
+    return httpClient.post<OAuthAccountDto>('/system/oauth/accounts', request);
+  }
+
+  async updateAccount(email: string, request: UpdateOAuthAccountRequest): Promise<OAuthAccountDto> {
+    return httpClient.put<OAuthAccountDto>(
+      `/system/oauth/accounts/${encodeURIComponent(email)}`,
+      request
+    );
+  }
+
+  async deleteAccount(email: string): Promise<void> {
+    await httpClient.delete(`/system/oauth/accounts/${encodeURIComponent(email)}`);
   }
 }

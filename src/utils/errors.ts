@@ -17,7 +17,12 @@ export type BusinessErrorCode =
   | 'DUPLICATE_STORE_NAME'
   | 'CANNOT_DELETE_LAST_STORE'
   | 'STORE_NOT_FOUND'
-  | 'STORAGE_CORRUPTED';
+  | 'STORAGE_CORRUPTED'
+  | 'AUTH_FORBIDDEN'
+  | 'ACCOUNT_ROLE_INVALID'
+  | 'ACCOUNT_LAST_ADMIN'
+  | 'ACCOUNT_SELF_PROTECTED'
+  | 'ACCOUNT_NAME_REQUIRED';
 
 export class BusinessError extends Error {
   constructor(

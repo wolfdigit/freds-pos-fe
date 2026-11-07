@@ -43,7 +43,7 @@ export function StockAdjustmentConfirmModal({
       showToast(`已成功更新 ${adjustments.length} 項商品庫存並紀錄操作日誌`, 'success');
       onSuccess(adjustments);
       onClose();
-    } catch (err) {
+    } catch {
       showToast('庫存調整儲存失敗，請重試', 'error');
     } finally {
       setIsSubmitting(false);

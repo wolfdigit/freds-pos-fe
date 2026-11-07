@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { getBoundCartUserId } from '@/auth/cartOwner';
 import type { Product, ModelScale } from '@/types/product';
 import type { Customer } from '@/types/customer';
 import type { CheckoutOrder, CheckoutOrderItem } from '@/types/checkout';
@@ -63,9 +63,11 @@ interface CartStore {
   getReturnItemsCount: () => number;
 }
 
-export const useCartStore = create<CartStore>()(
-  persist(
-    (set, get) => ({
+function canOperateCart(): boolean {
+  return getBoundCartUserId() !== null;
+}
+
+export const useCartStore = create<CartStore>()((set, get) => ({
       items: [],
       attachedCustomer: null,
       shippingFee: 0,
@@ -75,6 +77,7 @@ export const useCartStore = create<CartStore>()(
       setHighlightedProductId: (id) => set({ highlightedProductId: id }),
 
       addItem: (product, qty = 1) => {
+        if (!canOperateCart()) return;
         const { items } = get();
         const isTargetReturn = qty < 0;
         const existing = items.find(
@@ -113,6 +116,7 @@ export const useCartStore = create<CartStore>()(
       },
 
       switchItemSku: (oldProductId, newProduct) => {
+        if (!canOperateCart()) return;
         const { items } = get();
         const currentItem = items.find(
           (i) => i.productId === oldProductId && i.quantity > 0 && !i.originalOrderId
@@ -162,6 +166,7 @@ export const useCartStore = create<CartStore>()(
       },
 
       importReturnItem: (order, item, returnQty, reason = '門市退換貨', restock = true) => {
+        if (!canOperateCart()) return;
         const { items, attachedCustomer } = get();
 
         // 綁定會員檢查：若已綁定會員，原單屬於「其他會員」（非當前會員且非散客）則不可帶入
@@ -234,6 +239,7 @@ export const useCartStore = create<CartStore>()(
       },
 
       updateItemQuantity: (productId, newQty) => {
+        if (!canOperateCart()) return;
         set({
           items: get().items.map((i) => {
             if (i.productId !== productId) return i;
@@ -247,6 +253,7 @@ export const useCartStore = create<CartStore>()(
       },
 
       updateItemPrice: (productId, newPrice, reason) => {
+        if (!canOperateCart()) return;
         set({
           items: get().items.map((i) =>
             i.productId === productId
@@ -257,25 +264,34 @@ export const useCartStore = create<CartStore>()(
       },
 
       removeItem: (productId) => {
+        if (!canOperateCart()) return;
         set({ items: get().items.filter((i) => i.productId !== productId) });
       },
 
       attachCustomer: (customer) => {
+        if (!canOperateCart()) return;
         set({ attachedCustomer: customer });
       },
 
-      setShippingFee: (fee) => set({ shippingFee: fee }),
-      setOrderNote: (note) => set({ orderNote: note }),
+      setShippingFee: (fee) => {
+        if (!canOperateCart()) return;
+        set({ shippingFee: fee });
+      },
+      setOrderNote: (note) => {
+        if (!canOperateCart()) return;
+        set({ orderNote: note });
+      },
 
-      clearCart: () => set({ items: [], attachedCustomer: null, shippingFee: 0, orderNote: '' }),
+      clearCart: () => {
+        if (!canOperateCart()) return;
+        set({ items: [], attachedCustomer: null, shippingFee: 0, orderNote: '' });
+      },
 
       getSubtotal: () => safeAdd(...get().items.map((i) => i.unitPrice * i.quantity)),
       getTotalAmount: () => safeAdd(get().getSubtotal(), get().shippingFee),
       getTotalItemsCount: () => get().items.reduce((sum, i) => sum + i.quantity, 0),
       getSalesItemsCount: () => get().items.filter((i) => i.quantity > 0).reduce((sum, i) => sum + i.quantity, 0),
       getReturnItemsCount: () => get().items.filter((i) => i.quantity < 0).reduce((sum, i) => sum + Math.abs(i.quantity), 0),
-    }),
-    { name: 'FREDS_POS_CART' }
-  )
+    })
 );
 

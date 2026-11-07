@@ -4,9 +4,11 @@ import { useUiStore } from '@/store/uiStore';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Modal } from '@/components/common/Modal';
-import { resetDemoData, isMockService, toggleMockMode } from '@/services';
+import { storeSwitchNotice } from '@/auth/storeSwitch';
+import { resetDemoData, isMockService, canToggleMockMode, toggleMockMode } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { useThemeStore } from '@/store/themeStore';
+import { switchLoginStore, useAuthStore } from '@/store/authStore';
 
 function useClock() {
   const [now, setNow] = useState(new Date());
@@ -25,7 +27,8 @@ function formatClock(date: Date): string {
 }
 
 export function Header() {
-  const { storeName, stores, cashierName, setStoreName } = useSessionStore();
+  const { storeName, stores, cashierName, userRole, setStoreName } = useSessionStore();
+  const logout = useAuthStore((state) => state.logout);
   const setActiveTab = useUiStore((s) => s.setActiveTab);
   const { theme, toggleTheme } = useThemeStore();
   const now = useClock();
@@ -53,13 +56,22 @@ export function Header() {
   const handleStoreChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const val = e.target.value;
     if (val === '__CUSTOM__') {
+      if (!isMockService) return;
       setCustomStoreName('');
       setCustomStoreError('');
       setCustomStoreOpen(true);
       return;
     }
-    setStoreName(val);
-    showToast(`已成功更換登入門市為：「${val}」`, 'success');
+    if (!val || val === storeName) return;
+    void (async () => {
+      const result = await switchLoginStore(val);
+      if (!result.ok) {
+        showToast(result.message, 'error');
+        return;
+      }
+      if (result.cartItemCount > 0) showToast(storeSwitchNotice(val), 'warning', 8000);
+      else showToast(`已成功更換登入門市為：「${val}」`, 'success');
+    })();
   };
 
   const handleCustomStoreSubmit = (e: React.FormEvent) => {
@@ -75,7 +87,14 @@ export function Header() {
   };
 
   const handleLogoutClick = () => {
-    showToast('未開放此功能', 'warning');
+    if (isMockService) {
+      showToast('示範模式使用本機資料，沒有伺服器登入階段', 'warning');
+      return;
+    }
+    void logout().then(() => {
+      const message = useAuthStore.getState().errorMessage;
+      if (message) showToast(message, 'error');
+    });
   };
 
   return (
@@ -94,8 +113,9 @@ export function Header() {
         <div className="flex items-center gap-1.5 text-zinc-300 font-medium">
           <span className="text-zinc-400 text-xs">登入門市:</span>
           <select
-            value={availableStores.includes(storeName) ? storeName : '__CUSTOM__'}
+            value={storeName}
             onChange={handleStoreChange}
+            aria-label="登入門市"
             className="cursor-pointer rounded-lg border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-sm font-semibold text-cyan-300 shadow-sm transition-all hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
             title="點擊更改登入門市"
           >
@@ -104,10 +124,10 @@ export function Header() {
                 {s}
               </option>
             ))}
-            {!availableStores.includes(storeName) && (
-              <option value="__CUSTOM__">{storeName}</option>
+            {!availableStores.includes(storeName) && storeName && (
+              <option value={storeName}>{storeName}</option>
             )}
-            <option value="__CUSTOM__">自訂其他門市...</option>
+            {isMockService && <option value="__CUSTOM__">自訂其他門市...</option>}
           </select>
         </div>
 
@@ -117,11 +137,11 @@ export function Header() {
         <div className="flex items-center gap-2 text-zinc-300 font-medium">
           <span>{cashierName}</span>
           <span className="rounded bg-zinc-800 border border-zinc-700 px-1.5 py-0.5 text-[11px] font-mono text-cyan-300 font-semibold">
-            {useSessionStore((s) => s.userRole === 'admin' ? '管理員' : '店員')}
+            {userRole === 'admin' ? '管理員' : userRole === 'staff' ? '店員' : '未登入'}
           </span>
           <button
             onClick={handleLogoutClick}
-            title="未開放此功能"
+            title={isMockService ? '示範模式沒有伺服器登入' : '登出這個裝置'}
             className="rounded border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-xs text-zinc-300 shadow-sm transition-all hover:border-rose-700/80 hover:bg-rose-950/60 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
           >
             登出
@@ -131,6 +151,7 @@ export function Header() {
 
       <div className="flex items-center gap-3">
         {/* 模式切換按鈕 */}
+        {canToggleMockMode && (
         <button
           type="button"
           onClick={toggleMockMode}
@@ -149,6 +170,7 @@ export function Header() {
             </span>
           )}
         </button>
+        )}
         <span className="font-mono text-sm text-zinc-400">{formatClock(now)}</span>
         
         {/* 主題切換按鈕 */}

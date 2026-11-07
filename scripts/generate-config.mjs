@@ -50,6 +50,12 @@ const apiTimeoutMs = Number(
   15000
 ) || 15000;
 
+const googleClientId = (
+  process.env.VITE_GOOGLE_CLIENT_ID ??
+  process.env.GOOGLE_CLIENT_ID ??
+  ''
+).trim();
+
 const content = `/**
  * Runtime 運行期設定檔
  * 
@@ -62,13 +68,16 @@ window.__APP_CONFIG__ = {
   USE_MOCK: ${isUseMock},
 
   // 後端真實 API Base URL（當 USE_MOCK 為 false 時使用）
-  API_BASE_URL: '${apiBaseUrl}',
+  API_BASE_URL: ${JSON.stringify(apiBaseUrl)},
 
   // API 請求逾時時間（毫秒）
   API_TIMEOUT_MS: ${apiTimeoutMs},
+
+  // Google Identity Services 網頁用戶端 ID。空字串代表登入未設定，業務畫面保持關閉。
+  GOOGLE_CLIENT_ID: ${JSON.stringify(googleClientId)},
 };
 `;
 
 const targetPath = path.resolve('public/config.js');
 fs.writeFileSync(targetPath, content, 'utf-8');
-console.log(`✅ [Config Generated] USE_MOCK=${isUseMock}, API_BASE_URL="${apiBaseUrl}", API_TIMEOUT_MS=${apiTimeoutMs}`);
+console.log(`✅ [Config Generated] USE_MOCK=${isUseMock}, API_BASE_URL=${JSON.stringify(apiBaseUrl)}, API_TIMEOUT_MS=${apiTimeoutMs}, GOOGLE_CLIENT_ID=${googleClientId ? 'set' : 'missing'}`);
