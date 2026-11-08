@@ -84,34 +84,61 @@
   border-top: 0.3mm dashed #000000;
 }
 
-.receipt-item {
-  padding: 1.2mm 0 1.4mm;
-  border-bottom: 0.2mm solid #000000;
+.receipt-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content max-content max-content max-content;
+  column-gap: 0;
+  align-items: start;
+  font-size: 3.1mm;
+  line-height: 1.35;
 }
 
-.receipt-name {
-  margin: 0;
-  font-size: 3.3mm;
+.receipt-item-rule {
+  grid-column: 1 / -1;
+  height: 0;
+  margin: 1.3mm 0 0.5mm;
+  border-top: 0.2mm solid #000000;
+}
+
+.receipt-cell-name {
+  min-width: 0;
+  padding-right: 1.2mm;
   font-weight: 700;
-  line-height: 1.35;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-.receipt-return-tag {
-  margin-right: 1mm;
-  font-weight: 800;
-}
-
-.receipt-original {
-  margin: 0.7mm 0 0;
-  font-size: 3mm;
+.receipt-cell-child {
+  padding-left: 3mm;
   font-weight: 500;
-  line-height: 1.35;
 }
 
-.receipt-nums,
+.receipt-cell-unit {
+  white-space: nowrap;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.receipt-cell-times {
+  white-space: nowrap;
+  text-align: center;
+}
+
+.receipt-cell-qty {
+  white-space: nowrap;
+  padding-right: 1.6mm;
+  text-align: left;
+  font-variant-numeric: tabular-nums;
+}
+
+.receipt-cell-amt {
+  white-space: nowrap;
+  text-align: right;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
 .receipt-row {
   display: flex;
   justify-content: space-between;
@@ -119,28 +146,16 @@
   gap: 2mm;
 }
 
-.receipt-nums > span:first-child,
 .receipt-row > span:first-child {
   min-width: 0;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 
-.receipt-nums {
-  margin-top: 0.8mm;
-  font-size: 3mm;
-}
-
-.receipt-nums span,
 .receipt-row span:last-child {
   flex: 0 0 auto;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
-}
-
-.receipt-nums > span:first-child {
-  flex: 1 1 auto;
-  white-space: normal;
 }
 
 .receipt-amount {

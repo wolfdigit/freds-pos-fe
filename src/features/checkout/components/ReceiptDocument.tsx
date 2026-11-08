@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import type { CheckoutOrder } from '@/types/checkout';
 import { formatCurrency } from '@/utils/currency';
 import { formatDateTime } from '@/utils/date';
@@ -7,14 +8,15 @@ import '../receipt-print.css';
 interface ReceiptMoneyRow {
   key: string;
   label: string;
+  /** 括號單價，靠右對齊到共用的乘號欄。 */
+  unitLabel: string;
   quantity: number;
   amountLabel: string;
+  indent: boolean;
 }
 
 interface ReceiptLine {
   key: string;
-  name: string;
-  isReturn: boolean;
   rows: ReceiptMoneyRow[];
 }
 
@@ -45,15 +47,26 @@ function unitPriceDelta(item: CheckoutOrder['items'][number]): number | null {
   return item.unitPrice - item.originalPrice;
 }
 
+function itemTitle(item: CheckoutOrder['items'][number]): string {
+  return item.quantity < 0 ? `退貨 ${item.name}` : item.name;
+}
+
+function parenthesized(unit: string): string {
+  return `（${unit}）`;
+}
+
 function moneyRows(item: CheckoutOrder['items'][number]): ReceiptMoneyRow[] {
   const delta = unitPriceDelta(item);
+  const title = itemTitle(item);
   if (delta === null) {
     return [
       {
         key: 'charged',
-        label: `@${formatCurrency(item.unitPrice)}`,
+        label: title,
+        unitLabel: parenthesized(formatCurrency(item.unitPrice)),
         quantity: item.quantity,
         amountLabel: formatCurrency(item.subtotal),
+        indent: false,
       },
     ];
   }
@@ -61,15 +74,19 @@ function moneyRows(item: CheckoutOrder['items'][number]): ReceiptMoneyRow[] {
   return [
     {
       key: 'original',
-      label: `原價 ${formatCurrency(item.originalPrice)}`,
+      label: title,
+      unitLabel: parenthesized(formatCurrency(item.originalPrice)),
       quantity: item.quantity,
       amountLabel: formatCurrency(item.originalPrice * item.quantity),
+      indent: false,
     },
     {
       key: 'delta',
-      label: `折讓改價 ${formatSignedCurrency(delta)}`,
+      label: '折讓改價',
+      unitLabel: parenthesized(formatSignedCurrency(delta)),
       quantity: item.quantity,
       amountLabel: formatSignedCurrency(delta * item.quantity),
+      indent: true,
     },
   ];
 }
@@ -90,8 +107,6 @@ function buildReceiptModel(order: CheckoutOrder): ReceiptModel {
     createdAtLabel: formatDateTime(order.createdAt),
     lines: items.map((item, index) => ({
       key: `${item.productId}-${index}`,
-      name: item.name,
-      isReturn: item.quantity < 0,
       rows: moneyRows(item),
     })),
     itemsSubtotalLabel: formatCurrency(order.itemsSubtotal),
@@ -117,6 +132,45 @@ export function ReceiptDocument({ order, variant }: ReceiptDocumentProps) {
   return <ScreenReceipt model={model} />;
 }
 
+function ReceiptLineGrid({ lines, variant }: { lines: ReceiptLine[]; variant: 'screen' | 'print' }) {
+  return (
+    <div className={variant === 'print' ? 'receipt-grid' : 'grid grid-cols-[minmax(0,1fr)_max-content_max-content_max-content_max-content] items-start font-mono text-xs'}>
+      {lines.map((line, lineIndex) =>
+        line.rows.map((row, rowIndex) => (
+          <Fragment key={`${line.key}-${row.key}`}>
+            {lineIndex > 0 && rowIndex === 0 ? (
+              <div className={variant === 'print' ? 'receipt-item-rule' : 'col-span-5 mt-1.5 border-t border-dashed border-zinc-700 pt-1.5'} />
+            ) : null}
+            <span
+              className={
+                variant === 'print'
+                  ? row.indent
+                    ? 'receipt-cell-name receipt-cell-child'
+                    : 'receipt-cell-name'
+                  : `min-w-0 whitespace-pre-wrap break-words pr-2 [overflow-wrap:anywhere] ${
+                      row.indent ? 'pl-4 text-zinc-400' : 'font-medium text-zinc-200'
+                    }`
+              }
+            >
+              {row.label}
+            </span>
+            <span className={variant === 'print' ? 'receipt-cell-unit' : 'whitespace-nowrap text-right text-zinc-400'}>
+              {row.unitLabel}
+            </span>
+            <span className={variant === 'print' ? 'receipt-cell-times' : 'whitespace-nowrap text-center text-zinc-300'}>×</span>
+            <span className={variant === 'print' ? 'receipt-cell-qty' : 'whitespace-nowrap pr-3 text-left font-bold text-zinc-300'}>
+              {row.quantity}
+            </span>
+            <span className={variant === 'print' ? 'receipt-cell-amt' : 'whitespace-nowrap text-right font-bold text-cyan-300'}>
+              {row.amountLabel}
+            </span>
+          </Fragment>
+        ))
+      )}
+    </div>
+  );
+}
+
 function ScreenReceipt({ model }: { model: ReceiptModel }) {
   return (
     <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-950 p-4 font-mono text-sm">
@@ -126,22 +180,8 @@ function ScreenReceipt({ model }: { model: ReceiptModel }) {
         <p className="text-xs text-zinc-500">{model.orderNumber}</p>
         <p className="text-xs text-zinc-500">{model.createdAtLabel}</p>
       </div>
-      <div className="border-t border-dashed border-zinc-700 pt-2 divide-y divide-zinc-800/60">
-        {model.lines.map((line) => (
-          <div key={line.key} className="py-1.5 text-zinc-300">
-            <p className="whitespace-pre-wrap break-words font-sans text-sm font-medium text-zinc-200 [overflow-wrap:anywhere]">
-              {line.isReturn ? <span className="mr-1 font-semibold text-rose-300">退貨</span> : null}
-              {line.name}
-            </p>
-            {line.rows.map((row) => (
-              <div key={row.key} className="flex items-baseline justify-between gap-3">
-                <p className="min-w-0 flex-1 font-mono text-xs text-zinc-400">{row.label}</p>
-                <div className="w-12 shrink-0 text-center font-mono font-bold text-zinc-300">x{row.quantity}</div>
-                <div className="w-24 shrink-0 text-right font-mono font-bold text-cyan-300">{row.amountLabel}</div>
-              </div>
-            ))}
-          </div>
-        ))}
+      <div className="border-t border-dashed border-zinc-700 pt-2 text-zinc-300">
+        <ReceiptLineGrid lines={model.lines} variant="screen" />
       </div>
       <div className="space-y-1 border-t border-dashed border-zinc-700 pt-2">
         <div className="flex justify-between text-zinc-400">
@@ -184,23 +224,7 @@ function PrintReceipt({ model }: { model: ReceiptModel }) {
         <p className="receipt-meta">{model.createdAtLabel}</p>
       </header>
       <div className="receipt-rule" />
-      <div>
-        {model.lines.map((line) => (
-          <div key={line.key} className="receipt-item">
-            <p className="receipt-name">
-              {line.isReturn ? <span className="receipt-return-tag">退貨</span> : null}
-              {line.name}
-            </p>
-            {line.rows.map((row) => (
-              <div key={row.key} className="receipt-nums">
-                <span>{row.label}</span>
-                <span>x{row.quantity}</span>
-                <span className="receipt-amount">{row.amountLabel}</span>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
+      <ReceiptLineGrid lines={model.lines} variant="print" />
       <div className="receipt-rule" />
       <div className="receipt-summary">
         <div className="receipt-row">
