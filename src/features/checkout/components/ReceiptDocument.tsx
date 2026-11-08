@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import type { CheckoutOrder } from '@/types/checkout';
 import { formatCurrency } from '@/utils/currency';
-import { formatDateTime } from '@/utils/date';
+import { formatReceiptDateTime } from '@/utils/date';
 import { RECEIPT_PRINT_SHEET_ID } from '../printReceipt';
 import '../receipt-print.css';
 
@@ -78,7 +78,7 @@ function moneyRows(item: CheckoutOrder['items'][number]): ReceiptMoneyRow[] {
     },
     {
       key: 'delta',
-      label: '折讓改價',
+      label: '價格調整',
       unitLabel: formatSignedCurrency(delta),
       quantity: item.quantity,
       amountLabel: formatSignedCurrency(delta * item.quantity),
@@ -100,7 +100,7 @@ function buildReceiptModel(order: CheckoutOrder): ReceiptModel {
 
   return {
     orderNumber: order.orderNumber,
-    createdAtLabel: formatDateTime(order.createdAt),
+    createdAtLabel: formatReceiptDateTime(order.createdAt),
     lines: items.map((item, index) => ({
       key: `${item.productId}-${index}`,
       rows: moneyRows(item),
