@@ -8,7 +8,7 @@ import '../receipt-print.css';
 interface ReceiptMoneyRow {
   key: string;
   label: string;
-  /** 括號單價，靠右對齊到共用的乘號欄。 */
+  /** 單價，靠右對齊到共用的乘號欄。 */
   unitLabel: string;
   quantity: number;
   amountLabel: string;
@@ -51,10 +51,6 @@ function itemTitle(item: CheckoutOrder['items'][number]): string {
   return item.quantity < 0 ? `退貨 ${item.name}` : item.name;
 }
 
-function parenthesized(unit: string): string {
-  return `（${unit}）`;
-}
-
 function moneyRows(item: CheckoutOrder['items'][number]): ReceiptMoneyRow[] {
   const delta = unitPriceDelta(item);
   const title = itemTitle(item);
@@ -63,7 +59,7 @@ function moneyRows(item: CheckoutOrder['items'][number]): ReceiptMoneyRow[] {
       {
         key: 'charged',
         label: title,
-        unitLabel: parenthesized(formatCurrency(item.unitPrice)),
+        unitLabel: formatCurrency(item.unitPrice),
         quantity: item.quantity,
         amountLabel: formatCurrency(item.subtotal),
         indent: false,
@@ -75,7 +71,7 @@ function moneyRows(item: CheckoutOrder['items'][number]): ReceiptMoneyRow[] {
     {
       key: 'original',
       label: title,
-      unitLabel: parenthesized(formatCurrency(item.originalPrice)),
+      unitLabel: formatCurrency(item.originalPrice),
       quantity: item.quantity,
       amountLabel: formatCurrency(item.originalPrice * item.quantity),
       indent: false,
@@ -83,7 +79,7 @@ function moneyRows(item: CheckoutOrder['items'][number]): ReceiptMoneyRow[] {
     {
       key: 'delta',
       label: '折讓改價',
-      unitLabel: parenthesized(formatSignedCurrency(delta)),
+      unitLabel: formatSignedCurrency(delta),
       quantity: item.quantity,
       amountLabel: formatSignedCurrency(delta * item.quantity),
       indent: true,
