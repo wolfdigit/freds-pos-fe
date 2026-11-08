@@ -104,6 +104,13 @@
   font-weight: 800;
 }
 
+.receipt-original {
+  margin: 0.7mm 0 0;
+  font-size: 3mm;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
 .receipt-nums,
 .receipt-row {
   display: flex;
@@ -131,6 +138,11 @@
   font-variant-numeric: tabular-nums;
 }
 
+.receipt-nums > span:first-child {
+  flex: 1 1 auto;
+  white-space: normal;
+}
+
 .receipt-amount {
   margin-left: auto;
   font-weight: 800;
@@ -152,16 +164,6 @@
   border-top: 0.45mm solid #000000;
   font-size: 4mm;
   font-weight: 800;
-}
-
-.receipt-discount-note {
-  margin: 1.6mm 0 0;
-  font-size: 2.8mm;
-  font-weight: 700;
-  line-height: 1.35;
-  text-align: left;
-  white-space: normal;
-  overflow-wrap: anywhere;
 }
 
 .receipt-disclaimer {

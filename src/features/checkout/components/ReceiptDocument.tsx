@@ -9,6 +9,8 @@ interface ReceiptLine {
   name: string;
   quantity: number;
   isReturn: boolean;
+  /** 訂單列上的原價快照。與成交單價相同，或沒有快照時為 null。 */
+  originalPriceLabel: string | null;
   unitPriceLabel: string;
   subtotalLabel: string;
 }
@@ -25,22 +27,23 @@ interface ReceiptModel {
   lines: ReceiptLine[];
   itemsSubtotalLabel: string;
   shippingLabel: string | null;
-  discountNote: string | null;
   totalCaption: string;
   totalAmountLabel: string;
   payments: ReceiptPaymentLine[];
 }
 
 /**
- * 改價折讓是原牌價與成交單價的差額，結帳時已計入各列 unitPrice / subtotal。
- * 商品小計是這些成交小計的加總，結帳總額 = 商品小計 + 運費。
- * 折讓不再以負項排進這個加總，避免被再扣一次。
+ * 只用這一列訂單自己存下的 originalPrice。不回查目前商品牌價，也不補造缺少的原價。
+ * 原價與成交單價不同才列兩行；相同或缺少原價時只列成交單價。
  */
-function buildDiscountNote(discountAmount: number): string | null {
-  if (!discountAmount) return null;
-  const amountLabel = formatCurrency(Math.abs(discountAmount));
-  const caption = discountAmount > 0 ? '改價折讓' : '改價加價';
-  return `${caption} ${amountLabel}，已計入品項單價`;
+function originalPriceSnapshot(item: CheckoutOrder['items'][number]): number | null {
+  if (typeof item.originalPrice !== 'number' || !Number.isFinite(item.originalPrice)) return null;
+  if (!Number.isFinite(item.unitPrice) || item.originalPrice === item.unitPrice) return null;
+  return item.originalPrice;
+}
+
+function chargedPriceText(line: ReceiptLine): string {
+  return line.originalPriceLabel ? `折讓改價 ${line.unitPriceLabel}` : `@${line.unitPriceLabel}`;
 }
 
 function buildReceiptModel(order: CheckoutOrder): ReceiptModel {
@@ -50,17 +53,20 @@ function buildReceiptModel(order: CheckoutOrder): ReceiptModel {
   return {
     orderNumber: order.orderNumber,
     createdAtLabel: formatDateTime(order.createdAt),
-    lines: items.map((item, index) => ({
-      key: `${item.productId}-${index}`,
-      name: item.name,
-      quantity: item.quantity,
-      isReturn: item.quantity < 0,
-      unitPriceLabel: formatCurrency(item.unitPrice),
-      subtotalLabel: formatCurrency(item.subtotal),
-    })),
+    lines: items.map((item, index) => {
+      const originalPrice = originalPriceSnapshot(item);
+      return {
+        key: `${item.productId}-${index}`,
+        name: item.name,
+        quantity: item.quantity,
+        isReturn: item.quantity < 0,
+        originalPriceLabel: originalPrice === null ? null : formatCurrency(originalPrice),
+        unitPriceLabel: formatCurrency(item.unitPrice),
+        subtotalLabel: formatCurrency(item.subtotal),
+      };
+    }),
     itemsSubtotalLabel: formatCurrency(order.itemsSubtotal),
     shippingLabel: order.shippingFee > 0 ? `+${formatCurrency(order.shippingFee)}` : null,
-    discountNote: buildDiscountNote(order.discountAmount),
     totalCaption: order.totalAmount < 0 ? '退款總額' : '結帳總額',
     totalAmountLabel: formatCurrency(order.totalAmount),
     payments: payments.map((payment, index) => ({
@@ -93,16 +99,19 @@ function ScreenReceipt({ model }: { model: ReceiptModel }) {
       </div>
       <div className="border-t border-dashed border-zinc-700 pt-2 divide-y divide-zinc-800/60">
         {model.lines.map((line) => (
-          <div key={line.key} className="flex items-start justify-between gap-3 py-1.5 text-zinc-300">
-            <div className="min-w-0 flex-1">
-              <p className="whitespace-pre-wrap break-words font-sans text-sm font-medium text-zinc-200 [overflow-wrap:anywhere]">
-                {line.isReturn ? <span className="mr-1 font-semibold text-rose-300">退貨</span> : null}
-                {line.name}
-              </p>
-              <p className="font-mono text-xs text-zinc-500">@{line.unitPriceLabel}</p>
+          <div key={line.key} className="py-1.5 text-zinc-300">
+            <p className="whitespace-pre-wrap break-words font-sans text-sm font-medium text-zinc-200 [overflow-wrap:anywhere]">
+              {line.isReturn ? <span className="mr-1 font-semibold text-rose-300">退貨</span> : null}
+              {line.name}
+            </p>
+            {line.originalPriceLabel ? (
+              <p className="font-mono text-xs text-zinc-500">原價 {line.originalPriceLabel}</p>
+            ) : null}
+            <div className="flex items-baseline justify-between gap-3">
+              <p className="min-w-0 flex-1 font-mono text-xs text-zinc-400">{chargedPriceText(line)}</p>
+              <div className="w-12 shrink-0 text-center font-mono font-bold text-zinc-300">x{line.quantity}</div>
+              <div className="w-24 shrink-0 text-right font-mono font-bold text-cyan-300">{line.subtotalLabel}</div>
             </div>
-            <div className="w-12 shrink-0 text-center font-mono font-bold text-zinc-300">x{line.quantity}</div>
-            <div className="w-24 shrink-0 text-right font-mono font-bold text-cyan-300">{line.subtotalLabel}</div>
           </div>
         ))}
       </div>
@@ -121,7 +130,6 @@ function ScreenReceipt({ model }: { model: ReceiptModel }) {
           <span>{model.totalCaption}</span>
           <span>{model.totalAmountLabel}</span>
         </div>
-        {model.discountNote ? <p className="text-xs text-amber-400">{model.discountNote}</p> : null}
       </div>
       <div className="space-y-1 border-t border-dashed border-zinc-700 pt-2 text-zinc-400">
         {model.payments.map((payment) => (
@@ -155,8 +163,11 @@ function PrintReceipt({ model }: { model: ReceiptModel }) {
               {line.isReturn ? <span className="receipt-return-tag">退貨</span> : null}
               {line.name}
             </p>
+            {line.originalPriceLabel ? (
+              <p className="receipt-original">原價 {line.originalPriceLabel}</p>
+            ) : null}
             <div className="receipt-nums">
-              <span>@{line.unitPriceLabel}</span>
+              <span>{chargedPriceText(line)}</span>
               <span>x{line.quantity}</span>
               <span className="receipt-amount">{line.subtotalLabel}</span>
             </div>
@@ -179,7 +190,6 @@ function PrintReceipt({ model }: { model: ReceiptModel }) {
           <span>{model.totalCaption}</span>
           <span>{model.totalAmountLabel}</span>
         </div>
-        {model.discountNote ? <p className="receipt-discount-note">{model.discountNote}</p> : null}
       </div>
       <div className="receipt-rule" />
       <div className="receipt-payments">
