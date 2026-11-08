@@ -251,7 +251,6 @@ export interface OrderSearchParams {
 
 export interface CheckoutReceipt {
   order: CheckoutOrder;
-  receiptPrintHtml: string; // 產出的熱感應列印票據預覽 HTML
 }
 ```
 

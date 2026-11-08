@@ -24,24 +24,6 @@ function buildOrderNumber(existingCount: number): string {
   return `SO-${datePart}-${seq}`;
 }
 
-function buildReceiptHtml(order: CheckoutOrder): string {
-  const rows = order.items
-    .map(
-      (item) =>
-        `<tr><td>${item.name}</td><td>${item.quantity}</td><td>${item.unitPrice}</td><td>${item.subtotal}</td></tr>`
-    )
-    .join('');
-  return `
-    <div class="receipt">
-      <h2>Fred's POS</h2>
-      <p>單號: ${order.orderNumber}</p>
-      <p>收銀員: ${order.cashierName}</p>
-      <table>${rows}</table>
-      <p>應收總額: NT$ ${order.totalAmount}</p>
-    </div>
-  `;
-}
-
 export class MockCheckoutService implements ICheckoutService {
   async createCheckoutOrder(payload: CreateOrderPayload, _idempotencyKey?: string): Promise<CheckoutReceipt> {
     await simulateDelay();
@@ -212,7 +194,7 @@ export class MockCheckoutService implements ICheckoutService {
 
     setOrders([...nextOrders, newOrder]);
 
-    return { order: newOrder, receiptPrintHtml: buildReceiptHtml(newOrder) };
+    return { order: newOrder };
   }
 
   async getOrderHistory(params?: OrderSearchParams | string): Promise<CheckoutOrder[]> {

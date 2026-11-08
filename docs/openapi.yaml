@@ -431,7 +431,7 @@ paths:
         5. **Member Asset Update**:
            - Update `customer.totalSpent += totalAmount`
         6. **Receipt & Persistence**:
-           - Persist `CheckoutOrder` and return `CheckoutReceipt` with thermal print HTML.
+           - Persist `CheckoutOrder` and return `CheckoutReceipt` as `{ order }`. The client formats the slip.
       parameters:
         - name: X-Idempotency-Key
           in: header
@@ -1645,13 +1645,10 @@ components:
 
     CheckoutReceipt:
       type: object
-      required: [order, receiptPrintHtml]
+      required: [order]
       properties:
         order:
           $ref: '#/components/schemas/CheckoutOrder'
-        receiptPrintHtml:
-          type: string
-          description: Thermal-style receipt HTML for printing and preview
 
     PreOrderStatus:
       type: string
