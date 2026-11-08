@@ -11,7 +11,7 @@ import { ReceiptModal } from './components/ReceiptModal';
 import { ProductDetailModal } from './components/ProductDetailModal';
 import { ReturnOrderModal } from './components/ReturnOrderModal';
 import { OrderDetailModal } from './components/OrderDetailModal';
-import { quantityAtMappedLocation } from '@/auth/stockLocation';
+import { currentShelfName, quantityAtMappedLocation } from '@/auth/stockLocation';
 import { useCartStore } from '@/store/cartStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
@@ -28,7 +28,7 @@ export function CheckoutPage() {
   const storeName = useSessionStore((state) => state.storeName);
   const storeRecords = useSessionStore((state) => state.storeRecords);
   const mappedLocation = storeRecords.find((store) => store.name === storeName);
-  const shelfName = mappedLocation?.stockLocationName || '門市現貨';
+  const shelfName = currentShelfName(mappedLocation);
   const shelfQuantity = (stocks: Product['stocks'] | undefined) =>
     quantityAtMappedLocation(stocks, mappedLocation?.stockLocationId);
   const ui = useUiStore();
@@ -54,6 +54,10 @@ export function CheckoutPage() {
   useEffect(() => {
     productService.searchProducts({}).then(setAllCatalogProducts).catch(console.error);
   }, []);
+
+  useEffect(() => {
+    useCartStore.getState().refreshMappedStock(allCatalogProducts);
+  }, [allCatalogProducts, storeName, mappedLocation?.stockLocationId]);
 
   const salesItems = cart.items.filter((i) => i.quantity > 0);
   const returnItems = cart.items.filter((i) => i.quantity < 0);
@@ -197,15 +201,13 @@ export function CheckoutPage() {
           scale: item.scale,
           spec: item.spec,
           listPrice: item.originalPrice,
-          totalStock: item.storeStock ?? 0,
+          totalStock: item.totalStock ?? item.storeStock ?? 0,
           stocks: [
             {
               location: mappedLocation?.stockLocationId || 'store',
               locationName: shelfName,
               quantity: item.storeStock ?? 0,
             },
-            { location: 'warehouse', locationName: '後方倉庫', quantity: 0 },
-            { location: 'company', locationName: '公司總倉', quantity: 0 },
           ],
         });
       }

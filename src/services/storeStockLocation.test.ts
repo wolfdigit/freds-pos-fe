@@ -119,13 +119,20 @@ describe('store stock location mapping', () => {
     expect(payload.items[0]?.restock).toBe(false);
     expect(buildCheckoutPayload({ items: [saleItem()], shippingFee: 0, payments: [] }).items[0]?.restock).toBe(true);
 
+    const shelfA = '11111111-1111-4111-8111-111111111111';
     const checkout = new MockCheckoutService();
-    useSessionStore.setState({ storeName: '線上網購' });
+    useSessionStore.setState({
+      storeName: '甲店',
+      storeRecords: [
+        { name: '甲店', stockLocationId: shelfA, stockLocationName: '甲倉' },
+        { name: '乙店', stockLocationId: WAREHOUSE_ID, stockLocationName: '後方倉庫' },
+      ],
+    });
     setProducts([
       {
-        ...product(7),
+        ...product(8),
         stocks: [
-          { location: 'store', locationName: '門市現貨', quantity: 5 },
+          { location: shelfA, locationName: '甲倉', quantity: 6 },
           { location: WAREHOUSE_ID, locationName: '後方倉庫', quantity: 2 },
         ],
       },
@@ -137,9 +144,20 @@ describe('store stock location mapping', () => {
         payments: [{ type: 'cash', name: '現金', amount: 100 }],
       })
     );
+    const afterFirstStore = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS) || '[]') as Product[];
+    expect(afterFirstStore[0]?.stocks.find((row) => row.location === shelfA)?.quantity).toBe(5);
+    expect(afterFirstStore[0]?.stocks.find((row) => row.location === WAREHOUSE_ID)?.quantity).toBe(2);
+    useSessionStore.setState({ storeName: '乙店' });
+    await checkout.createCheckoutOrder(
+      buildCheckoutPayload({
+        items: [saleItem()],
+        shippingFee: 0,
+        payments: [{ type: 'cash', name: '現金', amount: 100 }],
+      })
+    );
     const afterSale = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS) || '[]') as Product[];
     expect(afterSale[0]?.stocks.find((row) => row.location === WAREHOUSE_ID)?.quantity).toBe(1);
-    expect(afterSale[0]?.stocks.find((row) => row.location === 'store')?.quantity).toBe(5);
+    expect(afterSale[0]?.stocks.find((row) => row.location === shelfA)?.quantity).toBe(5);
 
     await expect(
       checkout.createCheckoutOrder(
@@ -172,6 +190,33 @@ describe('store stock location mapping', () => {
     );
     const skipped = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS) || '[]') as Product[];
     expect(skipped[0]?.stocks.find((row) => row.location === WAREHOUSE_ID)?.quantity).toBe(2);
+    expect(skipped[0]?.stocks.find((row) => row.location === shelfA)?.quantity).toBe(5);
+
+    useSessionStore.setState({
+      storeName: '舊店',
+      storeRecords: [
+        { name: '舊店', stockLocationId: LEGACY_SHARED_STOCK_LOCATION_ID, stockLocationName: '門市現貨' },
+      ],
+    });
+    setProducts([
+      {
+        ...product(10),
+        stocks: [
+          { location: 'store', locationName: '門市現貨', quantity: 4 },
+          { location: shelfA, locationName: '甲倉', quantity: 6 },
+        ],
+      },
+    ]);
+    await checkout.createCheckoutOrder(
+      buildCheckoutPayload({
+        items: [saleItem()],
+        shippingFee: 0,
+        payments: [{ type: 'cash', name: '現金', amount: 100 }],
+      })
+    );
+    const legacy = JSON.parse(localStorage.getItem(STORAGE_KEYS.PRODUCTS) || '[]') as Product[];
+    expect(legacy[0]?.stocks.find((row) => row.location === 'store')?.quantity).toBe(3);
+    expect(legacy[0]?.stocks.find((row) => row.location === shelfA)?.quantity).toBe(6);
   });
 });
 

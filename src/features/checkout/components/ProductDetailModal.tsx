@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { quantityAtMappedLocation } from '@/auth/stockLocation';
+import { currentShelfName, matchingStockRow, quantityAtMappedLocation } from '@/auth/stockLocation';
 import { useSessionStore } from '@/store/sessionStore';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
@@ -31,7 +31,7 @@ export function ProductDetailModal({
   const storeName = useSessionStore((state) => state.storeName);
   const storeRecords = useSessionStore((state) => state.storeRecords);
   const mappedLocation = storeRecords.find((store) => store.name === storeName);
-  const shelfName = mappedLocation?.stockLocationName || '門市現貨';
+  const shelfName = currentShelfName(mappedLocation);
   const [activeProduct, setActiveProduct] = useState<Product | null>(product);
   const [siblingProducts, setSiblingProducts] = useState<Product[]>([]);
 
@@ -71,8 +71,8 @@ export function ProductDetailModal({
 
   const currentProduct = activeProduct;
   const storeStock = quantityAtMappedLocation(currentProduct.stocks, mappedLocation?.stockLocationId);
-  const warehouseStock = currentProduct.stocks.find((s) => s.location === 'warehouse')?.quantity ?? 0;
-  const companyStock = currentProduct.stocks.find((s) => s.location === 'company')?.quantity ?? 0;
+  const mappedRow = matchingStockRow(currentProduct.stocks, mappedLocation?.stockLocationId);
+  const otherStocks = currentProduct.stocks.filter((row) => row !== mappedRow);
 
   const sellableTotal = currentProduct.totalStock;
   const hasMultipleSkus = siblingProducts.length > 1;
@@ -167,7 +167,7 @@ export function ProductDetailModal({
           </div>
 
           {/* 主要資訊：各位置數量 + 可現售數量 */}
-          <div className="grid grid-cols-4 gap-2.5 text-center font-mono">
+          <div className="grid grid-cols-2 gap-2.5 text-center font-mono sm:grid-cols-4">
             <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
               <span className="text-xs text-zinc-400 block mb-1">{shelfName}</span>
               <span
@@ -178,14 +178,12 @@ export function ProductDetailModal({
                 {storeStock} 台
               </span>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-              <span className="text-xs text-zinc-400 block mb-1">後方倉庫</span>
-              <span className="text-2xl font-bold text-zinc-200">{warehouseStock} 台</span>
-            </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-              <span className="text-xs text-zinc-400 block mb-1">公司總倉</span>
-              <span className="text-2xl font-bold text-zinc-200">{companyStock} 台</span>
-            </div>
+            {otherStocks.map((row) => (
+              <div key={row.location} className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+                <span className="text-xs text-zinc-400 block mb-1">{row.locationName || row.location}</span>
+                <span className="text-2xl font-bold text-zinc-200">{row.quantity} 台</span>
+              </div>
+            ))}
             <div className="rounded-xl border border-emerald-800/80 bg-emerald-950/30 p-3 ring-1 ring-emerald-500/30">
               <span className="text-xs text-emerald-300 font-bold block mb-1">★ 可現售總量</span>
               <span

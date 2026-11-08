@@ -4,6 +4,8 @@ import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import type { Product, StockLocation } from '@/types/product';
 import { useToastStore } from '@/components/feedback/toastStore';
+import { defaultTransferLocations } from '@/auth/stockLocation';
+import { useSessionStore } from '@/store/sessionStore';
 import { useLocations } from '../hooks/useLocations';
 
 interface StockTransferModalProps {
@@ -26,6 +28,9 @@ export function StockTransferModal({
 }: StockTransferModalProps) {
   const showToast = useToastStore((s) => s.showToast);
   const { locations: apiLocations } = useLocations();
+  const storeName = useSessionStore((state) => state.storeName);
+  const storeRecords = useSessionStore((state) => state.storeRecords);
+  const mappedLocationId = storeRecords.find((store) => store.name === storeName)?.stockLocationId;
 
   const locations = useMemo(() => {
     const iconMap: Record<string, string> = {
@@ -80,13 +85,16 @@ export function StockTransferModal({
   // 每次打開或更換商品時重置欄位
   useEffect(() => {
     if (product && product.stocks && product.stocks.length > 0) {
-      const warehouseLoc = product.stocks.find((s) => s.location === 'warehouse');
-      const storeLoc = product.stocks.find((s) => s.location === 'store');
-      setFromLocation(warehouseLoc ? warehouseLoc.location : product.stocks[0].location);
-      setToLocation(storeLoc ? storeLoc.location : product.stocks.length > 1 ? product.stocks[1].location : product.stocks[0].location);
+      const next = defaultTransferLocations({
+        optionIds: locations.map((location) => location.value),
+        stocks: product.stocks,
+        mappedLocationId,
+      });
+      setFromLocation(next.fromLocation);
+      setToLocation(next.toLocation);
       setQuantity('1');
     }
-  }, [product]);
+  }, [product, locations, mappedLocationId]);
 
   if (!product) return null;
 
@@ -94,7 +102,7 @@ export function StockTransferModal({
     if (currentDrafts && currentDrafts[loc] !== undefined) {
       return currentDrafts[loc];
     }
-    return product.stocks.find((s) => s.location === loc)?.quantity ?? 0;
+    return product.stocks.find((row) => row.location === loc)?.quantity ?? 0;
   };
 
   const handleConfirm = () => {

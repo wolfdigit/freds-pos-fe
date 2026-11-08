@@ -42,6 +42,7 @@ interface CartStore {
   setHighlightedProductId: (id: string | null) => void;
 
   addItem: (product: Product, qty?: number) => void;
+  refreshMappedStock: (products: Product[]) => void;
   switchItemSku: (oldProductId: string, newProduct: Product) => void;
   importReturnItem: (
     order: CheckoutOrder,
@@ -95,9 +96,10 @@ export const useCartStore = create<CartStore>()((set, get) => ({
             (isTargetReturn ? i.quantity < 0 : i.quantity > 0)
         );
         if (existing) {
+          const storeStock = qty < 0 ? existing.storeStock : mappedStoreStock(product.stocks);
           set({
             items: items.map((i) =>
-              i === existing ? { ...i, quantity: i.quantity + qty } : i
+              i === existing ? { ...i, quantity: i.quantity + qty, storeStock } : i
             ),
             highlightedProductId: existing.productId,
           });
@@ -121,6 +123,23 @@ export const useCartStore = create<CartStore>()((set, get) => ({
           totalStock: product.totalStock,
         };
         set({ items: [...items, newItem] });
+      },
+
+      refreshMappedStock: (products) => {
+        if (!canOperateCart()) return;
+        const byId = new Map(products.map((product) => [product.id, product]));
+        const current = get().items;
+        let changed = false;
+        const items = current.map((item) => {
+          if (item.quantity < 0) return item;
+          const product = byId.get(item.productId);
+          if (!product) return item;
+          const storeStock = mappedStoreStock(product.stocks);
+          if (item.storeStock === storeStock && item.totalStock === product.totalStock) return item;
+          changed = true;
+          return { ...item, storeStock, totalStock: product.totalStock };
+        });
+        if (changed) set({ items });
       },
 
       switchItemSku: (oldProductId, newProduct) => {

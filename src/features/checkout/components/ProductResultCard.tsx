@@ -1,4 +1,4 @@
-import { quantityAtMappedLocation } from '@/auth/stockLocation';
+import { currentShelfName, quantityAtMappedLocation } from '@/auth/stockLocation';
 import { useSessionStore } from '@/store/sessionStore';
 import type { Product } from '@/types/product';
 import { Badge } from '@/components/common/Badge';
@@ -13,8 +13,8 @@ export function ProductResultCard({ product, onAdd }: ProductResultCardProps) {
   const storeName = useSessionStore((state) => state.storeName);
   const storeRecords = useSessionStore((state) => state.storeRecords);
   const mappedLocation = storeRecords.find((store) => store.name === storeName);
+  const shelfName = currentShelfName(mappedLocation);
   const storeQty = quantityAtMappedLocation(product.stocks, mappedLocation?.stockLocationId);
-  const warehouseQty = product.stocks.find((s) => s.location === 'warehouse')?.quantity ?? 0;
 
   return (
     <button
@@ -34,11 +34,11 @@ export function ProductResultCard({ product, onAdd }: ProductResultCardProps) {
         </span>
         <div className="flex gap-1">
           {storeQty > 0 ? (
-            <Badge color="emerald">門市 {storeQty}</Badge>
+            <Badge color="emerald">{shelfName} {storeQty}</Badge>
           ) : (
-            <Badge color="amber">需調撥</Badge>
+            <Badge color="amber">{shelfName} 0</Badge>
           )}
-          <Badge color="zinc">倉庫 {warehouseQty}</Badge>
+          <Badge color="zinc">總庫存 {product.totalStock}</Badge>
         </div>
       </div>
     </button>

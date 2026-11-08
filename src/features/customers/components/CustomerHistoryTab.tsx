@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { CheckoutOrder, CheckoutOrderItem, CheckoutReceipt } from '@/types/checkout';
 import { checkoutService } from '@/services';
+import { restockShelfLabel } from '@/auth/stockLocation';
 import { useCartStore } from '@/store/cartStore';
+import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { formatCurrency } from '@/utils/currency';
@@ -28,6 +30,12 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
   const [returnReason, setReturnReason] = useState('商品瑕疵/退換貨');
 
   const { attachedCustomer, importReturnItem } = useCartStore();
+  const loginStoreName = useSessionStore((state) => state.storeName);
+  const storeRecords = useSessionStore((state) => state.storeRecords);
+  const restockLabel = restockShelfLabel(
+    loginStoreName,
+    storeRecords.find((store) => store.name === loginStoreName)
+  );
   const setActiveTab = useUiStore((s) => s.setActiveTab);
   const showToast = useToastStore((s) => s.showToast);
 
@@ -346,7 +354,7 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
                       onChange={(e) => setRestock(e.target.checked)}
                       className="rounded border-zinc-700 bg-zinc-900 text-rose-500 focus:ring-rose-400"
                     />
-                    <span>回補至門市現貨</span>
+                    <span>回補至{restockLabel}</span>
                   </label>
                 </div>
 

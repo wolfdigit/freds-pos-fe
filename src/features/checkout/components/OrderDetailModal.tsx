@@ -1,3 +1,5 @@
+import { restockShelfLabel } from '@/auth/stockLocation';
+import { useSessionStore } from '@/store/sessionStore';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Badge } from '@/components/common/Badge';
@@ -25,6 +27,12 @@ export function OrderDetailModal({
   onViewReceipt,
 }: OrderDetailModalProps) {
   const navigateToCustomer = useUiStore((s) => s.navigateToCustomer);
+  const loginStoreName = useSessionStore((state) => state.storeName);
+  const storeRecords = useSessionStore((state) => state.storeRecords);
+  const restockLabel = restockShelfLabel(
+    loginStoreName,
+    storeRecords.find((store) => store.name === loginStoreName)
+  );
 
   if (!order) return null;
 
@@ -149,7 +157,7 @@ export function OrderDetailModal({
               <span>
                 庫存處理：
                 {currentReturnItem.restock ? (
-                  <span className="text-emerald-400 font-bold">✓ 回補至門市現貨</span>
+                  <span className="text-emerald-400 font-bold">✓ 回補至{restockLabel}</span>
                 ) : (
                   <span className="text-amber-400 font-bold">✕ 不回補 (報廢/瑕疵處理)</span>
                 )}

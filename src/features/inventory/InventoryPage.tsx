@@ -10,7 +10,9 @@ import { ProductDetailModal } from '@/features/checkout/components/ProductDetail
 import { ProductEditModal } from './components/ProductEditModal';
 import type { Product, StockLocation } from '@/types/product';
 import type { StockItemAdjustment, StockLocationChange } from '@/types/inventory';
+import { currentShelfName, matchingStockRow } from '@/auth/stockLocation';
 import { Button } from '@/components/common/Button';
+import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
 
 const BRAND_TABS: string[] = [
@@ -32,11 +34,9 @@ export type StockFilterType =
   | 'TOTAL_OUT'
   | 'HAS_STOCK';
 
-const STOCK_FILTER_OPTIONS: { value: StockFilterType; label: string }[] = [
+const BASE_STOCK_FILTERS: { value: StockFilterType; label: string }[] = [
   { value: 'ALL', label: '全部庫存狀況' },
-  { value: 'STORE_LOW', label: '⚠️ 門市現貨低庫存 (≤ 2 台)' },
   { value: 'WAREHOUSE_LOW', label: '⚠️ 後方倉庫低庫存 (≤ 2 台)' },
-  { value: 'STORE_OUT', label: '🚫 門市現貨缺貨 (= 0 台)' },
   { value: 'TOTAL_OUT', label: '🚫 全部據點皆無現貨 (= 0 台)' },
   { value: 'HAS_STOCK', label: '任一據點有現貨 (> 0 台)' },
 ];
@@ -52,6 +52,17 @@ export function InventoryPage() {
   const { keyword, setKeyword, brand, setBrand, products, isLoading, reload } = useProductList();
 
   const [stockFilter, setStockFilter] = useState<StockFilterType>('ALL');
+  const loginStoreName = useSessionStore((state) => state.storeName);
+  const storeRecords = useSessionStore((state) => state.storeRecords);
+  const mappedLocation = storeRecords.find((store) => store.name === loginStoreName);
+  const shelfName = currentShelfName(mappedLocation);
+  const stockFilterOptions = [
+    { value: 'ALL' as const, label: '全部庫存狀況' },
+    { value: 'STORE_LOW' as const, label: `⚠️ ${shelfName}低庫存 (≤ 2 台)` },
+    { value: 'WAREHOUSE_LOW' as const, label: '⚠️ 後方倉庫低庫存 (≤ 2 台)' },
+    { value: 'STORE_OUT' as const, label: `🚫 ${shelfName}缺貨 (= 0 台)` },
+    ...BASE_STOCK_FILTERS.filter((option) => option.value !== 'ALL' && option.value !== 'WAREHOUSE_LOW'),
+  ];
 
   const [transferTarget, setTransferTarget] = useState<Product | null>(null);
   const [selectedDetailProduct, setSelectedDetailProduct] = useState<Product | null>(null);
@@ -132,7 +143,9 @@ export function InventoryPage() {
           ? draftStocks[p.id][loc]
           : p.stocks.find((s) => s.location === loc)?.quantity ?? 0;
 
-      const storeQty = getQty('store');
+      const mappedRow = matchingStockRow(p.stocks, mappedLocation?.stockLocationId);
+      const mappedDraft = mappedRow ? draftStocks[p.id]?.[mappedRow.location] : undefined;
+      const storeQty = mappedDraft !== undefined ? mappedDraft : mappedRow?.quantity ?? 0;
       const warehouseQty = getQty('warehouse');
       const allLocKeys = Array.from(new Set([...p.stocks.map((s) => s.location), ...Object.keys(draftStocks[p.id] || {})]));
       const totalQty = allLocKeys.reduce((sum, loc) => sum + getQty(loc), 0);
@@ -154,7 +167,7 @@ export function InventoryPage() {
       }
       return true;
     });
-  }, [products, stockFilter, draftStocks]);
+  }, [products, stockFilter, draftStocks, mappedLocation?.stockLocationId]);
 
   // 計算並整理已修改的商品與動態分析明細 (支援 DB 動態據點)
   const pendingAdjustments = useMemo<StockItemAdjustment[]>(() => {
@@ -289,7 +302,7 @@ export function InventoryPage() {
               onChange={(e) => setStockFilter(e.target.value as StockFilterType)}
               className="w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2.5 text-base font-semibold text-cyan-300 focus:border-cyan-400 focus:outline-none"
             >
-              {STOCK_FILTER_OPTIONS.map((opt) => (
+              {stockFilterOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
