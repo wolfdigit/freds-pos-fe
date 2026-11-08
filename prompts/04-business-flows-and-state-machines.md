@@ -90,9 +90,9 @@ function derivePreOrderStatus(items: PreOrderItem[]): PreOrderStatus {
 
 | 規則 | 說明 |
 | :--- | :--- |
-| 扣減地點 | **一律從 `store`（門市現貨）扣減** |
-| 庫存不足 | **阻擋結帳**，Toast 提示「門市現貨不足，請先從倉庫調撥」 |
-| 預購取貨 | 同樣扣減 `store` 庫存（預購到貨後應已入庫至門市） |
+| 扣減地點 | **扣目前登入門市對應的那一個庫存地點**。既有門市預設是共用的門市現貨。結帳 body 不帶庫存地點。 |
+| 庫存不足 | 後端 `409` `INSUFFICIENT_STORE_STOCK`，數量不可變成負數。收銀畫面仍先警告並保留預購確認，不在送出前自行改規則。 |
+| 預購取貨 | 同樣扣目前登入門市對應的庫存地點 |
 | `totalStock` | 扣減後同步重算所有 location 加總 |
 
 ### 2.2 退換貨（負數品項與全鏈路原單關聯）
@@ -101,13 +101,13 @@ function derivePreOrderStatus(items: PreOrderItem[]): PreOrderStatus {
 | :--- | :--- |
 | 原單關聯 | 退換貨（`quantity < 0`）**必須關聯原銷售單據**（`originalOrderId` + `originalOrderItemId`） |
 | 可退數量校驗 | 驗證 `abs(quantity) <= (qtySold - qtyReturned)`，防重複或超額退貨 |
-| 庫存回補 | 若 `restock: true`，結帳完成後**加回 `store` 庫存**；若為嚴重瑕疵報廢可設為 `false` |
+| 庫存回補 | 若 `restock` 不是 `false`，加回**這一筆退貨請求當下登入門市**對應的庫存地點，不是原銷售單的門市。`restock: false` 不入庫。 |
 | 原單狀態推導 | 更新原單品項 `returnedQuantity`，全數退完轉為 `refunded`，部分退完轉為 `partially_refunded` |
 
 ### 2.3 結帳前置驗證 (Checkout Validation Gate)
 
 在 `createCheckoutOrder` 執行前，在單一 DB Transaction 內逐一檢查：
-1. 每個正數品項：`store.quantity >= item.quantity`（行鎖防超賣，不足拋出 `INSUFFICIENT_STORE_STOCK`）
+1. 每個正數品項：目前登入門市對應地點的 `quantity >= item.quantity`（行鎖防超賣，不足拋出 `INSUFFICIENT_STORE_STOCK`）
 2. 每個預購關聯品項：\( \Delta Q \le (\text{qtyArrived} - \text{qtyDelivered}) \)（超額拋出 `PREORDER_QTY_EXCEEDED`）
 3. 每個退換貨品項：\( \text{abs}(Q) \le (Q_{\text{sold}} - Q_{\text{returned}}) \)（超額拋出 `RETURN_QTY_EXCEEDED`）
 4. 會員點數折抵：\( \text{usedPoints} \le \text{customer.rewardPoints} \)（不足拋出 `INSUFFICIENT_POINTS`）
@@ -235,7 +235,7 @@ Service 層應拋出帶有 `code` 的業務錯誤，UI 層統一以 Toast 呈現
 
 | 錯誤碼 | 觸發情境 | UI 回饋 |
 | :--- | :--- | :--- |
-| `INSUFFICIENT_STORE_STOCK` | 門市現貨不足 | Toast 警告：「門市現貨不足，請先從倉庫調撥」 |
+| `INSUFFICIENT_STORE_STOCK` | 登入門市對應地點庫存不足，且不可扣成負數 | Toast 顯示後端訊息。收銀畫面仍保留調撥／預購確認。 |
 | `PREORDER_QTY_EXCEEDED` | 預購可取數量超限 | 表單欄位紅框 + 「超過可取數量上限」 |
 | `RETURN_QTY_EXCEEDED` | 退貨數量超過原單剩餘可退上限 | Toast 警告：「退貨數量超過原單剩餘可退上限」 |
 | `INSUFFICIENT_POINTS` | 會員折抵點數不足 | 結帳彈窗紅字提示：「會員點數餘額不足」 |

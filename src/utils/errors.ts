@@ -22,7 +22,9 @@ export type BusinessErrorCode =
   | 'ACCOUNT_ROLE_INVALID'
   | 'ACCOUNT_LAST_ADMIN'
   | 'ACCOUNT_SELF_PROTECTED'
-  | 'ACCOUNT_NAME_REQUIRED';
+  | 'ACCOUNT_NAME_REQUIRED'
+  | 'STOCK_LOCATION_REQUIRED'
+  | 'STOCK_LOCATION_IN_USE';
 
 export class BusinessError extends Error {
   constructor(

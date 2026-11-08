@@ -3,7 +3,8 @@ import { checkoutService } from '@/services';
 import { useCartStore } from '@/store/cartStore';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { BusinessError } from '@/utils/errors';
-import type { CheckoutReceipt, CreateOrderPayload, PaymentTender } from '@/types/checkout';
+import { buildCheckoutPayload } from '@/features/checkout/buildCheckoutPayload';
+import type { CheckoutReceipt, PaymentTender } from '@/types/checkout';
 
 export function useCheckoutWorkflow() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -26,25 +27,15 @@ export function useCheckoutWorkflow() {
 
     setIsSubmitting(true);
     try {
-      // 門市與收銀員由後端 session 決定。不要在 body 帶 branchId。
-      // 庫存仍走既有的門市現貨檢查，換登入門市不會改扣其他庫存據點。
-      const payload: CreateOrderPayload = {
-        customerId: attachedCustomer?.id,
-        items: items.map((i) => ({
-          productId: i.productId,
-          quantity: i.quantity,
-          unitPrice: i.unitPrice,
-          isManualPrice: i.isManualPrice,
-          priceDiffReason: i.priceChangeReason,
-          originalOrderId: (i as any).originalOrderId,
-          originalOrderItemId: (i as any).originalOrderItemId,
-          restock: (i as any).restock ?? true,
-          returnReason: (i as any).returnReason,
-        })),
+      // 門市、收銀員與扣庫存地點都由後端依目前登入門市決定。不要在 body 帶庫存地點。
+      // restock 不是 false 的退貨，入庫地點也是這一筆請求當下的登入門市對應，不是原銷售單。
+      const payload = buildCheckoutPayload({
+        customer: attachedCustomer,
+        items,
         shippingFee,
         payments,
         note: orderNote,
-      };
+      });
 
       const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
       const result = await checkoutService.createCheckoutOrder(payload, idempotencyKey);

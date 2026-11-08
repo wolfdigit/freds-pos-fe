@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import { getBoundCartUserId } from '@/auth/cartOwner';
+import { quantityAtMappedLocation } from '@/auth/stockLocation';
+import { useSessionStore } from '@/store/sessionStore';
 import type { Product, ModelScale } from '@/types/product';
 import type { Customer } from '@/types/customer';
 import type { CheckoutOrder, CheckoutOrderItem } from '@/types/checkout';
@@ -67,6 +69,12 @@ function canOperateCart(): boolean {
   return getBoundCartUserId() !== null;
 }
 
+function mappedStoreStock(stocks: Product['stocks']): number {
+  const { storeName, storeRecords } = useSessionStore.getState();
+  const mapped = storeRecords.find((store) => store.name === storeName);
+  return quantityAtMappedLocation(stocks, mapped?.stockLocationId);
+}
+
 export const useCartStore = create<CartStore>()((set, get) => ({
       items: [],
       attachedCustomer: null,
@@ -96,7 +104,7 @@ export const useCartStore = create<CartStore>()((set, get) => ({
           return;
         }
 
-        const storeStock = product.stocks.find((s) => s.location === 'store')?.quantity ?? 0;
+        const storeStock = mappedStoreStock(product.stocks);
         const newItem: CartItem = {
           productId: product.id,
           sku: product.sku,
@@ -143,7 +151,7 @@ export const useCartStore = create<CartStore>()((set, get) => ({
           return;
         }
 
-        const storeStock = newProduct.stocks.find((s) => s.location === 'store')?.quantity ?? 0;
+        const storeStock = mappedStoreStock(newProduct.stocks);
         set({
           items: items.map((i) => {
             if (i !== currentItem) return i;

@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { quantityAtMappedLocation } from '@/auth/stockLocation';
+import { useSessionStore } from '@/store/sessionStore';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { formatCurrency } from '@/utils/currency';
@@ -26,6 +28,10 @@ export function ProductDetailModal({
   showAddToCart = true,
   zIndexClassName,
 }: ProductDetailModalProps) {
+  const storeName = useSessionStore((state) => state.storeName);
+  const storeRecords = useSessionStore((state) => state.storeRecords);
+  const mappedLocation = storeRecords.find((store) => store.name === storeName);
+  const shelfName = mappedLocation?.stockLocationName || '門市現貨';
   const [activeProduct, setActiveProduct] = useState<Product | null>(product);
   const [siblingProducts, setSiblingProducts] = useState<Product[]>([]);
 
@@ -64,7 +70,7 @@ export function ProductDetailModal({
   if (!activeProduct) return null;
 
   const currentProduct = activeProduct;
-  const storeStock = currentProduct.stocks.find((s) => s.location === 'store')?.quantity ?? 0;
+  const storeStock = quantityAtMappedLocation(currentProduct.stocks, mappedLocation?.stockLocationId);
   const warehouseStock = currentProduct.stocks.find((s) => s.location === 'warehouse')?.quantity ?? 0;
   const companyStock = currentProduct.stocks.find((s) => s.location === 'company')?.quantity ?? 0;
 
@@ -163,7 +169,7 @@ export function ProductDetailModal({
           {/* 主要資訊：各位置數量 + 可現售數量 */}
           <div className="grid grid-cols-4 gap-2.5 text-center font-mono">
             <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-              <span className="text-xs text-zinc-400 block mb-1">門市現貨</span>
+              <span className="text-xs text-zinc-400 block mb-1">{shelfName}</span>
               <span
                 className={`text-2xl font-bold ${
                   storeStock > 0 ? 'text-emerald-400' : 'text-amber-400'

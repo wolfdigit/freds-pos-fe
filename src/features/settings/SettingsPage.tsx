@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { errorMessage } from '@/auth/businessError';
 import { hasPermission } from '@/auth/permissions';
 import { storeSwitchNotice } from '@/auth/storeSwitch';
 import { useSessionStore } from '@/store/sessionStore';
@@ -36,9 +37,11 @@ export function SettingsPage() {
     setUserRole,
     storeName,
     stores,
+    storeRecords,
     fetchStores,
     addStore,
     removeStore,
+    updateStoreStockLocation,
     oauthUser,
   } = useSessionStore();
 
@@ -56,6 +59,8 @@ export function SettingsPage() {
 
   // 新增門市輸入欄位
   const [newStoreInput, setNewStoreInput] = useState('');
+  const [newStoreLocationId, setNewStoreLocationId] = useState('');
+  const [locationDrafts, setLocationDrafts] = useState<Record<string, string>>({});
 
   const loadProducts = useCallback(async () => {
     try {
@@ -69,7 +74,8 @@ export function SettingsPage() {
   useEffect(() => {
     reloadLocations();
     loadProducts();
-  }, [reloadLocations, loadProducts]);
+    void fetchStores();
+  }, [reloadLocations, loadProducts, fetchStores]);
 
   useEffect(() => {
     if (
@@ -120,12 +126,38 @@ export function SettingsPage() {
       showToast('請輸入門市名稱', 'error');
       return;
     }
-    const success = await addStore(clean);
-    if (success) {
+    try {
+      const success = await addStore(clean, newStoreLocationId || undefined);
+      if (!success) {
+        showToast('只有管理員可以使用門市清單管理', 'error');
+        return;
+      }
       showToast(`成功新增門市：「${clean}」`, 'success');
       setNewStoreInput('');
-    } else {
-      showToast(`門市「${clean}」已存在於清單中`, 'warning');
+      setNewStoreLocationId('');
+    } catch (err) {
+      showToast(errorMessage(err, '無法新增門市'), 'error');
+    }
+  };
+
+  const handleSaveStoreLocation = async (storeNameToSave: string, stockLocationId: string) => {
+    if (!canManageStores) {
+      showToast('只有管理員可以使用門市清單管理', 'error');
+      return;
+    }
+    if (!stockLocationId) {
+      showToast('請選擇庫存地點', 'error');
+      return;
+    }
+    try {
+      const success = await updateStoreStockLocation(storeNameToSave, stockLocationId);
+      if (!success) {
+        showToast('只有管理員可以使用門市清單管理', 'error');
+        return;
+      }
+      showToast(`已更新「${storeNameToSave}」的庫存地點`, 'success');
+    } catch (err) {
+      showToast(errorMessage(err, '無法更新庫存地點'), 'error');
     }
   };
 
@@ -377,18 +409,31 @@ export function SettingsPage() {
                 <span>門市清單管理</span>
               </h3>
               <p className="mt-1 text-xs text-zinc-400">
-                新增或刪除門市。登入門市的選擇與切換仍用上方的登入門市，店員也可以換，不必重新跟 Google 驗證。
+                新增、刪除門市，並為每間門市指定一個現有庫存地點。多間門市可以共用同一個地點。登入門市的選擇與切換仍用上方的登入門市，店員也可以換，但不能改對應。
               </p>
             </div>
 
-            {/* 新增門市表單 */}
-            <form onSubmit={handleAddStoreSubmit} className="flex gap-2">
+            {/* 新增門市表單。地點可留空，交給後端沿用仍存在的共用門市現貨。 */}
+            <form onSubmit={handleAddStoreSubmit} className="flex flex-col gap-2 sm:flex-row">
               <Input
                 value={newStoreInput}
                 onChange={(e) => setNewStoreInput(e.target.value)}
                 placeholder="輸入新門市名稱 (例如: 台中公益店, 台南西門店)"
                 className="flex-1 font-semibold"
               />
+              <select
+                aria-label="新門市庫存地點"
+                value={newStoreLocationId}
+                onChange={(event) => setNewStoreLocationId(event.target.value)}
+                className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+              >
+                <option value="">沿用現有門市現貨</option>
+                {sortedLocations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {location.name}
+                  </option>
+                ))}
+              </select>
               <Button
                 type="submit"
                 variant="primary"
@@ -402,11 +447,16 @@ export function SettingsPage() {
             <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden divide-y divide-zinc-800/80">
               {stores.map((store) => {
                 const isCurrent = storeName === store;
+                const record = storeRecords.find((row) => row.name === store);
+                const currentLocationId = record?.stockLocationId || '';
+                const currentLocationName = record?.stockLocationName || (currentLocationId ? '未命名地點' : '門市現貨');
+                const selectedLocationId = locationDrafts[store] ?? currentLocationId;
                 return (
                   <div
                     key={store}
-                    className="flex items-center justify-between p-3.5 hover:bg-zinc-900/60 transition-colors"
+                    className="space-y-3 p-3.5 hover:bg-zinc-900/60 transition-colors"
                   >
+                    <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                       <div>
                         <span className="font-bold text-zinc-100 text-base">{store}</span>
@@ -415,6 +465,7 @@ export function SettingsPage() {
                             ● 目前登入門市
                           </span>
                         )}
+                        <p className="mt-1 text-xs text-zinc-400">目前庫存地點：{currentLocationName}</p>
                       </div>
                     </div>
 
@@ -449,6 +500,40 @@ export function SettingsPage() {
                         title={stores.length <= 1 ? '至少需保留一間門市' : `刪除門市「${store}」`}
                       >
                         刪除
+                      </Button>
+                    </div>
+                    </div>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <label className="text-xs text-zinc-400" htmlFor={`store-location-${store}`}>
+                        庫存地點
+                      </label>
+                      <select
+                        id={`store-location-${store}`}
+                        aria-label={`${store} 庫存地點`}
+                        value={selectedLocationId}
+                        onChange={(event) =>
+                          setLocationDrafts((current) => ({ ...current, [store]: event.target.value }))
+                        }
+                        className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100"
+                      >
+                        {!selectedLocationId && <option value="">請選擇庫存地點</option>}
+                        {currentLocationId && !sortedLocations.some((location) => location.id === currentLocationId) && (
+                          <option value={currentLocationId}>{currentLocationName}</option>
+                        )}
+                        {sortedLocations.map((location) => (
+                          <option key={location.id} value={location.id}>
+                            {location.name}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleSaveStoreLocation(store, selectedLocationId)}
+                        disabled={!selectedLocationId || selectedLocationId === currentLocationId}
+                      >
+                        儲存對應
                       </Button>
                     </div>
                   </div>

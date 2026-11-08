@@ -3,6 +3,7 @@ import type {
   StoreDto,
   CreateStoreRequest,
   DeleteStoreResponse,
+  UpdateStoreStockLocationRequest,
   OAuthAccountDto,
   CreateOAuthAccountRequest,
   UpdateOAuthAccountRequest,
@@ -13,15 +14,18 @@ import {
   demotionBlock,
   normalizeRole,
 } from '@/auth/permissions';
+import { LEGACY_SHARED_STOCK_LOCATION_ID } from '@/auth/stockLocation';
 import { simulateDelay, getStoredStores, setStoredStores } from './storageHelper';
 import { BusinessError } from '@/utils/errors';
+
+const LEGACY_SHARED_STOCK_LOCATION_NAME = '門市現貨';
 
 const MOCK_ACCOUNTS_KEY = 'FREDS_POS_MOCK_OAUTH_ACCOUNTS';
 
 export class MockSystemService implements ISystemService {
   async getStores(): Promise<StoreDto[]> {
     await simulateDelay(30, 80);
-    return getStoredStores();
+    return getStoredStores().map(withSharedShelfDefault);
   }
 
   async createStore(request: CreateStoreRequest): Promise<StoreDto> {
@@ -36,9 +40,12 @@ export class MockSystemService implements ISystemService {
       throw new BusinessError('DUPLICATE_STORE_NAME', `門市「${cleanName}」已存在`);
     }
 
+    const location = await resolveCreateLocation(request.stockLocationId);
     const newStore: StoreDto = {
       name: cleanName,
       isDefault: current.length === 0,
+      stockLocationId: location.id,
+      stockLocationName: location.name,
     };
 
     const updated = [...current, newStore];
@@ -64,6 +71,26 @@ export class MockSystemService implements ISystemService {
       success: true,
       deletedStore: storeName,
     };
+  }
+
+  async updateStoreStockLocation(
+    storeName: string,
+    request: UpdateStoreStockLocationRequest
+  ): Promise<StoreDto> {
+    await simulateDelay(30, 80);
+    const current = getStoredStores().map(withSharedShelfDefault);
+    const found = current.find((store) => store.name === storeName);
+    if (!found) throw new BusinessError('STORE_NOT_FOUND', `找不到門市「${storeName}」`);
+    const locationId = request.stockLocationId.trim();
+    const location = (await readMockLocations()).find((row) => row.id === locationId);
+    if (!location) throw new BusinessError('LOCATION_NOT_FOUND', '找不到庫存地點');
+    const updated: StoreDto = {
+      ...found,
+      stockLocationId: location.id,
+      stockLocationName: location.name,
+    };
+    setStoredStores(current.map((store) => (store.name === storeName ? updated : store)));
+    return updated;
   }
 
   async listAccounts(): Promise<OAuthAccountDto[]> {
@@ -187,4 +214,31 @@ async function readMockActor(): Promise<{ email: string; role: string }> {
   const { useSessionStore } = await import('@/store/sessionStore');
   const state = useSessionStore.getState();
   return { email: state.oauthUser.email || '', role: state.userRole };
+}
+
+async function readMockLocations(): Promise<{ id: string; name: string }[]> {
+  const { MockLocationService } = await import('./mockLocationService');
+  return new MockLocationService().getLocations();
+}
+
+function withSharedShelfDefault(store: StoreDto): StoreDto {
+  if (store.stockLocationId) return store;
+  return {
+    ...store,
+    stockLocationId: LEGACY_SHARED_STOCK_LOCATION_ID,
+    stockLocationName: store.stockLocationName || LEGACY_SHARED_STOCK_LOCATION_NAME,
+  };
+}
+
+async function resolveCreateLocation(stockLocationId?: string): Promise<{ id: string; name: string }> {
+  const locations = await readMockLocations();
+  const requested = stockLocationId?.trim();
+  if (!requested) {
+    const legacy = locations.find((row) => row.id === LEGACY_SHARED_STOCK_LOCATION_ID);
+    if (!legacy) throw new BusinessError('STOCK_LOCATION_REQUIRED', '請指定庫存地點');
+    return legacy;
+  }
+  const found = locations.find((row) => row.id === requested);
+  if (!found) throw new BusinessError('LOCATION_NOT_FOUND', '找不到庫存地點');
+  return found;
 }

@@ -1,10 +1,18 @@
 export interface StoreDto {
   name: string;
   isDefault?: boolean;
+  stockLocationId?: string | null;
+  stockLocationName?: string | null;
 }
 
 export interface CreateStoreRequest {
   name: string;
+  /** Omit to let the server bind the existing shared shelf, if that shelf still exists. */
+  stockLocationId?: string;
+}
+
+export interface UpdateStoreStockLocationRequest {
+  stockLocationId: string;
 }
 
 export interface DeleteStoreResponse {

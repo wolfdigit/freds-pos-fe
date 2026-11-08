@@ -25,6 +25,7 @@ function serviceWith(accounts: OAuthAccountDto[]): ISystemService {
     getStores: vi.fn(async () => []),
     createStore: vi.fn(),
     deleteStore: vi.fn(),
+    updateStoreStockLocation: vi.fn(),
     listAccounts: vi.fn(async () => accounts),
     createAccount: vi.fn(async (request) => ({ id: 'acct-new', ...request })),
     updateAccount: vi.fn(async (email, request) => ({ ...adminAccount, email, ...request })),

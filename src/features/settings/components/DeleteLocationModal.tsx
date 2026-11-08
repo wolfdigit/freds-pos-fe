@@ -66,8 +66,8 @@ export function DeleteLocationModal({
       );
       onSuccess(res);
       onClose();
-    } catch {
-      showToast('刪除地點失敗，請再試一次', 'error');
+    } catch (err) {
+      showToast(err instanceof Error && err.message ? err.message : '刪除地點失敗，請再試一次', 'error');
     } finally {
       setIsSubmitting(false);
     }

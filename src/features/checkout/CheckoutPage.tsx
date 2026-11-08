@@ -11,7 +11,9 @@ import { ReceiptModal } from './components/ReceiptModal';
 import { ProductDetailModal } from './components/ProductDetailModal';
 import { ReturnOrderModal } from './components/ReturnOrderModal';
 import { OrderDetailModal } from './components/OrderDetailModal';
+import { quantityAtMappedLocation } from '@/auth/stockLocation';
 import { useCartStore } from '@/store/cartStore';
+import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { productService, checkoutService } from '@/services';
@@ -23,6 +25,12 @@ export function CheckoutPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const { keyword, setKeyword, brand, setBrand, results, isLoading } = useProductSearch();
   const cart = useCartStore();
+  const storeName = useSessionStore((state) => state.storeName);
+  const storeRecords = useSessionStore((state) => state.storeRecords);
+  const mappedLocation = storeRecords.find((store) => store.name === storeName);
+  const shelfName = mappedLocation?.stockLocationName || '門市現貨';
+  const shelfQuantity = (stocks: Product['stocks'] | undefined) =>
+    quantityAtMappedLocation(stocks, mappedLocation?.stockLocationId);
   const ui = useUiStore();
   const showToast = useToastStore((s) => s.showToast);
   const { isSubmitting, receipt, setReceipt, submitCheckout } = useCheckoutWorkflow();
@@ -37,6 +45,11 @@ export function CheckoutPage() {
 
   // 全域商品快取，用於同條碼貨號關聯
   const [allCatalogProducts, setAllCatalogProducts] = useState<Product[]>([]);
+  const shelfQuantityForItem = (item: (typeof cart.items)[number]) => {
+    const product = allCatalogProducts.find((row) => row.id === item.productId);
+    if (product) return shelfQuantity(product.stocks);
+    return item.storeStock ?? 0;
+  };
 
   useEffect(() => {
     productService.searchProducts({}).then(setAllCatalogProducts).catch(console.error);
@@ -87,7 +100,7 @@ export function CheckoutPage() {
       return;
     }
 
-    const storeStock = product.stocks.find((s) => s.location === 'store')?.quantity ?? 0;
+    const storeStock = shelfQuantity(product.stocks);
     const sellableTotal = product.totalStock;
 
     const existing = cart.items.find((i) => i.productId === product.id && i.quantity > 0);
@@ -100,7 +113,7 @@ export function CheckoutPage() {
       );
     } else if (newQty > storeStock) {
       showToast(
-        `提醒：「${product.name}」門市現貨僅 ${storeStock} 台 (全店總可售 ${sellableTotal} 台)，結帳出單後需自倉庫調撥`,
+        `提醒：「${product.name}」${shelfName}僅 ${storeStock} 台 (全店總可售 ${sellableTotal} 台)，結帳出單後需自倉庫調撥`,
         'warning'
       );
     }
@@ -120,7 +133,7 @@ export function CheckoutPage() {
         return;
       }
     } else if (newQty > 0) {
-      const storeStock = item.storeStock ?? 0;
+      const storeStock = shelfQuantityForItem(item);
       const totalStock = item.totalStock ?? storeStock;
       const sellableTotal = totalStock;
 
@@ -131,7 +144,7 @@ export function CheckoutPage() {
         );
       } else if (newQty > storeStock) {
         showToast(
-          `提醒：「${item.name}」數量 (${newQty}台) 超過門市現貨 (${storeStock}台)，需自倉庫調撥`,
+          `提醒：「${item.name}」數量 (${newQty}台) 超過${shelfName} (${storeStock}台)，需自倉庫調撥`,
           'warning'
         );
       }
@@ -152,7 +165,7 @@ export function CheckoutPage() {
 
     const overStockItems = cart.items.filter((i) => {
       if (i.quantity < 0) return false;
-      const storeStock = i.storeStock ?? 0;
+      const storeStock = shelfQuantityForItem(i);
       const totalStock = i.totalStock ?? storeStock;
       const sellableTotal = totalStock;
       return i.quantity > storeStock || i.quantity > sellableTotal;
@@ -186,7 +199,11 @@ export function CheckoutPage() {
           listPrice: item.originalPrice,
           totalStock: item.storeStock ?? 0,
           stocks: [
-            { location: 'store', locationName: '門市現貨', quantity: item.storeStock ?? 0 },
+            {
+              location: mappedLocation?.stockLocationId || 'store',
+              locationName: shelfName,
+              quantity: item.storeStock ?? 0,
+            },
             { location: 'warehouse', locationName: '後方倉庫', quantity: 0 },
             { location: 'company', locationName: '公司總倉', quantity: 0 },
           ],
@@ -411,13 +428,13 @@ export function CheckoutPage() {
         const overStockList = cart.items
           .filter((i) => {
             if (i.quantity < 0) return false;
-            const storeStock = i.storeStock ?? 0;
+            const storeStock = shelfQuantityForItem(i);
             const totalStock = i.totalStock ?? storeStock;
             const sellableTotal = totalStock;
             return i.quantity > storeStock || i.quantity > sellableTotal;
           })
           .map((i) => {
-            const storeStock = i.storeStock ?? 0;
+            const storeStock = shelfQuantityForItem(i);
             const totalStock = i.totalStock ?? storeStock;
             const available = totalStock;
             return {
@@ -439,6 +456,7 @@ export function CheckoutPage() {
             }}
             totalAmount={totalAmount}
             isSubmitting={isSubmitting}
+            shelfLabel={shelfName}
             hasOverStockItems={overStockList.length > 0}
             overStockItemsList={overStockList}
             onConfirm={async (payments) => {

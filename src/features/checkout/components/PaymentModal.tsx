@@ -17,6 +17,7 @@ interface PaymentModalProps {
   open: boolean;
   totalAmount: number;
   isSubmitting: boolean;
+  shelfLabel?: string;
   hasOverStockItems?: boolean;
   overStockItemsList?: OverStockItemDetail[];
   onClose: () => void;
@@ -38,6 +39,7 @@ export function PaymentModal({
   open,
   totalAmount,
   isSubmitting,
+  shelfLabel = '門市現貨',
   hasOverStockItems = false,
   overStockItemsList = [],
   onClose,
@@ -149,12 +151,12 @@ export function PaymentModal({
         <Modal
           open={showOverStockConfirm}
           onClose={() => setShowOverStockConfirm(false)}
-          title="⚠️ 門市現貨/全域庫存不足確認"
+          title={`⚠️ ${shelfLabel}/全域庫存不足確認`}
           widthClassName="max-w-xl"
         >
           <div className="space-y-4 text-sm text-zinc-300">
             <p className="text-amber-300 font-semibold">
-              以下商品結帳數量超過門市現貨或全域可售庫存，出單後請至倉庫調撥或注意交期：
+              以下商品結帳數量超過{shelfLabel}或全域可售庫存，出單後請至倉庫調撥或注意交期：
             </p>
             <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 font-mono text-xs">
               {overStockItemsList.map((item, idx) => (
@@ -168,7 +170,7 @@ export function PaymentModal({
                   <div className="text-right">
                     <span className="text-cyan-300">結帳 {item.quantity} 台</span>
                     <span className="text-zinc-500 ml-2">
-                      (門市現貨: {item.storeStock} / 全店可售: {item.available})
+                      ({shelfLabel}: {item.storeStock} / 全店可售: {item.available})
                     </span>
                   </div>
                 </div>

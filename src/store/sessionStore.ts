@@ -7,6 +7,7 @@ import { authApi } from '@/services/api/httpAuthService';
 import { isMockService, systemService } from '@/services';
 import { INITIAL_STORES } from '@/services/mock/mockDataSeed';
 import type { AuthUser } from '@/types/auth';
+import type { StoreDto } from '@/types/system';
 
 export interface OAuthUser {
   id: string;
@@ -20,6 +21,7 @@ export type StoreListStatus = 'idle' | 'loading' | 'ready' | 'error';
 interface SessionStore {
   storeName: string;
   stores: string[];
+  storeRecords: StoreDto[];
   storeListStatus: StoreListStatus;
   storeListError: string | null;
   cashierId: string;
@@ -29,8 +31,9 @@ interface SessionStore {
 
   setStoreName: (name: string) => void;
   fetchStores: () => Promise<string[]>;
-  addStore: (name: string) => Promise<boolean>;
+  addStore: (name: string, stockLocationId?: string) => Promise<boolean>;
   removeStore: (name: string) => Promise<boolean>;
+  updateStoreStockLocation: (storeName: string, stockLocationId: string) => Promise<boolean>;
 
   setUserRole: (role: string) => void;
   applyAuthenticatedUser: (user: AuthUser, storeName: string | null) => void;
@@ -41,6 +44,7 @@ interface SessionStore {
 const mockIdentity = {
   storeName: INITIAL_STORES[0]?.name ?? '',
   stores: INITIAL_STORES.map((store) => store.name),
+  storeRecords: INITIAL_STORES,
   storeListStatus: 'ready' as const,
   storeListError: null,
   cashierId: 'staff-001',
@@ -57,6 +61,7 @@ const mockIdentity = {
 const blankIdentity = {
   storeName: '',
   stores: [] as string[],
+  storeRecords: [] as StoreDto[],
   storeListStatus: 'idle' as const,
   storeListError: null,
   cashierId: '',
@@ -87,9 +92,10 @@ export const useSessionStore = create<SessionStore>()(
           }
           try {
             const storeDtos = isMockService ? await systemService.getStores() : await authApi.listStores();
-            const names = (storeDtos || []).map((store) => store.name).filter((name) => name.trim());
+            const records = storeDtos || [];
+            const names = records.map((store) => store.name).filter((name) => name.trim());
             if (!isMockService) {
-              set({ stores: names, storeListStatus: 'ready', storeListError: null });
+              set({ stores: names, storeRecords: records, storeListStatus: 'ready', storeListError: null });
               resolveRequest(names);
               return;
             }
@@ -97,7 +103,13 @@ export const useSessionStore = create<SessionStore>()(
               set((state) => {
                 const currentStore = state.storeName;
                 const newStore = names.includes(currentStore) ? currentStore : names[0];
-                return { stores: names, storeName: newStore, storeListStatus: 'ready', storeListError: null };
+                return {
+                  stores: names,
+                  storeRecords: records,
+                  storeName: newStore,
+                  storeListStatus: 'ready',
+                  storeListError: null,
+                };
               });
               resolveRequest(names);
               return;
@@ -118,21 +130,14 @@ export const useSessionStore = create<SessionStore>()(
         return request;
       },
 
-      addStore: async (name) => {
+      addStore: async (name, stockLocationId) => {
         if (!hasPermission(get().userRole, 'store.manage')) return false;
         const clean = name.trim();
         if (!clean) return false;
-        try {
-          await systemService.createStore({ name: clean });
-          const current = get().stores;
-          if (!current.includes(clean)) {
-            set({ stores: [...current, clean] });
-          }
-          return true;
-        } catch (err) {
-          console.error('Failed to add store via systemService:', err);
-          return false;
-        }
+        const locationId = stockLocationId?.trim();
+        await systemService.createStore(locationId ? { name: clean, stockLocationId: locationId } : { name: clean });
+        await get().fetchStores();
+        return true;
       },
 
       removeStore: async (name) => {
@@ -143,15 +148,29 @@ export const useSessionStore = create<SessionStore>()(
             const current = get().stores;
             const next = current.filter((store) => store !== name);
             const newActive = get().storeName === name ? (next[0] ?? '') : get().storeName;
-            set({ stores: next, storeName: newActive });
+            set({
+              stores: next,
+              storeRecords: get().storeRecords.filter((store) => store.name !== name),
+              storeName: newActive,
+            });
           } else {
-            set((state) => ({ stores: state.stores.filter((store) => store !== name) }));
+            set((state) => ({
+              stores: state.stores.filter((store) => store !== name),
+              storeRecords: state.storeRecords.filter((store) => store.name !== name),
+            }));
           }
           return true;
         } catch (err) {
           console.error('Failed to remove store via systemService:', err);
           return false;
         }
+      },
+
+      updateStoreStockLocation: async (storeName, stockLocationId) => {
+        if (!hasPermission(get().userRole, 'store.manage')) return false;
+        await systemService.updateStoreStockLocation(storeName, { stockLocationId });
+        await get().fetchStores();
+        return true;
       },
 
       setUserRole: (role) => {

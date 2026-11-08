@@ -2,6 +2,7 @@ import type {
   StoreDto,
   CreateStoreRequest,
   DeleteStoreResponse,
+  UpdateStoreStockLocationRequest,
   OAuthAccountDto,
   CreateOAuthAccountRequest,
   UpdateOAuthAccountRequest,
@@ -16,6 +17,9 @@ export interface ISystemService {
 
   /** 刪除門市分店 (對應 DELETE /system/stores/{storeName}) */
   deleteStore(storeName: string): Promise<DeleteStoreResponse>;
+
+  /** 設定門市對應的一個庫存地點 (對應 PUT /system/stores/{storeName}/stock-location) */
+  updateStoreStockLocation(storeName: string, request: UpdateStoreStockLocationRequest): Promise<StoreDto>;
 
   /** 使用者管理 (對應 /system/oauth/accounts，僅管理員) */
   listAccounts(): Promise<OAuthAccountDto[]>;

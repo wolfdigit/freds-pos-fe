@@ -7,7 +7,8 @@ import type {
   DeleteStockLocationResponse,
 } from '@/types/inventory';
 import type { Product } from '@/types/product';
-import { simulateDelay, STORAGE_KEYS } from './storageHelper';
+import { LEGACY_SHARED_STOCK_LOCATION_ID } from '@/auth/stockLocation';
+import { simulateDelay, STORAGE_KEYS, getStoredStores } from './storageHelper';
 import { BusinessError } from '@/utils/errors';
 
 const DEFAULT_LOCATIONS: StockLocationDto[] = [
@@ -111,6 +112,16 @@ export class MockLocationService implements ILocationService {
     const destLoc = currentLocations.find((l) => l.id === request.transferToLocation);
     if (!destLoc) {
       throw new BusinessError('TARGET_LOCATION_NOT_FOUND', `找不到轉移目標地點: ${request.transferToLocation}`);
+    }
+
+    const usingStore = getStoredStores().find(
+      (store) => (store.stockLocationId || LEGACY_SHARED_STOCK_LOCATION_ID) === targetLoc.id
+    );
+    if (usingStore) {
+      throw new BusinessError(
+        'STOCK_LOCATION_IN_USE',
+        `「${targetLoc.name}」仍被門市「${usingStore.name}」使用，請先改門市對應再刪除`
+      );
     }
 
     // 1. 轉移商品庫存

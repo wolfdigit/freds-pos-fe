@@ -11,12 +11,13 @@ import type { Product, StockLocation } from '@/types/product';
 import { getProducts, setProducts, getOrders, setOrders, simulateDelay } from './storageHelper';
 import { safeAdd } from '@/utils/currency';
 import { nowIso, formatDate } from '@/utils/date';
+import { LEGACY_SHARED_STOCK_LOCATION_ID } from '@/auth/stockLocation';
 import { BusinessError } from '@/utils/errors';
 import { MockCustomerService } from './mockCustomerService';
 
 const customerService = new MockCustomerService();
 
-const STORE_LOCATION: StockLocation = 'store';
+const MOCK_SHARED_SHELF_KEY: StockLocation = 'store';
 
 function buildOrderNumber(existingCount: number): string {
   const datePart = formatDate(nowIso()).replace(/-/g, '');
@@ -141,23 +142,28 @@ export class MockCheckoutService implements ICheckoutService {
     }
 
     // --- 3. 原子寫入異動階段 ---
-    // 3.1 更新門市庫存
-    let nextProducts = [...products];
+    // 3.1 依這一筆請求的登入門市對應地點增減庫存。不足則整筆不寫入。
+    const mappedLocation = await currentLoginStockLocation();
+    let nextProducts = products.map((product) => ({ ...product, stocks: product.stocks.map((row) => ({ ...row })) }));
     for (const item of calculatedItems) {
-      nextProducts = nextProducts.map((p): Product => {
-        if (p.id !== item.productId) return p;
-        const next = { ...p, stocks: p.stocks.map((s) => ({ ...s })) };
-        const storeStock = next.stocks.find((s) => s.location === STORE_LOCATION);
-        if (storeStock) {
-          if (item.quantity > 0) {
-            storeStock.quantity -= item.quantity;
-          } else if (item.quantity < 0 && item.restock !== false) {
-            storeStock.quantity += Math.abs(item.quantity);
-          }
-        }
-        next.totalStock = next.stocks.reduce((sum, s) => sum + s.quantity, 0);
-        return next;
-      });
+      if (item.quantity < 0 && item.restock === false) continue;
+      const product = nextProducts.find((row) => row.id === item.productId);
+      if (!product) continue;
+      const delta = item.quantity > 0 ? -item.quantity : Math.abs(item.quantity);
+      let shelf = findMappedShelf(product, mappedLocation.id);
+      if (!shelf) {
+        shelf = {
+          location: mappedLocation.id === LEGACY_SHARED_STOCK_LOCATION_ID ? MOCK_SHARED_SHELF_KEY : mappedLocation.id,
+          locationName: mappedLocation.name,
+          quantity: 0,
+        };
+        product.stocks = [...product.stocks, shelf];
+      }
+      if (shelf.quantity + delta < 0) {
+        throw new BusinessError('INSUFFICIENT_STORE_STOCK', '門市庫存不足');
+      }
+      shelf.quantity += delta;
+      product.totalStock = product.stocks.reduce((sum, row) => sum + row.quantity, 0);
     }
     setProducts(nextProducts);
 
@@ -281,4 +287,26 @@ export class MockCheckoutService implements ICheckoutService {
     await simulateDelay();
     return getOrders().find((o) => o.id === orderId) ?? null;
   }
+}
+
+function findMappedShelf(product: Product, locationId: string) {
+  const direct = product.stocks.find((row) => row.location === locationId);
+  if (direct) return direct;
+  if (locationId === LEGACY_SHARED_STOCK_LOCATION_ID) {
+    return product.stocks.find((row) => row.location === MOCK_SHARED_SHELF_KEY);
+  }
+  return undefined;
+}
+
+async function currentLoginStockLocation(): Promise<{ id: string; name: string }> {
+  const { useSessionStore } = await import('@/store/sessionStore');
+  const { storeName, storeRecords } = useSessionStore.getState();
+  const mapped = storeRecords.find((store) => store.name === storeName);
+  if (mapped?.stockLocationId) {
+    const name =
+      mapped.stockLocationName ||
+      (mapped.stockLocationId === LEGACY_SHARED_STOCK_LOCATION_ID ? '門市現貨' : mapped.stockLocationId);
+    return { id: mapped.stockLocationId, name };
+  }
+  return { id: LEGACY_SHARED_STOCK_LOCATION_ID, name: '門市現貨' };
 }

@@ -160,7 +160,7 @@ export function CartItemRow({
           ) : isOverStoreStock ? (
             <span
               className="inline-flex items-center justify-center rounded bg-amber-500/20 border border-amber-500/60 text-xs px-1 text-amber-300 shrink-0"
-              title="⚠️ 門市現貨不足 (點入詳情查看具體數量)"
+              title="⚠️ 登入門市對應庫存不足 (點入詳情查看具體數量)"
             >
               ⚠️
             </span>

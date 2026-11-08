@@ -3,6 +3,7 @@ import type {
   StoreDto,
   CreateStoreRequest,
   DeleteStoreResponse,
+  UpdateStoreStockLocationRequest,
   OAuthAccountDto,
   CreateOAuthAccountRequest,
   UpdateOAuthAccountRequest,
@@ -21,6 +22,16 @@ export class HttpSystemService implements ISystemService {
 
   async deleteStore(storeName: string): Promise<DeleteStoreResponse> {
     return httpClient.delete<DeleteStoreResponse>(`/system/stores/${encodeURIComponent(storeName)}`);
+  }
+
+  async updateStoreStockLocation(
+    storeName: string,
+    request: UpdateStoreStockLocationRequest
+  ): Promise<StoreDto> {
+    return httpClient.put<StoreDto>(
+      `/system/stores/${encodeURIComponent(storeName)}/stock-location`,
+      request
+    );
   }
 
   async listAccounts(): Promise<OAuthAccountDto[]> {

@@ -1,3 +1,5 @@
+import { quantityAtMappedLocation } from '@/auth/stockLocation';
+import { useSessionStore } from '@/store/sessionStore';
 import type { Product } from '@/types/product';
 import { Badge } from '@/components/common/Badge';
 import { formatCurrency } from '@/utils/currency';
@@ -8,7 +10,10 @@ interface ProductResultCardProps {
 }
 
 export function ProductResultCard({ product, onAdd }: ProductResultCardProps) {
-  const storeQty = product.stocks.find((s) => s.location === 'store')?.quantity ?? 0;
+  const storeName = useSessionStore((state) => state.storeName);
+  const storeRecords = useSessionStore((state) => state.storeRecords);
+  const mappedLocation = storeRecords.find((store) => store.name === storeName);
+  const storeQty = quantityAtMappedLocation(product.stocks, mappedLocation?.stockLocationId);
   const warehouseQty = product.stocks.find((s) => s.location === 'warehouse')?.quantity ?? 0;
 
   return (
