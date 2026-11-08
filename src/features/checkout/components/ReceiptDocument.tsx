@@ -11,7 +11,8 @@ interface ReceiptLine {
   isReturn: boolean;
   /** 訂單列上的原價快照。與成交單價相同，或沒有快照時為 null。 */
   originalPriceLabel: string | null;
-  unitPriceLabel: string;
+  /** 未改價時為成交單價；有改價時為成交單價減原價的單價差額。 */
+  priceLabel: string;
   subtotalLabel: string;
 }
 
@@ -34,16 +35,19 @@ interface ReceiptModel {
 
 /**
  * 只用這一列訂單自己存下的 originalPrice。不回查目前商品牌價，也不補造缺少的原價。
- * 原價與成交單價不同才列兩行；相同或缺少原價時只列成交單價。
+ * 差額是成交單價減原價，不乘數量，退貨數量也不改變差額方向。
  */
-function originalPriceSnapshot(item: CheckoutOrder['items'][number]): number | null {
+function unitPriceDelta(item: CheckoutOrder['items'][number]): number | null {
   if (typeof item.originalPrice !== 'number' || !Number.isFinite(item.originalPrice)) return null;
   if (!Number.isFinite(item.unitPrice) || item.originalPrice === item.unitPrice) return null;
-  return item.originalPrice;
+  return item.unitPrice - item.originalPrice;
 }
 
-function chargedPriceText(line: ReceiptLine): string {
-  return line.originalPriceLabel ? `折讓改價 ${line.unitPriceLabel}` : `@${line.unitPriceLabel}`;
+function formatSignedCurrency(amount: number): string {
+  const label = formatCurrency(Math.abs(amount));
+  if (amount > 0) return `+${label}`;
+  if (amount < 0) return `-${label}`;
+  return label;
 }
 
 function buildReceiptModel(order: CheckoutOrder): ReceiptModel {
@@ -54,14 +58,14 @@ function buildReceiptModel(order: CheckoutOrder): ReceiptModel {
     orderNumber: order.orderNumber,
     createdAtLabel: formatDateTime(order.createdAt),
     lines: items.map((item, index) => {
-      const originalPrice = originalPriceSnapshot(item);
+      const delta = unitPriceDelta(item);
       return {
         key: `${item.productId}-${index}`,
         name: item.name,
         quantity: item.quantity,
         isReturn: item.quantity < 0,
-        originalPriceLabel: originalPrice === null ? null : formatCurrency(originalPrice),
-        unitPriceLabel: formatCurrency(item.unitPrice),
+        originalPriceLabel: delta === null ? null : formatCurrency(item.originalPrice),
+        priceLabel: delta === null ? `@${formatCurrency(item.unitPrice)}` : `折讓改價 ${formatSignedCurrency(delta)}`,
         subtotalLabel: formatCurrency(item.subtotal),
       };
     }),
@@ -108,7 +112,7 @@ function ScreenReceipt({ model }: { model: ReceiptModel }) {
               <p className="font-mono text-xs text-zinc-500">原價 {line.originalPriceLabel}</p>
             ) : null}
             <div className="flex items-baseline justify-between gap-3">
-              <p className="min-w-0 flex-1 font-mono text-xs text-zinc-400">{chargedPriceText(line)}</p>
+              <p className="min-w-0 flex-1 font-mono text-xs text-zinc-400">{line.priceLabel}</p>
               <div className="w-12 shrink-0 text-center font-mono font-bold text-zinc-300">x{line.quantity}</div>
               <div className="w-24 shrink-0 text-right font-mono font-bold text-cyan-300">{line.subtotalLabel}</div>
             </div>
@@ -167,7 +171,7 @@ function PrintReceipt({ model }: { model: ReceiptModel }) {
               <p className="receipt-original">原價 {line.originalPriceLabel}</p>
             ) : null}
             <div className="receipt-nums">
-              <span>{chargedPriceText(line)}</span>
+              <span>{line.priceLabel}</span>
               <span>x{line.quantity}</span>
               <span className="receipt-amount">{line.subtotalLabel}</span>
             </div>
