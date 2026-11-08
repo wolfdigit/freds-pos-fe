@@ -484,7 +484,7 @@ export function CheckoutPage() {
           setIsReturnModalOpen(true);
         }}
         onViewReceipt={(ord) => {
-          setReceipt({ order: ord, receiptPrintHtml: '' });
+          setReceipt({ order: ord });
         }}
       />
 

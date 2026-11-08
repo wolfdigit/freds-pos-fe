@@ -97,7 +97,7 @@ export interface OrderSearchParams {
 }
 
 
+/** Recorded order. The client formats the slip from these fields. */
 export interface CheckoutReceipt {
   order: CheckoutOrder;
-  receiptPrintHtml: string;
 }
