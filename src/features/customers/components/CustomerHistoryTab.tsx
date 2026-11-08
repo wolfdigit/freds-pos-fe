@@ -44,7 +44,7 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
   }, [customerId]);
 
   const handleReprint = (order: CheckoutOrder) => {
-    setReceipt({ order, receiptPrintHtml: '' });
+    setReceipt({ order });
   };
 
   const handleOpenReturnModal = (order: CheckoutOrder) => {
