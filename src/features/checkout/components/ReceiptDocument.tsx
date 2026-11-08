@@ -4,16 +4,18 @@ import { formatDateTime } from '@/utils/date';
 import { RECEIPT_PRINT_SHEET_ID } from '../printReceipt';
 import '../receipt-print.css';
 
+interface ReceiptMoneyRow {
+  key: string;
+  label: string;
+  quantity: number;
+  amountLabel: string;
+}
+
 interface ReceiptLine {
   key: string;
   name: string;
-  quantity: number;
   isReturn: boolean;
-  /** 訂單列上的原價快照。與成交單價相同，或沒有快照時為 null。 */
-  originalPriceLabel: string | null;
-  /** 未改價時為成交單價；有改價時為成交單價減原價的單價差額。 */
-  priceLabel: string;
-  subtotalLabel: string;
+  rows: ReceiptMoneyRow[];
 }
 
 interface ReceiptPaymentLine {
@@ -35,12 +37,41 @@ interface ReceiptModel {
 
 /**
  * 只用這一列訂單自己存下的 originalPrice。不回查目前商品牌價，也不補造缺少的原價。
- * 差額是成交單價減原價，不乘數量，退貨數量也不改變差額方向。
+ * 單價差額是成交單價減原價。列上的金額是該單價乘這列的數量，兩列相加等於成交小計。
  */
 function unitPriceDelta(item: CheckoutOrder['items'][number]): number | null {
   if (typeof item.originalPrice !== 'number' || !Number.isFinite(item.originalPrice)) return null;
   if (!Number.isFinite(item.unitPrice) || item.originalPrice === item.unitPrice) return null;
   return item.unitPrice - item.originalPrice;
+}
+
+function moneyRows(item: CheckoutOrder['items'][number]): ReceiptMoneyRow[] {
+  const delta = unitPriceDelta(item);
+  if (delta === null) {
+    return [
+      {
+        key: 'charged',
+        label: `@${formatCurrency(item.unitPrice)}`,
+        quantity: item.quantity,
+        amountLabel: formatCurrency(item.subtotal),
+      },
+    ];
+  }
+
+  return [
+    {
+      key: 'original',
+      label: `原價 ${formatCurrency(item.originalPrice)}`,
+      quantity: item.quantity,
+      amountLabel: formatCurrency(item.originalPrice * item.quantity),
+    },
+    {
+      key: 'delta',
+      label: `折讓改價 ${formatSignedCurrency(delta)}`,
+      quantity: item.quantity,
+      amountLabel: formatSignedCurrency(delta * item.quantity),
+    },
+  ];
 }
 
 function formatSignedCurrency(amount: number): string {
@@ -57,18 +88,12 @@ function buildReceiptModel(order: CheckoutOrder): ReceiptModel {
   return {
     orderNumber: order.orderNumber,
     createdAtLabel: formatDateTime(order.createdAt),
-    lines: items.map((item, index) => {
-      const delta = unitPriceDelta(item);
-      return {
-        key: `${item.productId}-${index}`,
-        name: item.name,
-        quantity: item.quantity,
-        isReturn: item.quantity < 0,
-        originalPriceLabel: delta === null ? null : formatCurrency(item.originalPrice),
-        priceLabel: delta === null ? `@${formatCurrency(item.unitPrice)}` : `折讓改價 ${formatSignedCurrency(delta)}`,
-        subtotalLabel: formatCurrency(item.subtotal),
-      };
-    }),
+    lines: items.map((item, index) => ({
+      key: `${item.productId}-${index}`,
+      name: item.name,
+      isReturn: item.quantity < 0,
+      rows: moneyRows(item),
+    })),
     itemsSubtotalLabel: formatCurrency(order.itemsSubtotal),
     shippingLabel: order.shippingFee > 0 ? `+${formatCurrency(order.shippingFee)}` : null,
     totalCaption: order.totalAmount < 0 ? '退款總額' : '結帳總額',
@@ -108,14 +133,13 @@ function ScreenReceipt({ model }: { model: ReceiptModel }) {
               {line.isReturn ? <span className="mr-1 font-semibold text-rose-300">退貨</span> : null}
               {line.name}
             </p>
-            {line.originalPriceLabel ? (
-              <p className="font-mono text-xs text-zinc-500">原價 {line.originalPriceLabel}</p>
-            ) : null}
-            <div className="flex items-baseline justify-between gap-3">
-              <p className="min-w-0 flex-1 font-mono text-xs text-zinc-400">{line.priceLabel}</p>
-              <div className="w-12 shrink-0 text-center font-mono font-bold text-zinc-300">x{line.quantity}</div>
-              <div className="w-24 shrink-0 text-right font-mono font-bold text-cyan-300">{line.subtotalLabel}</div>
-            </div>
+            {line.rows.map((row) => (
+              <div key={row.key} className="flex items-baseline justify-between gap-3">
+                <p className="min-w-0 flex-1 font-mono text-xs text-zinc-400">{row.label}</p>
+                <div className="w-12 shrink-0 text-center font-mono font-bold text-zinc-300">x{row.quantity}</div>
+                <div className="w-24 shrink-0 text-right font-mono font-bold text-cyan-300">{row.amountLabel}</div>
+              </div>
+            ))}
           </div>
         ))}
       </div>
@@ -167,14 +191,13 @@ function PrintReceipt({ model }: { model: ReceiptModel }) {
               {line.isReturn ? <span className="receipt-return-tag">退貨</span> : null}
               {line.name}
             </p>
-            {line.originalPriceLabel ? (
-              <p className="receipt-original">原價 {line.originalPriceLabel}</p>
-            ) : null}
-            <div className="receipt-nums">
-              <span>{line.priceLabel}</span>
-              <span>x{line.quantity}</span>
-              <span className="receipt-amount">{line.subtotalLabel}</span>
-            </div>
+            {line.rows.map((row) => (
+              <div key={row.key} className="receipt-nums">
+                <span>{row.label}</span>
+                <span>x{row.quantity}</span>
+                <span className="receipt-amount">{row.amountLabel}</span>
+              </div>
+            ))}
           </div>
         ))}
       </div>
