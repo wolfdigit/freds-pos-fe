@@ -49,7 +49,7 @@ export function SettingsPage() {
 
   const canManageWhitelist = hasPermission(userRole, 'whitelist.manage');
   const canManageStores = hasPermission(userRole, 'store.manage');
-  const { locations, isLoading, reloadLocations } = useLocations();
+  const { locations, isLoading, error: locationError, reloadLocations } = useLocations();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [activeSection, setActiveSection] = useState<SettingsSection>('locations');
@@ -120,11 +120,11 @@ export function SettingsPage() {
   }, [refreshStoreRecords, stores]);
 
   useEffect(() => {
-    if (!normalLocationId && locations[0]) {
-      setNormalLocationId(locations[0].id);
-      setReturnedLocationId(locations.find((location) => location.id !== locations[0].id)?.id ?? locations[0].id);
-    }
-  }, [locations, normalLocationId]);
+    if (locations.length === 0) return;
+    const firstId = locations[0].id;
+    setNormalLocationId((current) => (locations.some((location) => location.id === current) ? current : firstId));
+    setReturnedLocationId((current) => (locations.some((location) => location.id === current) ? current : firstId));
+  }, [locations]);
 
   const handleDataRefresh = () => {
     reloadLocations();
@@ -279,6 +279,14 @@ export function SettingsPage() {
                 <div className="flex h-64 items-center justify-center">
                   <Spinner />
                 </div>
+              ) : locationError ? (
+                <div className="flex h-64 flex-col items-center justify-center gap-3 text-rose-200" role="alert">
+                  <span>無法讀取庫存點。請再試一次。</span>
+                  <span className="text-sm text-rose-300/80">{locationError}</span>
+                  <Button size="sm" variant="secondary" onClick={() => void reloadLocations()}>
+                    再試一次
+                  </Button>
+                </div>
               ) : locations.length === 0 ? (
                 <div className="flex h-64 flex-col items-center justify-center text-zinc-500">
                   <span>目前尚未建立任何庫存據點</span>
@@ -414,33 +422,58 @@ export function SettingsPage() {
                 placeholder="輸入新門市名稱 (例如: 台中公益店)"
                 className="font-semibold"
               />
-              <div className="grid grid-cols-2 gap-3">
-                <label className="text-sm text-zinc-300">
-                  正常貨庫存點
-                  <select
-                    value={normalLocationId}
-                    onChange={(e) => setNormalLocationId(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
-                  >
-                    {sortedLocations.map((location) => (
-                      <option key={location.id} value={location.id}>{location.name}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm text-zinc-300">
-                  退貨庫存點
-                  <select
-                    value={returnedLocationId}
-                    onChange={(e) => setReturnedLocationId(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
-                  >
-                    {sortedLocations.map((location) => (
-                      <option key={`returned-${location.id}`} value={location.id}>{location.name}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <Button type="submit" variant="primary" className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold px-4">
+              {isLoading ? (
+                <div className="flex justify-center py-4"><Spinner /></div>
+              ) : locationError ? (
+                <div className="rounded-xl border border-rose-900/60 bg-rose-950/30 p-4 text-sm text-rose-200" role="alert">
+                  <p>無法讀取庫存點。請再試一次。</p>
+                  <p className="mt-1 text-rose-300/80">{locationError}</p>
+                  <Button type="button" size="sm" variant="secondary" className="mt-3" onClick={() => void reloadLocations()}>
+                    再試一次
+                  </Button>
+                </div>
+              ) : sortedLocations.length === 0 ? (
+                <div className="rounded-xl border border-amber-700/50 bg-amber-950/30 p-4 text-sm text-amber-100" role="status">
+                  <p>目前沒有庫存點，無法綁定門市。</p>
+                  <Button type="button" size="sm" variant="secondary" className="mt-3" onClick={() => void reloadLocations()}>
+                    再試一次
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="text-sm text-zinc-300">
+                    正常貨庫存點
+                    <select
+                      value={normalLocationId}
+                      onChange={(e) => setNormalLocationId(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+                    >
+                      {sortedLocations.map((location) => (
+                        <option key={location.id} value={location.id}>{location.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm text-zinc-300">
+                    退貨庫存點
+                    <select
+                      value={returnedLocationId}
+                      onChange={(e) => setReturnedLocationId(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+                    >
+                      {sortedLocations.map((location) => (
+                        <option key={`returned-${location.id}`} value={location.id}>{location.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              )}
+              <p className="text-xs text-zinc-500">兩個可以選同一個庫存點。</p>
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={isLoading || !!locationError || sortedLocations.length === 0}
+                className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold px-4"
+              >
                 新增門市
               </Button>
             </form>
@@ -555,8 +588,10 @@ export function SettingsPage() {
         <StoreRebindForm
           storeName={editingStoreName}
           locations={sortedLocations}
+          locationError={locationError}
           current={storeRecords.find((store) => store.name === editingStoreName)}
           onClose={() => setEditingStoreName(null)}
+          onRetry={() => void reloadLocations()}
           onSaved={() => {
             setEditingStoreName(null);
             void refreshStoreRecords();
@@ -570,19 +605,23 @@ export function SettingsPage() {
 function StoreRebindForm({
   storeName,
   locations,
+  locationError,
   current,
   onClose,
   onSaved,
+  onRetry,
 }: {
   storeName: string;
   locations: InventoryLocationDto[];
+  locationError: string | null;
   current?: StoreDto;
   onClose: () => void;
   onSaved: () => void;
+  onRetry: () => void;
 }) {
   const showToast = useToastStore((state) => state.showToast);
   const [normalId, setNormalId] = useState(current?.inventoryLocationId ?? locations[0]?.id ?? '');
-  const [returnedId, setReturnedId] = useState(current?.returnedInventoryLocationId ?? locations[0]?.id ?? '');
+  const [returnedId, setReturnedId] = useState(current?.returnedInventoryLocationId ?? current?.inventoryLocationId ?? locations[0]?.id ?? '');
   const [saving, setSaving] = useState(false);
 
   const save = async (event: React.FormEvent) => {
@@ -606,6 +645,17 @@ function StoreRebindForm({
     <Modal open onClose={onClose} title={`改綁門市：${storeName}`}>
       <form onSubmit={(event) => void save(event)} className="space-y-3 text-sm text-zinc-200">
         <p>兩個庫存點都必填，可以選同一個。不會移動已經入帳的數量。</p>
+        {locations.length === 0 ? (
+          <div className={`rounded-xl border p-4 ${locationError ? 'border-rose-900/60 bg-rose-950/30 text-rose-200' : 'border-amber-700/50 bg-amber-950/30 text-amber-100'}`} role={locationError ? 'alert' : 'status'}>
+            <p>{locationError ? '無法讀取庫存點。請再試一次。' : '目前沒有庫存點，無法改綁。'}</p>
+            {locationError && <p className="mt-1 text-sm text-rose-300/80">{locationError}</p>}
+            <div className="mt-3 flex justify-end gap-2">
+              <Button type="button" variant="ghost" onClick={onClose}>取消</Button>
+              <Button type="button" variant="secondary" onClick={onRetry}>再試一次</Button>
+            </div>
+          </div>
+        ) : (
+        <>
         <label className="block">
           正常貨庫存點
           <select value={normalId} onChange={(event) => setNormalId(event.target.value)} className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
@@ -624,8 +674,10 @@ function StoreRebindForm({
         </label>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>取消</Button>
-          <Button type="submit" variant="primary" disabled={saving || !normalId || !returnedId}>儲存綁定</Button>
+          <Button type="submit" variant="primary" disabled={saving || locations.length === 0 || !normalId || !returnedId}>儲存綁定</Button>
         </div>
+        </>
+        )}
       </form>
     </Modal>
   );

@@ -346,7 +346,7 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
                       onChange={(e) => setRestock(e.target.checked)}
                       className="rounded border-zinc-700 bg-zinc-900 text-rose-500 focus:ring-rose-400"
                     />
-                    <span>回補至門市現貨</span>
+                    <span>回補至登入門市的退貨庫存點</span>
                   </label>
                 </div>
 

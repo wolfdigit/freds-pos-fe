@@ -10,7 +10,7 @@ import { ProductDetailModal } from '@/features/checkout/components/ProductDetail
 import { ProductEditModal } from './components/ProductEditModal';
 import type { Product, StockLocation } from '@/types/product';
 import type { InventoryItemAdjustment, InventoryLocationChange } from '@/types/inventory';
-import { DEFAULT_INVENTORY_LOCATIONS } from '@/types/inventory';
+import { useLocations } from './hooks/useLocations';
 import { useSessionStore } from '@/store/sessionStore';
 import { systemService } from '@/services';
 import type { StoreDto } from '@/types/system';
@@ -45,10 +45,10 @@ const STOCK_FILTER_OPTIONS: { value: StockFilterType; label: string }[] = [
   { value: 'HAS_STOCK', label: '任一據點有現貨 (> 0 台)' },
 ];
 
-const WAREHOUSE_LOCATION_ID = DEFAULT_INVENTORY_LOCATIONS[1].id;
-
 export function InventoryPage() {
   const { keyword, setKeyword, brand, setBrand, products, isLoading, reload } = useProductList();
+  const { locations } = useLocations();
+  const warehouseLocationId = locations.find((location) => location.name === '後方倉庫')?.id ?? '';
   const storeName = useSessionStore((state) => state.storeName);
   const [storeBindings, setStoreBindings] = useState<StoreDto[]>([]);
 
@@ -111,7 +111,7 @@ export function InventoryPage() {
           : p.inventories.find((s) => s.location === loc)?.quantity ?? 0;
 
       const storeQty = loginStore ? getQty(loginStore.inventoryLocationId) : p.loginStoreQuantity;
-      const warehouseQty = getQty(WAREHOUSE_LOCATION_ID);
+      const warehouseQty = warehouseLocationId ? getQty(warehouseLocationId) : Number.POSITIVE_INFINITY;
       const allLocKeys = Array.from(new Set([...p.inventories.map((s) => s.location), ...Object.keys(draftStocks[p.id] || {})]));
       const totalQty = allLocKeys.reduce((sum, loc) => sum + getQty(loc), 0);
 
@@ -132,7 +132,7 @@ export function InventoryPage() {
       }
       return true;
     });
-  }, [products, stockFilter, draftStocks, loginStore]);
+  }, [products, stockFilter, draftStocks, loginStore, warehouseLocationId]);
 
   // 計算並整理已修改的商品與動態分析明細 (支援 DB 動態據點)
   const pendingAdjustments = useMemo<InventoryItemAdjustment[]>(() => {

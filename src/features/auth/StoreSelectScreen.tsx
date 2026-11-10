@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { hasPermission } from '@/auth/permissions';
 import { errorMessage } from '@/auth/businessError';
 import { storeSwitchNotice } from '@/auth/storeSwitch';
 import { readPersistedCart } from '@/auth/cartPersistence';
 import { authApi } from '@/services/api/httpAuthService';
 import { locationService, systemService } from '@/services';
-import { DEFAULT_INVENTORY_LOCATIONS, type InventoryLocationDto } from '@/types/inventory';
+import type { InventoryLocationDto } from '@/types/inventory';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Spinner } from '@/components/feedback/Spinner';
@@ -22,6 +22,8 @@ export function StoreSelectScreen() {
   const [error, setError] = useState<string | null>(null);
   const [newStoreName, setNewStoreName] = useState('');
   const [locations, setLocations] = useState<InventoryLocationDto[]>([]);
+  const [locationsLoading, setLocationsLoading] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
   const [normalLocationId, setNormalLocationId] = useState('');
   const [returnedLocationId, setReturnedLocationId] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -42,29 +44,34 @@ export function StoreSelectScreen() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    locationService
-      .getLocations()
-      .catch(() =>
-        DEFAULT_INVENTORY_LOCATIONS.map((location) => ({
-          id: location.id,
-          name: location.name,
-          icon: location.icon,
-          isDefault: location.isDefault,
-          displayOrder: location.displayOrder,
-          storeNames: [],
-          returnedStoreNames: [],
-        }))
-      )
-      .then((rows) => {
-        if (cancelled) return;
-        setLocations(rows);
-        setNormalLocationId(rows[0]?.id ?? '');
-        setReturnedLocationId(rows.find((row) => row.name === '退貨品')?.id ?? rows[0]?.id ?? '');
-      });
     return () => {
       cancelled = true;
     };
   }, []);
+
+  const loadLocations = useCallback(() => {
+    setLocationsLoading(true);
+    setLocationError(null);
+    locationService
+      .getLocations()
+      .then((rows) => {
+        setLocations(rows);
+        const firstId = rows[0]?.id ?? '';
+        setNormalLocationId((current) => (rows.some((row) => row.id === current) ? current : firstId));
+        setReturnedLocationId((current) => (rows.some((row) => row.id === current) ? current : firstId));
+      })
+      .catch((err: unknown) => {
+        setLocations([]);
+        setNormalLocationId('');
+        setReturnedLocationId('');
+        setLocationError(errorMessage(err, '無法讀取庫存點'));
+      })
+      .finally(() => setLocationsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    loadLocations();
+  }, [loadLocations]);
 
   const choose = async (storeName: string) => {
     setError(null);
@@ -126,34 +133,57 @@ export function StoreSelectScreen() {
                 onChange={(event) => setNewStoreName(event.target.value)}
                 placeholder="例如：奇可門市"
               />
-              <label className="block text-sm text-zinc-300" htmlFor="first-store-normal">
-                正常貨庫存點
-                <select
-                  id="first-store-normal"
-                  value={normalLocationId}
-                  onChange={(event) => setNormalLocationId(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
-                >
-                  {locations.map((location) => (
-                    <option key={location.id} value={location.id}>{location.name}</option>
-                  ))}
-                </select>
-              </label>
-              <label className="block text-sm text-zinc-300" htmlFor="first-store-returned">
-                退貨庫存點
-                <select
-                  id="first-store-returned"
-                  value={returnedLocationId}
-                  onChange={(event) => setReturnedLocationId(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
-                >
-                  {locations.map((location) => (
-                    <option key={`returned-${location.id}`} value={location.id}>{location.name}</option>
-                  ))}
-                </select>
-              </label>
-              <p className="text-xs text-zinc-500">兩個可以選同一個。尚未選門市時若讀不到地點清單，會用系統預設的五個庫存點。</p>
-              <Button type="submit" variant="primary" disabled={submitting}>
+              {locationsLoading ? (
+                <div className="flex justify-center py-4">
+                  <Spinner />
+                </div>
+              ) : locationError ? (
+                <div className="rounded-xl border border-rose-900/60 bg-rose-950/30 p-4 text-sm text-rose-200" role="alert">
+                  <p>無法讀取庫存點。請再試一次。</p>
+                  <p className="mt-1 text-rose-300/80">{locationError}</p>
+                  <Button type="button" variant="secondary" className="mt-3" onClick={loadLocations}>
+                    再試一次
+                  </Button>
+                </div>
+              ) : locations.length === 0 ? (
+                <div className="rounded-xl border border-amber-700/50 bg-amber-950/30 p-4 text-sm text-amber-100" role="status">
+                  <p>目前沒有庫存點，無法建立門市。</p>
+                  <Button type="button" variant="secondary" className="mt-3" onClick={loadLocations}>
+                    再試一次
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <label className="block text-sm text-zinc-300" htmlFor="first-store-normal">
+                    正常貨庫存點
+                    <select
+                      id="first-store-normal"
+                      value={normalLocationId}
+                      onChange={(event) => setNormalLocationId(event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
+                    >
+                      {locations.map((location) => (
+                        <option key={location.id} value={location.id}>{location.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-sm text-zinc-300" htmlFor="first-store-returned">
+                    退貨庫存點
+                    <select
+                      id="first-store-returned"
+                      value={returnedLocationId}
+                      onChange={(event) => setReturnedLocationId(event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
+                    >
+                      {locations.map((location) => (
+                        <option key={`returned-${location.id}`} value={location.id}>{location.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="text-xs text-zinc-500">兩個可以選同一個庫存點。</p>
+                </>
+              )}
+              <Button type="submit" variant="primary" disabled={submitting || locationsLoading || !!locationError || locations.length === 0}>
                 建立並進入
               </Button>
             </form>
