@@ -113,13 +113,8 @@ export function CartItemRow({
   const subtotal = item.unitPrice * currentQuantity;
 
   const isModifiedPrice = item.unitPrice !== item.originalPrice;
-  const storeStock = item.storeStock ?? 0;
-  const totalStock = item.totalStock ?? storeStock;
-  const sellableTotal = totalStock;
-
-  const isOverStoreStock = currentQuantity > storeStock;
-  const isOverTotalSellable = currentQuantity > sellableTotal;
-  const isOverStock = isOverStoreStock || isOverTotalSellable;
+  const sellable = item.loginStoreQuantity ?? 0;
+  const isOverStock = currentQuantity > sellable;
 
   const hasMultipleSkus = siblingProducts.length > 1;
 
@@ -150,17 +145,10 @@ export function CartItemRow({
           )}
 
           {/* 簡化為圖示的庫存警示標記 (點入詳情才看數量) */}
-          {isOverTotalSellable ? (
-            <span
-              className="inline-flex items-center justify-center rounded bg-rose-500/20 border border-rose-500/60 text-xs px-1 text-rose-300 animate-pulse shrink-0"
-              title="⚠️ 全域庫存不足 (點入詳情查看具體數量)"
-            >
-              ⚠️
-            </span>
-          ) : isOverStoreStock ? (
+          {isOverStock ? (
             <span
               className="inline-flex items-center justify-center rounded bg-amber-500/20 border border-amber-500/60 text-xs px-1 text-amber-300 shrink-0"
-              title="⚠️ 門市現貨不足 (點入詳情查看具體數量)"
+              title="⚠️ 超過本門市可售數量，結帳後庫存可能為負數"
             >
               ⚠️
             </span>

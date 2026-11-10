@@ -87,20 +87,13 @@ export function CheckoutPage() {
       return;
     }
 
-    const storeStock = product.stocks.find((s) => s.location === 'store')?.quantity ?? 0;
-    const sellableTotal = product.totalStock;
-
+    const sellable = product.loginStoreQuantity;
     const existing = cart.items.find((i) => i.productId === product.id && i.quantity > 0);
     const newQty = (existing?.quantity ?? 0) + 1;
 
-    if (newQty > sellableTotal) {
+    if (newQty > sellable) {
       showToast(
-        `警示：「${product.name}」結帳數量 (${newQty}台) 超過全店可售總存量 (${sellableTotal}台，總現貨: ${product.totalStock}台)`,
-        'warning'
-      );
-    } else if (newQty > storeStock) {
-      showToast(
-        `提醒：「${product.name}」門市現貨僅 ${storeStock} 台 (全店總可售 ${sellableTotal} 台)，結帳出單後需自倉庫調撥`,
+        `警示：「${product.name}」結帳數量 (${newQty}台) 超過本門市可售 ${sellable} 台（退貨庫存 ${product.loginStoreReturnedQuantity} 台）。仍可結帳，該庫存點可能變成負數。`,
         'warning'
       );
     }
@@ -120,18 +113,10 @@ export function CheckoutPage() {
         return;
       }
     } else if (newQty > 0) {
-      const storeStock = item.storeStock ?? 0;
-      const totalStock = item.totalStock ?? storeStock;
-      const sellableTotal = totalStock;
-
-      if (newQty > sellableTotal) {
+      const sellable = item.loginStoreQuantity ?? 0;
+      if (newQty > sellable) {
         showToast(
-          `警示：「${item.name}」數量 (${newQty}台) 超過全店可售現貨 (${sellableTotal}台)，需緊急進貨`,
-          'warning'
-        );
-      } else if (newQty > storeStock) {
-        showToast(
-          `提醒：「${item.name}」數量 (${newQty}台) 超過門市現貨 (${storeStock}台)，需自倉庫調撥`,
+          `警示：「${item.name}」數量 (${newQty}台) 超過本門市可售 (${sellable}台，退貨庫存 ${item.loginStoreReturnedQuantity ?? 0} 台)。仍可結帳。`,
           'warning'
         );
       }
@@ -152,15 +137,12 @@ export function CheckoutPage() {
 
     const overStockItems = cart.items.filter((i) => {
       if (i.quantity < 0) return false;
-      const storeStock = i.storeStock ?? 0;
-      const totalStock = i.totalStock ?? storeStock;
-      const sellableTotal = totalStock;
-      return i.quantity > storeStock || i.quantity > sellableTotal;
+      return i.quantity > (i.loginStoreQuantity ?? 0);
     });
 
     if (overStockItems.length > 0) {
       showToast(
-        `提醒：清單中有 ${overStockItems.length} 項商品需調撥或超過總可售現貨，出單前請確認！`,
+        `提醒：清單中有 ${overStockItems.length} 項商品超過本門市可售數量，出單後該庫存點可能變成負數。`,
         'warning'
       );
     }
@@ -184,12 +166,10 @@ export function CheckoutPage() {
           scale: item.scale,
           spec: item.spec,
           listPrice: item.originalPrice,
-          totalStock: item.storeStock ?? 0,
-          stocks: [
-            { location: 'store', locationName: '門市現貨', quantity: item.storeStock ?? 0 },
-            { location: 'warehouse', locationName: '後方倉庫', quantity: 0 },
-            { location: 'company', locationName: '公司總倉', quantity: 0 },
-          ],
+          inventories: [],
+          totalInventory: item.totalInventory ?? 0,
+          loginStoreQuantity: item.loginStoreQuantity ?? 0,
+          loginStoreReturnedQuantity: item.loginStoreReturnedQuantity ?? 0,
         });
       }
     }
@@ -409,26 +389,14 @@ export function CheckoutPage() {
       {/* 付款與收銀 Modal */}
       {(() => {
         const overStockList = cart.items
-          .filter((i) => {
-            if (i.quantity < 0) return false;
-            const storeStock = i.storeStock ?? 0;
-            const totalStock = i.totalStock ?? storeStock;
-            const sellableTotal = totalStock;
-            return i.quantity > storeStock || i.quantity > sellableTotal;
-          })
-          .map((i) => {
-            const storeStock = i.storeStock ?? 0;
-            const totalStock = i.totalStock ?? storeStock;
-            const available = totalStock;
-            return {
-              productId: i.productId,
-              name: i.name,
-              quantity: i.quantity,
-              storeStock,
-              totalStock,
-              available,
-            };
-          });
+          .filter((i) => i.quantity > 0 && i.quantity > (i.loginStoreQuantity ?? 0))
+          .map((i) => ({
+            productId: i.productId,
+            name: i.name,
+            quantity: i.quantity,
+            loginStoreQuantity: i.loginStoreQuantity ?? 0,
+            loginStoreReturnedQuantity: i.loginStoreReturnedQuantity ?? 0,
+          }));
 
         return (
           <PaymentModal

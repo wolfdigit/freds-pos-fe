@@ -1,8 +1,8 @@
 export type ModelScale = '1:18' | '1:43' | '1:64' | '1:24' | '1:12' | '配件周邊';
 
-export type StockLocation = 'store' | 'warehouse' | 'company' | 'other' | string;
+export type StockLocation = string;
 
-export interface LocationStock {
+export interface LocationInventory {
   location: StockLocation;
   locationName: string;
   quantity: number;
@@ -10,29 +10,36 @@ export interface LocationStock {
 
 export interface Product {
   id: string;
-  sku: string; // SKU (貨號)
+  sku: string;
   normalizedSku: string;
-  barcode: string; // Barcode (國際條碼)
-  brand: string; // Brand (品牌)
-  name: string; // Item_Name (品名)
-  scale?: ModelScale | string; // 模型比例 (1:64, 1:43, 1:18 等)
-  spec?: string; // 規格 / 版本說明
+  barcode: string;
+  brand: string;
+  name: string;
+  scale?: ModelScale | string;
+  spec?: string;
   imageUrl?: string;
-  listPrice: number; // 門市定價 / 建議售價 (即試算表 MSRP)
-  stocks: LocationStock[];
-  totalStock: number;
-  note?: string; // 備註 (Note)
-  createdAt?: string; // 建檔時間
-  createdBy?: string; // 建檔人員 (Auth)
-  updatedAt?: string; // 更新時間
-  updatedBy?: string; // 更新人員 (Auth)
+  listPrice: number;
+  /** 每個地點一筆。缺列讀成 0，數量可以是負數。 */
+  inventories: LocationInventory[];
+  /** 所有地點加總，含倉庫、退貨地點與負數。 */
+  totalInventory: number;
+  /** 登入門市正常貨地點的數量。 */
+  loginStoreQuantity: number;
+  /** 登入門市退貨地點的數量。 */
+  loginStoreReturnedQuantity: number;
+  note?: string;
+  createdAt?: string;
+  createdBy?: string;
+  updatedAt?: string;
+  updatedBy?: string;
 }
 
 export interface ProductSearchParams {
   keyword?: string;
   scale?: ModelScale | 'ALL' | string;
   brand?: string | 'ALL';
-  inStockOnly?: boolean;
+  /** 只留 totalInventory > 0 的商品。 */
+  inInventoryOnly?: boolean;
 }
 
 export interface CreateProductRequest {
@@ -43,7 +50,7 @@ export interface CreateProductRequest {
   scale?: ModelScale | string;
   spec?: string;
   imageUrl?: string;
-  listPrice: number; // 建議售價 (即試算表 MSRP)
+  listPrice: number;
   note?: string;
 }
 
@@ -55,6 +62,11 @@ export interface UpdateProductRequest {
   scale?: ModelScale | string;
   spec?: string;
   imageUrl?: string;
-  listPrice?: number; // 建議售價 (即試算表 MSRP)
+  listPrice?: number;
   note?: string;
+}
+
+export function inventoryQuantity(product: Pick<Product, 'inventories'> | null | undefined, locationId: string): number {
+  if (!product || !locationId) return 0;
+  return product.inventories.find((row) => row.location === locationId)?.quantity ?? 0;
 }

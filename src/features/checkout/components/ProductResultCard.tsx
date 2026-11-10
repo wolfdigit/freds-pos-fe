@@ -8,8 +8,8 @@ interface ProductResultCardProps {
 }
 
 export function ProductResultCard({ product, onAdd }: ProductResultCardProps) {
-  const storeQty = product.stocks.find((s) => s.location === 'store')?.quantity ?? 0;
-  const warehouseQty = product.stocks.find((s) => s.location === 'warehouse')?.quantity ?? 0;
+  const storeQty = product.loginStoreQuantity;
+  const returnedQty = product.loginStoreReturnedQuantity;
 
   return (
     <button
@@ -29,11 +29,11 @@ export function ProductResultCard({ product, onAdd }: ProductResultCardProps) {
         </span>
         <div className="flex gap-1">
           {storeQty > 0 ? (
-            <Badge color="emerald">門市 {storeQty}</Badge>
+            <Badge color="emerald">本門市 {storeQty}</Badge>
           ) : (
-            <Badge color="amber">需調撥</Badge>
+            <Badge color="amber">可超賣</Badge>
           )}
-          <Badge color="zinc">倉庫 {warehouseQty}</Badge>
+          <Badge color="zinc">退貨 {returnedQty}</Badge>
         </div>
       </div>
     </button>

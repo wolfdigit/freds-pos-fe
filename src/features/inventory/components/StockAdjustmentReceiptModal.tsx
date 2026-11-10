@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
-import type { StockItemAdjustment } from '@/types/inventory';
+import type { InventoryItemAdjustment } from '@/types/inventory';
 import { formatDateTime, nowIso } from '@/utils/date';
 
 interface StockAdjustmentReceiptModalProps {
   open: boolean;
-  adjustments: StockItemAdjustment[];
+  adjustments: InventoryItemAdjustment[];
   operatorName?: string;
   onClose: () => void;
 }

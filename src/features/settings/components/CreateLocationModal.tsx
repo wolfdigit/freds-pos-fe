@@ -4,13 +4,14 @@ import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { locationService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
-import type { StockLocationDto } from '@/types/inventory';
+import type { InventoryLocationDto } from '@/types/inventory';
+import { errorMessage } from '@/auth/businessError';
 
 interface CreateLocationModalProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: (newLoc: StockLocationDto) => void;
-  existingLocations: StockLocationDto[];
+  onSuccess: (newLoc: InventoryLocationDto) => void;
+  existingLocations: InventoryLocationDto[];
 }
 
 const PRESET_ICONS = ['🏪', '📦', '🏢', '🚚', '🏬', '🏠', '📍', '🌐', '🏷️', '✈️'];
@@ -26,7 +27,6 @@ export function CreateLocationModal({
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('📍');
   const [displayOrder, setDisplayOrder] = useState(String(existingLocations.length + 1));
-  const [isActive, setIsActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -48,7 +48,6 @@ export function CreateLocationModal({
         name: cleanName,
         icon: icon || '📍',
         displayOrder: Number(displayOrder) || existingLocations.length + 1,
-        isActive,
       });
 
       showToast(`成功新增庫存地點：「${created.name}」`, 'success');
@@ -57,9 +56,8 @@ export function CreateLocationModal({
       setName('');
       setIcon('📍');
       setDisplayOrder(String(existingLocations.length + 2));
-      setIsActive(true);
-    } catch {
-      showToast('新增地點失敗，請重試', 'error');
+    } catch (err) {
+      showToast(errorMessage(err, '新增地點失敗，請重試'), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -120,36 +118,15 @@ export function CreateLocationModal({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 pt-1">
-          <div>
-            <label className="mb-1 block text-sm font-semibold text-zinc-300">
-              排序權重 (Display Order)
-            </label>
-            <Input
-              type="number"
-              value={displayOrder}
-              onChange={(e) => setDisplayOrder(e.target.value)}
-              min={1}
-              className="text-center font-mono font-bold"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-semibold text-zinc-300">
-              啟用狀態
-            </label>
-            <button
-              type="button"
-              onClick={() => setIsActive(!isActive)}
-              className={`w-full py-2.5 px-3 rounded-lg border text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-                isActive
-                  ? 'border-emerald-500/60 bg-emerald-950/40 text-emerald-300'
-                  : 'border-zinc-700 bg-zinc-900 text-zinc-500'
-              }`}
-            >
-              <span>{isActive ? '🟢 啟用中' : '⚪ 停用中'}</span>
-            </button>
-          </div>
+        <div className="pt-1">
+          <label className="mb-1 block text-sm font-semibold text-zinc-300">排序權重</label>
+          <Input
+            type="number"
+            value={displayOrder}
+            onChange={(e) => setDisplayOrder(e.target.value)}
+            min={1}
+            className="text-center font-mono font-bold"
+          />
         </div>
 
         <div className="flex justify-end gap-3 pt-3 border-t border-zinc-800">

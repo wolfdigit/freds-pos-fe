@@ -15,7 +15,7 @@ interface ProductTableProps {
 }
 
 function getOrigStock(product: Product, location: StockLocation): number {
-  return product.stocks.find((s) => s.location === location)?.quantity ?? 0;
+  return product.inventories.find((row) => row.location === location)?.quantity ?? 0;
 }
 
 export function ProductTable({
@@ -30,50 +30,20 @@ export function ProductTable({
 
   // 動態彙整所有商品所擁有的庫存據點清單 (API 優先 + 商品 stocks 動態擴充據點)
   const availableLocations = useMemo(() => {
-    const map = new Map<string, string>();
-    const defaultOrder = ['store', 'warehouse', 'company', 'other'];
-    const defaultNames: Record<string, string> = {
-      store: '門市現貨',
-      warehouse: '後方倉庫',
-      company: '公司總倉',
-      other: '調度暫存',
-    };
-
-    if (apiLocations && apiLocations.length > 0) {
-      apiLocations.forEach((l) => {
-        if (l.isActive !== false) {
-          const locKey = l.id;
-          map.set(locKey, l.name);
-        }
-      });
-    }
-
-    products.forEach((p) => {
-      p.stocks?.forEach((s) => {
-        if (s.location && !map.has(s.location)) {
-          map.set(s.location, s.locationName || defaultNames[s.location] || s.location);
+    const map = new Map<string, { name: string; order: number }>();
+    apiLocations.forEach((location, index) => {
+      map.set(location.id, { name: location.name, order: location.displayOrder ?? index });
+    });
+    products.forEach((product) => {
+      product.inventories?.forEach((row) => {
+        if (row.location && !map.has(row.location)) {
+          map.set(row.location, { name: row.locationName || row.location, order: 999 });
         }
       });
     });
-
-    if (map.size === 0) {
-      defaultOrder.forEach((k) => map.set(k, defaultNames[k]));
-    }
-
-    const keys = Array.from(map.keys());
-    keys.sort((a, b) => {
-      const idxA = defaultOrder.indexOf(a);
-      const idxB = defaultOrder.indexOf(b);
-      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-      if (idxA !== -1) return -1;
-      if (idxB !== -1) return 1;
-      return a.localeCompare(b);
-    });
-
-    return keys.map((k) => ({
-      key: k,
-      name: map.get(k) || k,
-    }));
+    return Array.from(map.entries())
+      .sort((a, b) => a[1].order - b[1].order || a[0].localeCompare(b[0]))
+      .map(([key, value]) => ({ key, name: value.name }));
   }, [apiLocations, products]);
 
   if (isLoading) {
@@ -106,7 +76,9 @@ export function ProductTable({
                 {loc.name}
               </th>
             ))}
-            <th className="px-4 py-3.5 text-right font-bold bg-zinc-900">預估總計</th>
+            <th className="px-4 py-3.5 text-center min-w-[110px] bg-zinc-900">本門市可售</th>
+            <th className="px-4 py-3.5 text-center min-w-[110px] bg-zinc-900">本門市退貨</th>
+            <th className="px-4 py-3.5 text-right font-bold bg-zinc-900">全據點合計</th>
             <th className="sticky right-0 z-20 min-w-[7.25rem] whitespace-nowrap bg-zinc-900 px-4 py-3.5 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.45)]">操作</th>
           </tr>
         </thead>
@@ -169,9 +141,11 @@ export function ProductTable({
                         <div className="relative" onClick={(e) => e.stopPropagation()}>
                           <input
                             type="number"
-                            min={0}
                             value={qty}
-                            onChange={(e) => onStockChange(p.id, loc.key, Math.max(0, Number(e.target.value) || 0))}
+                            onChange={(e) => {
+                              const parsed = Number(e.target.value);
+                              onStockChange(p.id, loc.key, Number.isFinite(parsed) ? Math.trunc(parsed) : 0);
+                            }}
                             className={`w-20 rounded-xl border px-2 py-1.5 text-center font-mono text-xl font-bold transition-all ${
                               qty > origQty
                                 ? 'border-emerald-500 bg-emerald-950/40 text-emerald-300 ring-2 ring-emerald-500'
@@ -200,6 +174,12 @@ export function ProductTable({
                 })}
 
                 {/* 預估總計 (放大 text-xl 20px) */}
+                <td className="px-4 py-3.5 text-center font-mono text-lg font-bold text-emerald-300">
+                  {p.loginStoreQuantity}
+                </td>
+                <td className="px-4 py-3.5 text-center font-mono text-lg font-bold text-zinc-200">
+                  {p.loginStoreReturnedQuantity}
+                </td>
                 <td className="px-4 py-3.5 text-right font-mono font-extrabold text-xl text-cyan-300">
                   {totalCalculated}
                 </td>

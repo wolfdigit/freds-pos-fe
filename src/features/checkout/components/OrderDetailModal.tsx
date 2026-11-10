@@ -148,10 +148,10 @@ export function OrderDetailModal({
               <span>退貨原因：{currentReturnItem.returnReason || '未填寫'}</span>
               <span>
                 庫存處理：
-                {currentReturnItem.restock ? (
-                  <span className="text-emerald-400 font-bold">✓ 回補至門市現貨</span>
+                {currentReturnItem.restock === false ? (
+                  <span className="text-amber-400 font-bold">✕ 不回補庫存</span>
                 ) : (
-                  <span className="text-amber-400 font-bold">✕ 不回補 (報廢/瑕疵處理)</span>
+                  <span className="text-emerald-400 font-bold">✓ 回補至登入門市的退貨庫存點</span>
                 )}
               </span>
             </div>
@@ -201,6 +201,14 @@ export function OrderDetailModal({
                       <span className="shrink-0 rounded bg-rose-950 px-1.5 py-0.5 text-[11px] font-mono font-bold text-rose-300 border border-rose-800 select-none">
                         已退 {returned} 件 {remaining > 0 ? `(可退: ${remaining})` : '(已退清)'}
                       </span>
+                    )}
+                    {item.inventoryLocationName && (
+                      <span className="shrink-0 rounded bg-zinc-800/80 px-2 py-0.5 text-xs text-zinc-300 font-mono">
+                        {item.quantity < 0 ? '回補至' : '庫存點'} {item.inventoryLocationName}
+                      </span>
+                    )}
+                    {item.quantity < 0 && item.restock === false && (
+                      <span className="shrink-0 rounded bg-amber-950 px-2 py-0.5 text-xs text-amber-300">不回補庫存</span>
                     )}
                     {item.note && (
                       <span className="shrink-0 rounded bg-zinc-800/80 px-2 py-0.5 text-xs text-amber-300/90 font-mono">

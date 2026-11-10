@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { StockLocationDto } from '@/types/inventory';
+import type { InventoryLocationDto } from '@/types/inventory';
 import { locationService } from '@/services';
 
 export function useLocations() {
-  const [locations, setLocations] = useState<StockLocationDto[]>([]);
+  const [locations, setLocations] = useState<InventoryLocationDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const reloadLocations = useCallback(async () => {

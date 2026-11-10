@@ -7,6 +7,7 @@ import { authApi } from '@/services/api/httpAuthService';
 import { isMockService, systemService } from '@/services';
 import { INITIAL_STORES } from '@/services/mock/mockDataSeed';
 import type { AuthUser } from '@/types/auth';
+import type { CreateStoreRequest } from '@/types/system';
 
 export interface OAuthUser {
   id: string;
@@ -29,7 +30,7 @@ interface SessionStore {
 
   setStoreName: (name: string) => void;
   fetchStores: () => Promise<string[]>;
-  addStore: (name: string) => Promise<boolean>;
+  addStore: (request: CreateStoreRequest) => Promise<boolean>;
   removeStore: (name: string) => Promise<boolean>;
 
   setUserRole: (role: string) => void;
@@ -118,12 +119,12 @@ export const useSessionStore = create<SessionStore>()(
         return request;
       },
 
-      addStore: async (name) => {
+      addStore: async (request) => {
         if (!hasPermission(get().userRole, 'store.manage')) return false;
-        const clean = name.trim();
-        if (!clean) return false;
+        const clean = request.name.trim();
+        if (!clean || !request.inventoryLocationId || !request.returnedInventoryLocationId) return false;
         try {
-          await systemService.createStore({ name: clean });
+          await systemService.createStore({ ...request, name: clean });
           const current = get().stores;
           if (!current.includes(clean)) {
             set({ stores: [...current, clean] });

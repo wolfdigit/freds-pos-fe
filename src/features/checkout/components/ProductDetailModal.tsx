@@ -64,11 +64,8 @@ export function ProductDetailModal({
   if (!activeProduct) return null;
 
   const currentProduct = activeProduct;
-  const storeStock = currentProduct.stocks.find((s) => s.location === 'store')?.quantity ?? 0;
-  const warehouseStock = currentProduct.stocks.find((s) => s.location === 'warehouse')?.quantity ?? 0;
-  const companyStock = currentProduct.stocks.find((s) => s.location === 'company')?.quantity ?? 0;
-
-  const sellableTotal = currentProduct.totalStock;
+  const sellable = currentProduct.loginStoreQuantity;
+  const returnedQty = currentProduct.loginStoreReturnedQuantity;
   const hasMultipleSkus = siblingProducts.length > 1;
 
   return (
@@ -161,43 +158,31 @@ export function ProductDetailModal({
           </div>
 
           {/* 主要資訊：各位置數量 + 可現售數量 */}
-          <div className="grid grid-cols-4 gap-2.5 text-center font-mono">
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-              <span className="text-xs text-zinc-400 block mb-1">門市現貨</span>
-              <span
-                className={`text-2xl font-bold ${
-                  storeStock > 0 ? 'text-emerald-400' : 'text-amber-400'
-                }`}
-              >
-                {storeStock} 台
-              </span>
-            </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-              <span className="text-xs text-zinc-400 block mb-1">後方倉庫</span>
-              <span className="text-2xl font-bold text-zinc-200">{warehouseStock} 台</span>
-            </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-              <span className="text-xs text-zinc-400 block mb-1">公司總倉</span>
-              <span className="text-2xl font-bold text-zinc-200">{companyStock} 台</span>
-            </div>
+          <div className="grid grid-cols-3 gap-2.5 text-center font-mono">
             <div className="rounded-xl border border-emerald-800/80 bg-emerald-950/30 p-3 ring-1 ring-emerald-500/30">
-              <span className="text-xs text-emerald-300 font-bold block mb-1">★ 可現售總量</span>
-              <span
-                className={`text-2xl font-extrabold ${
-                  sellableTotal > 0 ? 'text-emerald-300' : 'text-rose-400'
-                }`}
-              >
-                {sellableTotal} 台
+              <span className="text-xs text-emerald-300 font-bold block mb-1">本門市可售</span>
+              <span className={`text-2xl font-extrabold ${sellable > 0 ? 'text-emerald-300' : 'text-amber-400'}`}>
+                {sellable} 台
               </span>
             </div>
-          </div>
-
-          {/* 次要資訊：總庫存 */}
-          <div className="flex items-center justify-between rounded-lg border border-zinc-800/80 bg-zinc-950/40 px-3 py-2 text-xs font-mono text-zinc-400">
-            <div className="flex items-center gap-4">
-              <span>全域總庫存：<strong className="text-zinc-200 text-sm">{currentProduct.totalStock}</strong> 台</span>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+              <span className="text-xs text-zinc-400 block mb-1">本門市退貨</span>
+              <span className="text-2xl font-bold text-zinc-200">{returnedQty} 台</span>
+            </div>
+            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+              <span className="text-xs text-zinc-400 block mb-1">全據點合計</span>
+              <span className="text-2xl font-bold text-zinc-200">{currentProduct.totalInventory} 台</span>
             </div>
           </div>
+          {currentProduct.inventories.length > 0 && (
+            <div className="flex flex-wrap gap-2 text-xs font-mono text-zinc-400">
+              {currentProduct.inventories.map((row) => (
+                <span key={row.location} className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1">
+                  {row.locationName} {row.quantity}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* 彈窗底部操作按鈕 */}

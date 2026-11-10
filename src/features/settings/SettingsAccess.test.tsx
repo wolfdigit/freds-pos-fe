@@ -43,7 +43,11 @@ describe('settings access', () => {
   });
 
   it('blocks staff store create and delete while still allowing a store switch', async () => {
-    expect(await useSessionStore.getState().addStore('新門市')).toBe(false);
+    expect(await useSessionStore.getState().addStore({
+      name: '新門市',
+      inventoryLocationId: 'e1a10001-0000-4000-8000-000000000001',
+      returnedInventoryLocationId: 'e1a10005-0000-4000-8000-000000000005',
+    })).toBe(false);
     expect(await useSessionStore.getState().removeStore('官網')).toBe(false);
     expect(useSessionStore.getState().stores).toEqual(['奇可門市', '官網']);
 

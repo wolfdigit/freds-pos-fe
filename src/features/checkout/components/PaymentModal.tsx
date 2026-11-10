@@ -8,9 +8,8 @@ export interface OverStockItemDetail {
   productId?: string;
   name: string;
   quantity: number;
-  storeStock: number;
-  totalStock: number;
-  available: number;
+  loginStoreQuantity: number;
+  loginStoreReturnedQuantity: number;
 }
 
 interface PaymentModalProps {
@@ -149,12 +148,12 @@ export function PaymentModal({
         <Modal
           open={showOverStockConfirm}
           onClose={() => setShowOverStockConfirm(false)}
-          title="⚠️ 門市現貨/全域庫存不足確認"
+          title="⚠️ 本門市可售數量不足確認"
           widthClassName="max-w-xl"
         >
           <div className="space-y-4 text-sm text-zinc-300">
             <p className="text-amber-300 font-semibold">
-              以下商品結帳數量超過門市現貨或全域可售庫存，出單後請至倉庫調撥或注意交期：
+              以下商品結帳數量超過本門市可售數量。仍可結帳，該正常貨庫存點可能變成負數：
             </p>
             <div className="space-y-2 rounded-lg border border-zinc-800 bg-zinc-950/60 p-3 font-mono text-xs">
               {overStockItemsList.map((item, idx) => (
@@ -168,7 +167,7 @@ export function PaymentModal({
                   <div className="text-right">
                     <span className="text-cyan-300">結帳 {item.quantity} 台</span>
                     <span className="text-zinc-500 ml-2">
-                      (門市現貨: {item.storeStock} / 全店可售: {item.available})
+                      (本門市可售: {item.loginStoreQuantity} / 退貨庫存: {item.loginStoreReturnedQuantity})
                     </span>
                   </div>
                 </div>

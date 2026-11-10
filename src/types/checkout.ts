@@ -36,6 +36,9 @@ export interface CheckoutOrderItem {
   originalOrderItemId?: string;
   restock?: boolean;
   returnReason?: string;
+  /** 這筆有動到庫存時的地點。restock 為 false 時留空。 */
+  inventoryLocationId?: string;
+  inventoryLocationName?: string;
 }
 
 export type OrderStatus = 'completed' | 'partially_refunded' | 'refunded';

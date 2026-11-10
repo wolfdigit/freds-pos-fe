@@ -7,9 +7,16 @@ import type {
 } from '@/types/product';
 import type {
   InventoryTransferRequest,
-  StockAdjustRequest,
-  BatchStockAdjustRequest,
-  StockAdjustmentLog,
+  InventoryAdjustRequest,
+  BatchInventoryAdjustRequest,
+  InventoryAdjustmentLog,
+  MoveAllInventoryRequest,
+  CreateInventoryReceiptRequest,
+  InventoryReceipt,
+  InventoryReceiptPage,
+  InventoryReceiptQuery,
+  InventoryMovementPage,
+  InventoryMovementQuery,
 } from '@/types/inventory';
 import { httpClient } from './httpClient';
 
@@ -19,7 +26,7 @@ export class HttpProductService implements IProductService {
     if (params.keyword) query.set('keyword', params.keyword);
     if (params.scale && params.scale !== 'ALL') query.set('scale', params.scale);
     if (params.brand && params.brand !== 'ALL') query.set('brand', params.brand);
-    if (params.inStockOnly !== undefined) query.set('inStockOnly', String(params.inStockOnly));
+    if (params.inInventoryOnly !== undefined) query.set('inInventoryOnly', String(params.inInventoryOnly));
 
     const qs = query.toString();
     return httpClient.get<Product[]>(`/products${qs ? `?${qs}` : ''}`);
@@ -42,21 +49,54 @@ export class HttpProductService implements IProductService {
   }
 
   async transferStock(request: InventoryTransferRequest): Promise<boolean> {
-    const res = await httpClient.post<{ success: boolean }>('/inventory/transfers', request);
-    return res.success ?? true;
+    const res = await httpClient.post<{ ok?: boolean }>('/inventory/transfers', request);
+    return res.ok ?? true;
   }
 
-  async adjustStock(request: StockAdjustRequest): Promise<boolean> {
-    const res = await httpClient.post<{ success: boolean }>('/inventory/adjustments', request);
-    return res.success ?? true;
+  async moveAllStock(request: MoveAllInventoryRequest): Promise<boolean> {
+    const res = await httpClient.post<{ ok?: boolean }>('/inventory/transfers/all', request);
+    return res.ok ?? true;
   }
 
-  async batchAdjustStock(request: BatchStockAdjustRequest): Promise<boolean> {
-    const res = await httpClient.post<{ success: boolean }>('/inventory/batch-adjustments', request);
-    return res.success ?? true;
+  async adjustStock(request: InventoryAdjustRequest): Promise<boolean> {
+    const res = await httpClient.post<{ ok?: boolean }>('/inventory/adjustments', request);
+    return res.ok ?? true;
   }
 
-  async getStockAdjustmentLogs(): Promise<StockAdjustmentLog[]> {
-    return httpClient.get<StockAdjustmentLog[]>('/inventory/adjustments/logs');
+  async batchAdjustStock(request: BatchInventoryAdjustRequest): Promise<boolean> {
+    const res = await httpClient.post<{ ok?: boolean }>('/inventory/batch-adjustments', {
+      adjustments: request.adjustments,
+      note: request.note,
+    });
+    return res.ok ?? true;
+  }
+
+  async getStockAdjustmentLogs(): Promise<InventoryAdjustmentLog[]> {
+    return httpClient.get<InventoryAdjustmentLog[]>('/inventory/adjustments/logs');
+  }
+
+  async createReceipt(request: CreateInventoryReceiptRequest): Promise<InventoryReceipt> {
+    return httpClient.post<InventoryReceipt>('/inventory/receipts', request);
+  }
+
+  async searchReceipts(query: InventoryReceiptQuery = {}): Promise<InventoryReceiptPage> {
+    const params = new URLSearchParams();
+    if (query.locationId) params.set('locationId', query.locationId);
+    if (query.productId) params.set('productId', query.productId);
+    if (query.page) params.set('page', String(query.page));
+    if (query.pageSize) params.set('pageSize', String(query.pageSize));
+    const qs = params.toString();
+    return httpClient.get<InventoryReceiptPage>(`/inventory/receipts${qs ? `?${qs}` : ''}`);
+  }
+
+  async searchMovements(query: InventoryMovementQuery = {}): Promise<InventoryMovementPage> {
+    const params = new URLSearchParams();
+    if (query.productId) params.set('productId', query.productId);
+    if (query.locationId) params.set('locationId', query.locationId);
+    if (query.type) params.set('type', query.type);
+    if (query.page) params.set('page', String(query.page));
+    if (query.pageSize) params.set('pageSize', String(query.pageSize));
+    const qs = params.toString();
+    return httpClient.get<InventoryMovementPage>(`/inventory/movements${qs ? `?${qs}` : ''}`);
   }
 }

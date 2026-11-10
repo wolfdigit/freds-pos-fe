@@ -7,16 +7,14 @@ import type {
   OrderSearchParams,
   OrderStatus,
 } from '@/types/checkout';
-import type { Product, StockLocation } from '@/types/product';
-import { getProducts, setProducts, getOrders, setOrders, simulateDelay } from './storageHelper';
+import { getProducts, setProducts, getOrders, setOrders, getStoredStores, simulateDelay } from './storageHelper';
+import { addQuantity, defaultLocationRows, LOCATIONS_STORAGE_KEY, loginStoreFrom, readPersistedStoreName } from './inventoryCatalog';
 import { safeAdd } from '@/utils/currency';
 import { nowIso, formatDate } from '@/utils/date';
 import { BusinessError } from '@/utils/errors';
 import { MockCustomerService } from './mockCustomerService';
 
 const customerService = new MockCustomerService();
-
-const STORE_LOCATION: StockLocation = 'store';
 
 function buildOrderNumber(existingCount: number): string {
   const datePart = formatDate(nowIso()).replace(/-/g, '');
@@ -123,23 +121,29 @@ export class MockCheckoutService implements ICheckoutService {
     }
 
     // --- 3. 原子寫入異動階段 ---
-    // 3.1 更新門市庫存
-    let nextProducts = [...products];
+    // 3.1 銷售扣登入門市的正常貨地點（可以變負數）。退貨回補退貨地點。
+    const loginStore = loginStoreFrom(getStoredStores(), readPersistedStoreName());
+    if (!loginStore) throw new BusinessError('LOCATION_NOT_FOUND', '找不到門市');
+    const locationRaw = localStorage.getItem(LOCATIONS_STORAGE_KEY);
+    const locations = locationRaw ? (JSON.parse(locationRaw) as Array<{ id: string; name: string }>) : defaultLocationRows();
+    let nextProducts = products.map((product) => ({ ...product, inventories: product.inventories.map((row) => ({ ...row })) }));
     for (const item of calculatedItems) {
-      nextProducts = nextProducts.map((p): Product => {
-        if (p.id !== item.productId) return p;
-        const next = { ...p, stocks: p.stocks.map((s) => ({ ...s })) };
-        const storeStock = next.stocks.find((s) => s.location === STORE_LOCATION);
-        if (storeStock) {
-          if (item.quantity > 0) {
-            storeStock.quantity -= item.quantity;
-          } else if (item.quantity < 0 && item.restock !== false) {
-            storeStock.quantity += Math.abs(item.quantity);
-          }
-        }
-        next.totalStock = next.stocks.reduce((sum, s) => sum + s.quantity, 0);
-        return next;
-      });
+      const idx = nextProducts.findIndex((product) => product.id === item.productId);
+      if (idx === -1) continue;
+      if (item.quantity > 0) {
+        nextProducts[idx] = addQuantity(nextProducts[idx], loginStore.inventoryLocationId, -item.quantity, locations);
+        item.inventoryLocationId = loginStore.inventoryLocationId;
+        item.inventoryLocationName = loginStore.inventoryLocationName;
+      } else if (item.quantity < 0 && item.restock !== false) {
+        nextProducts[idx] = addQuantity(
+          nextProducts[idx],
+          loginStore.returnedInventoryLocationId,
+          Math.abs(item.quantity),
+          locations
+        );
+        item.inventoryLocationId = loginStore.returnedInventoryLocationId;
+        item.inventoryLocationName = loginStore.returnedInventoryLocationName;
+      }
     }
     setProducts(nextProducts);
 

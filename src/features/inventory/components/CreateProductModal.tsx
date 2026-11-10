@@ -3,6 +3,7 @@ import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import type { ModelScale, Product, StockLocation, CreateProductRequest } from '@/types/product';
+import { DEFAULT_INVENTORY_LOCATIONS } from '@/types/inventory';
 import { productService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { BusinessError } from '@/utils/errors';
@@ -90,7 +91,11 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
 
       const hasInitialStocks = storeQty > 0 || warehouseQty > 0 || companyQty > 0;
       const initialDrafts: Record<StockLocation, number> | undefined = hasInitialStocks
-        ? { store: storeQty, warehouse: warehouseQty, company: companyQty, other: 0 }
+        ? {
+            [DEFAULT_INVENTORY_LOCATIONS[0].id]: storeQty,
+            [DEFAULT_INVENTORY_LOCATIONS[1].id]: warehouseQty,
+            [DEFAULT_INVENTORY_LOCATIONS[2].id]: companyQty,
+          }
         : undefined;
 
       if (hasInitialStocks) {

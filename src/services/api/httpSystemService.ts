@@ -2,6 +2,7 @@ import type { ISystemService } from '@/services/interfaces/ISystemService';
 import type {
   StoreDto,
   CreateStoreRequest,
+  UpdateStoreBindingRequest,
   DeleteStoreResponse,
   OAuthAccountDto,
   CreateOAuthAccountRequest,
@@ -17,6 +18,10 @@ export class HttpSystemService implements ISystemService {
 
   async createStore(request: CreateStoreRequest): Promise<StoreDto> {
     return httpClient.post<StoreDto>('/system/stores', request);
+  }
+
+  async rebindStore(storeName: string, request: UpdateStoreBindingRequest): Promise<StoreDto> {
+    return httpClient.put<StoreDto>(`/system/stores/${encodeURIComponent(storeName)}`, request);
   }
 
   async deleteStore(storeName: string): Promise<DeleteStoreResponse> {

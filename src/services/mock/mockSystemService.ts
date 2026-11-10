@@ -2,6 +2,7 @@ import type { ISystemService } from '@/services/interfaces/ISystemService';
 import type {
   StoreDto,
   CreateStoreRequest,
+  UpdateStoreBindingRequest,
   DeleteStoreResponse,
   OAuthAccountDto,
   CreateOAuthAccountRequest,
@@ -14,6 +15,8 @@ import {
   normalizeRole,
 } from '@/auth/permissions';
 import { simulateDelay, getStoredStores, setStoredStores } from './storageHelper';
+import { defaultLocationRows, LOCATIONS_STORAGE_KEY } from './inventoryCatalog';
+import type { InventoryLocationDto } from '@/types/inventory';
 import { BusinessError } from '@/utils/errors';
 
 const MOCK_ACCOUNTS_KEY = 'FREDS_POS_MOCK_OAUTH_ACCOUNTS';
@@ -26,6 +29,10 @@ export class MockSystemService implements ISystemService {
 
   async createStore(request: CreateStoreRequest): Promise<StoreDto> {
     await simulateDelay(40, 100);
+    const actor = await readMockActor();
+    if (actor.role !== 'admin') {
+      throw new BusinessError('AUTH_FORBIDDEN', '需要管理員權限');
+    }
     const cleanName = request.name?.trim();
     if (!cleanName) {
       throw new BusinessError('INVALID_STORE_NAME', '門市名稱不可為空');
@@ -36,14 +43,43 @@ export class MockSystemService implements ISystemService {
       throw new BusinessError('DUPLICATE_STORE_NAME', `門市「${cleanName}」已存在`);
     }
 
+    const normal = requireLocation(request.inventoryLocationId);
+    const returned = requireLocation(request.returnedInventoryLocationId);
     const newStore: StoreDto = {
       name: cleanName,
       isDefault: current.length === 0,
+      inventoryLocationId: normal.id,
+      inventoryLocationName: normal.name,
+      returnedInventoryLocationId: returned.id,
+      returnedInventoryLocationName: returned.name,
     };
 
-    const updated = [...current, newStore];
-    setStoredStores(updated);
+    setStoredStores([...current, newStore]);
     return newStore;
+  }
+
+  async rebindStore(storeName: string, request: UpdateStoreBindingRequest): Promise<StoreDto> {
+    await simulateDelay(40, 100);
+    const actor = await readMockActor();
+    if (actor.role !== 'admin') {
+      throw new BusinessError('AUTH_FORBIDDEN', '需要管理員權限');
+    }
+    const current = getStoredStores();
+    const idx = current.findIndex((store) => store.name === storeName);
+    if (idx === -1) throw new BusinessError('STORE_NOT_FOUND', `找不到門市「${storeName}」`);
+    const normal = requireLocation(request.inventoryLocationId);
+    const returned = requireLocation(request.returnedInventoryLocationId);
+    const updated: StoreDto = {
+      ...current[idx],
+      inventoryLocationId: normal.id,
+      inventoryLocationName: normal.name,
+      returnedInventoryLocationId: returned.id,
+      returnedInventoryLocationName: returned.name,
+    };
+    const next = [...current];
+    next[idx] = updated;
+    setStoredStores(next);
+    return updated;
   }
 
   async deleteStore(storeName: string): Promise<DeleteStoreResponse> {
@@ -181,6 +217,16 @@ function readMockAccounts(): OAuthAccountDto[] {
 
 function writeMockAccounts(accounts: OAuthAccountDto[]): void {
   localStorage.setItem(MOCK_ACCOUNTS_KEY, JSON.stringify(accounts));
+}
+
+function requireLocation(locationId: string): InventoryLocationDto {
+  const raw = localStorage.getItem(LOCATIONS_STORAGE_KEY);
+  const locations: InventoryLocationDto[] = raw ? (JSON.parse(raw) as InventoryLocationDto[]) : defaultLocationRows();
+  const found = (Array.isArray(locations) && locations.length > 0 ? locations : defaultLocationRows()).find(
+    (location) => location.id === locationId
+  );
+  if (!found) throw new BusinessError('LOCATION_NOT_FOUND', '找不到庫存地點');
+  return found;
 }
 
 async function readMockActor(): Promise<{ email: string; role: string }> {
