@@ -20,6 +20,19 @@ import type {
 } from '@/types/inventory';
 import { httpClient } from './httpClient';
 
+function asLoginQuantity(value: number | null | undefined): number | null {
+  return typeof value === 'number' ? value : null;
+}
+
+/** Keep a missing login store as null. Do not turn it into 0. */
+function mapProduct(product: Product): Product {
+  return {
+    ...product,
+    loginStoreQuantity: asLoginQuantity(product.loginStoreQuantity),
+    loginStoreReturnedQuantity: asLoginQuantity(product.loginStoreReturnedQuantity),
+  };
+}
+
 export class HttpProductService implements IProductService {
   async searchProducts(params: ProductSearchParams): Promise<Product[]> {
     const query = new URLSearchParams();
@@ -29,23 +42,24 @@ export class HttpProductService implements IProductService {
     if (params.inInventoryOnly !== undefined) query.set('inInventoryOnly', String(params.inInventoryOnly));
 
     const qs = query.toString();
-    return httpClient.get<Product[]>(`/products${qs ? `?${qs}` : ''}`);
+    const rows = await httpClient.get<Product[]>(`/products${qs ? `?${qs}` : ''}`);
+    return (rows || []).map(mapProduct);
   }
 
   async getProductById(id: string): Promise<Product | null> {
     try {
-      return await httpClient.get<Product>(`/products/${id}`);
+      return mapProduct(await httpClient.get<Product>(`/products/${id}`));
     } catch {
       return null;
     }
   }
 
   async createProduct(product: CreateProductRequest): Promise<Product> {
-    return httpClient.post<Product>('/products', product);
+    return mapProduct(await httpClient.post<Product>('/products', product));
   }
 
   async updateProduct(id: string, product: UpdateProductRequest): Promise<Product> {
-    return httpClient.put<Product>(`/products/${id}`, product);
+    return mapProduct(await httpClient.put<Product>(`/products/${id}`, product));
   }
 
   async transferStock(request: InventoryTransferRequest): Promise<boolean> {

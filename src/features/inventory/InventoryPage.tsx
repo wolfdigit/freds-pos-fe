@@ -56,7 +56,7 @@ export function InventoryPage() {
     systemService.getStores().then(setStoreBindings).catch(() => setStoreBindings([]));
   }, [storeName]);
 
-  const loginStore = storeBindings.find((store) => store.name === storeName) ?? storeBindings[0];
+  const loginStore = storeName ? storeBindings.find((store) => store.name === storeName) ?? null : null;
 
   const [stockFilter, setStockFilter] = useState<StockFilterType>('ALL');
 
@@ -116,13 +116,13 @@ export function InventoryPage() {
       const totalQty = allLocKeys.reduce((sum, loc) => sum + getQty(loc), 0);
 
       if (stockFilter === 'STORE_LOW') {
-        return storeQty <= 2;
+        return typeof storeQty === 'number' && storeQty <= 2;
       }
       if (stockFilter === 'WAREHOUSE_LOW') {
         return warehouseQty <= 2;
       }
       if (stockFilter === 'STORE_OUT') {
-        return storeQty === 0;
+        return typeof storeQty === 'number' && storeQty === 0;
       }
       if (stockFilter === 'TOTAL_OUT') {
         return totalQty === 0;

@@ -1,4 +1,4 @@
-import type { Product } from '@/types/product';
+import { formatLoginStoreQuantity, type Product } from '@/types/product';
 import { Badge } from '@/components/common/Badge';
 import { formatCurrency } from '@/utils/currency';
 
@@ -28,12 +28,16 @@ export function ProductResultCard({ product, onAdd }: ProductResultCardProps) {
           {formatCurrency(product.listPrice)}
         </span>
         <div className="flex gap-1">
-          {storeQty > 0 ? (
-            <Badge color="emerald">本門市 {storeQty}</Badge>
+          {typeof storeQty === 'number' ? (
+            storeQty > 0 ? (
+              <Badge color="emerald">本門市 {storeQty}</Badge>
+            ) : (
+              <Badge color="amber">可超賣</Badge>
+            )
           ) : (
-            <Badge color="amber">可超賣</Badge>
+            <Badge color="zinc">本門市 —</Badge>
           )}
-          <Badge color="zinc">退貨 {returnedQty}</Badge>
+          <Badge color="zinc">退貨 {formatLoginStoreQuantity(returnedQty)}</Badge>
         </div>
       </div>
     </button>

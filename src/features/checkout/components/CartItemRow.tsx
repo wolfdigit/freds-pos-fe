@@ -113,8 +113,8 @@ export function CartItemRow({
   const subtotal = item.unitPrice * currentQuantity;
 
   const isModifiedPrice = item.unitPrice !== item.originalPrice;
-  const sellable = item.loginStoreQuantity ?? 0;
-  const isOverStock = currentQuantity > sellable;
+  const sellable = item.loginStoreQuantity;
+  const isOverStock = typeof sellable === 'number' && currentQuantity > sellable;
 
   const hasMultipleSkus = siblingProducts.length > 1;
 

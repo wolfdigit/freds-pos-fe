@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Product, StockLocation } from '@/types/product';
+import { formatLoginStoreQuantity, type Product, type StockLocation } from '@/types/product';
 import { Badge } from '@/components/common/Badge';
 import { formatCurrency } from '@/utils/currency';
 import { Spinner } from '@/components/feedback/Spinner';
@@ -174,11 +174,11 @@ export function ProductTable({
                 })}
 
                 {/* 預估總計 (放大 text-xl 20px) */}
-                <td className="px-4 py-3.5 text-center font-mono text-lg font-bold text-emerald-300">
-                  {p.loginStoreQuantity}
+                <td className={`px-4 py-3.5 text-center font-mono text-lg font-bold ${typeof p.loginStoreQuantity === 'number' ? 'text-emerald-300' : 'text-zinc-500'}`}>
+                  {formatLoginStoreQuantity(p.loginStoreQuantity)}
                 </td>
-                <td className="px-4 py-3.5 text-center font-mono text-lg font-bold text-zinc-200">
-                  {p.loginStoreReturnedQuantity}
+                <td className={`px-4 py-3.5 text-center font-mono text-lg font-bold ${typeof p.loginStoreReturnedQuantity === 'number' ? 'text-zinc-200' : 'text-zinc-500'}`}>
+                  {formatLoginStoreQuantity(p.loginStoreReturnedQuantity)}
                 </td>
                 <td className="px-4 py-3.5 text-right font-mono font-extrabold text-xl text-cyan-300">
                   {totalCalculated}

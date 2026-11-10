@@ -21,9 +21,8 @@ import {
   addQuantity,
   defaultLocationRows,
   loginStoreFrom,
-  presentProduct,
   quantityAt,
-  readPersistedStoreName,
+  withStoreQuantities,
   resolveLocationId,
   setQuantity,
 } from './inventoryCatalog';
@@ -55,9 +54,11 @@ function knownLocation(locationId: string): { id: string; name: string } {
   return found;
 }
 
-function presentAll(products: Product[]): Product[] {
-  const store = loginStoreFrom(getStoredStores(), readPersistedStoreName());
-  return products.map((product) => presentProduct(product, getStoredStores(), store?.name ?? ''));
+async function presentAll(products: Product[]): Promise<Product[]> {
+  const { useSessionStore } = await import('@/store/sessionStore');
+  const name = useSessionStore.getState().storeName ?? '';
+  const store = loginStoreFrom(getStoredStores(), name);
+  return products.map((product) => withStoreQuantities(product, store));
 }
 
 function requireProduct(products: Product[], productId: string): number {
@@ -79,7 +80,7 @@ function writeMovement(movement: InventoryMovement): void {
 export class MockProductService implements IProductService {
   async searchProducts(params: ProductSearchParams): Promise<Product[]> {
     await simulateDelay();
-    const products = presentAll(getProducts());
+    const products = await presentAll(getProducts());
     const keyword = params.keyword?.trim() ?? '';
 
     return products.filter((product) => {
@@ -100,7 +101,7 @@ export class MockProductService implements IProductService {
     await simulateDelay();
     const found = getProducts().find((product) => product.id === id);
     if (!found) return null;
-    return presentAll([found])[0];
+    return (await presentAll([found]))[0];
   }
 
   async createProduct(product: CreateProductRequest): Promise<Product> {
@@ -118,15 +119,15 @@ export class MockProductService implements IProductService {
       normalizedSku: normalized,
       inventories: [],
       totalInventory: 0,
-      loginStoreQuantity: 0,
-      loginStoreReturnedQuantity: 0,
+      loginStoreQuantity: null,
+      loginStoreReturnedQuantity: null,
       createdAt: new Date().toISOString(),
       createdBy: await operatorName(),
       updatedAt: new Date().toISOString(),
       updatedBy: await operatorName(),
     };
     setProducts([...products, created]);
-    return presentAll([created])[0];
+    return (await presentAll([created]))[0];
   }
 
   async updateProduct(id: string, updates: UpdateProductRequest): Promise<Product> {
@@ -158,7 +159,7 @@ export class MockProductService implements IProductService {
     const next = [...products];
     next[idx] = updated;
     setProducts(next);
-    return presentAll([updated])[0];
+    return (await presentAll([updated]))[0];
   }
 
   async transferStock(request: InventoryTransferRequest): Promise<boolean> {

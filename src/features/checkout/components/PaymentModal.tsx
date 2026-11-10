@@ -2,14 +2,15 @@ import { useState } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { formatCurrency } from '@/utils/currency';
+import { formatLoginStoreQuantity } from '@/types/product';
 import type { PaymentMethodType, PaymentTender } from '@/types/checkout';
 
 export interface OverStockItemDetail {
   productId?: string;
   name: string;
   quantity: number;
-  loginStoreQuantity: number;
-  loginStoreReturnedQuantity: number;
+  loginStoreQuantity: number | null;
+  loginStoreReturnedQuantity: number | null;
 }
 
 interface PaymentModalProps {
@@ -167,7 +168,7 @@ export function PaymentModal({
                   <div className="text-right">
                     <span className="text-cyan-300">結帳 {item.quantity} 台</span>
                     <span className="text-zinc-500 ml-2">
-                      (本門市可售: {item.loginStoreQuantity} / 退貨庫存: {item.loginStoreReturnedQuantity})
+                      (本門市可售: {formatLoginStoreQuantity(item.loginStoreQuantity)} / 退貨庫存: {formatLoginStoreQuantity(item.loginStoreReturnedQuantity)})
                     </span>
                   </div>
                 </div>

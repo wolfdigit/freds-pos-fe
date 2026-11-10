@@ -18,8 +18,8 @@ export interface CartItem {
   isManualPrice: boolean;
   priceChangeReason?: string;
   quantity: number;
-  loginStoreQuantity?: number;
-  loginStoreReturnedQuantity?: number;
+  loginStoreQuantity?: number | null;
+  loginStoreReturnedQuantity?: number | null;
   totalInventory?: number;
   originalOrderId?: string;
   originalOrderNumber?: string;

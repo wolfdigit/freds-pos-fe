@@ -82,8 +82,8 @@ export function normalizeSeedProduct(raw: LegacySeedProduct, locations = default
     listPrice: raw.listPrice ?? 0,
     inventories,
     totalInventory,
-    loginStoreQuantity: 0,
-    loginStoreReturnedQuantity: 0,
+    loginStoreQuantity: null,
+    loginStoreReturnedQuantity: null,
     note: raw.note,
     createdAt: raw.createdAt,
     createdBy: raw.createdBy,
@@ -102,8 +102,8 @@ export function withStoreQuantities(product: Product, store: StoreDto | null): P
   return {
     ...product,
     totalInventory,
-    loginStoreQuantity: store ? quantityAt(product, store.inventoryLocationId) : 0,
-    loginStoreReturnedQuantity: store ? quantityAt(product, store.returnedInventoryLocationId) : 0,
+    loginStoreQuantity: store ? quantityAt(product, store.inventoryLocationId) : null,
+    loginStoreReturnedQuantity: store ? quantityAt(product, store.returnedInventoryLocationId) : null,
   };
 }
 
@@ -119,8 +119,9 @@ export function readPersistedStoreName(): string {
 }
 
 export function loginStoreFrom(stores: StoreDto[], storeName: string): StoreDto | null {
-  if (stores.length === 0) return null;
-  return stores.find((store) => store.name === storeName) ?? stores[0];
+  const name = storeName.trim();
+  if (!name || stores.length === 0) return null;
+  return stores.find((store) => store.name === name) ?? stores[0];
 }
 
 export function presentProduct(product: Product, stores: StoreDto[], storeName: string): Product {

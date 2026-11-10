@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { formatCurrency } from '@/utils/currency';
-import type { Product } from '@/types/product';
+import { formatLoginStoreQuantity, type Product } from '@/types/product';
 import { productService } from '@/services';
 
 interface ProductDetailModalProps {
@@ -66,6 +66,7 @@ export function ProductDetailModal({
   const currentProduct = activeProduct;
   const sellable = currentProduct.loginStoreQuantity;
   const returnedQty = currentProduct.loginStoreReturnedQuantity;
+  const sellableKnown = typeof sellable === 'number';
   const hasMultipleSkus = siblingProducts.length > 1;
 
   return (
@@ -161,13 +162,13 @@ export function ProductDetailModal({
           <div className="grid grid-cols-3 gap-2.5 text-center font-mono">
             <div className="rounded-xl border border-emerald-800/80 bg-emerald-950/30 p-3 ring-1 ring-emerald-500/30">
               <span className="text-xs text-emerald-300 font-bold block mb-1">本門市可售</span>
-              <span className={`text-2xl font-extrabold ${sellable > 0 ? 'text-emerald-300' : 'text-amber-400'}`}>
-                {sellable} 台
+              <span className={`text-2xl font-extrabold ${sellableKnown && sellable > 0 ? 'text-emerald-300' : sellableKnown ? 'text-amber-400' : 'text-zinc-400'}`}>
+                {sellableKnown ? `${sellable} 台` : '—'}
               </span>
             </div>
             <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
               <span className="text-xs text-zinc-400 block mb-1">本門市退貨</span>
-              <span className="text-2xl font-bold text-zinc-200">{returnedQty} 台</span>
+              <span className="text-2xl font-bold text-zinc-200">{formatLoginStoreQuantity(returnedQty)}{typeof returnedQty === 'number' ? ' 台' : ''}</span>
             </div>
             <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
               <span className="text-xs text-zinc-400 block mb-1">全據點合計</span>

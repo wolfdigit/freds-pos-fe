@@ -23,10 +23,10 @@ export interface Product {
   inventories: LocationInventory[];
   /** 所有地點加總，含倉庫、退貨地點與負數。 */
   totalInventory: number;
-  /** 登入門市正常貨地點的數量。 */
-  loginStoreQuantity: number;
-  /** 登入門市退貨地點的數量。 */
-  loginStoreReturnedQuantity: number;
+  /** 登入門市正常貨地點的數量。沒有選定門市時是 null，不是 0。 */
+  loginStoreQuantity: number | null;
+  /** 登入門市退貨地點的數量。沒有選定門市時是 null，不是 0。 */
+  loginStoreReturnedQuantity: number | null;
   note?: string;
   createdAt?: string;
   createdBy?: string;
@@ -69,4 +69,14 @@ export interface UpdateProductRequest {
 export function inventoryQuantity(product: Pick<Product, 'inventories'> | null | undefined, locationId: string): number {
   if (!product || !locationId) return 0;
   return product.inventories.find((row) => row.location === locationId)?.quantity ?? 0;
+}
+
+/** 沒有登入門市時後端給 null。不要把 null 顯示成 0。 */
+export function formatLoginStoreQuantity(value: number | null | undefined): string {
+  return typeof value === 'number' ? String(value) : '—';
+}
+
+/** null 代表還沒有登入門市，不是缺貨，也不拿來擋結帳。 */
+export function exceedsLoginStoreQuantity(requested: number, available: number | null | undefined): boolean {
+  return typeof available === 'number' && requested > available;
 }

@@ -16,7 +16,7 @@ import { useUiStore } from '@/store/uiStore';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { productService, checkoutService } from '@/services';
 import { formatCurrency } from '@/utils/currency';
-import type { Product } from '@/types/product';
+import { exceedsLoginStoreQuantity, formatLoginStoreQuantity, type Product } from '@/types/product';
 import type { CheckoutOrder } from '@/types/checkout';
 
 export function CheckoutPage() {
@@ -91,9 +91,9 @@ export function CheckoutPage() {
     const existing = cart.items.find((i) => i.productId === product.id && i.quantity > 0);
     const newQty = (existing?.quantity ?? 0) + 1;
 
-    if (newQty > sellable) {
+    if (exceedsLoginStoreQuantity(newQty, sellable)) {
       showToast(
-        `警示：「${product.name}」結帳數量 (${newQty}台) 超過本門市可售 ${sellable} 台（退貨庫存 ${product.loginStoreReturnedQuantity} 台）。仍可結帳，該庫存點可能變成負數。`,
+        `警示：「${product.name}」結帳數量 (${newQty}台) 超過本門市可售 ${sellable} 台（退貨庫存 ${formatLoginStoreQuantity(product.loginStoreReturnedQuantity)} 台）。仍可結帳，該庫存點可能變成負數。`,
         'warning'
       );
     }
@@ -113,10 +113,10 @@ export function CheckoutPage() {
         return;
       }
     } else if (newQty > 0) {
-      const sellable = item.loginStoreQuantity ?? 0;
-      if (newQty > sellable) {
+      const sellable = item.loginStoreQuantity;
+      if (exceedsLoginStoreQuantity(newQty, sellable)) {
         showToast(
-          `警示：「${item.name}」數量 (${newQty}台) 超過本門市可售 (${sellable}台，退貨庫存 ${item.loginStoreReturnedQuantity ?? 0} 台)。仍可結帳。`,
+          `警示：「${item.name}」數量 (${newQty}台) 超過本門市可售 (${sellable}台，退貨庫存 ${formatLoginStoreQuantity(item.loginStoreReturnedQuantity)} 台)。仍可結帳。`,
           'warning'
         );
       }
@@ -137,7 +137,7 @@ export function CheckoutPage() {
 
     const overStockItems = cart.items.filter((i) => {
       if (i.quantity < 0) return false;
-      return i.quantity > (i.loginStoreQuantity ?? 0);
+      return exceedsLoginStoreQuantity(i.quantity, i.loginStoreQuantity);
     });
 
     if (overStockItems.length > 0) {
@@ -168,8 +168,8 @@ export function CheckoutPage() {
           listPrice: item.originalPrice,
           inventories: [],
           totalInventory: item.totalInventory ?? 0,
-          loginStoreQuantity: item.loginStoreQuantity ?? 0,
-          loginStoreReturnedQuantity: item.loginStoreReturnedQuantity ?? 0,
+          loginStoreQuantity: item.loginStoreQuantity ?? null,
+          loginStoreReturnedQuantity: item.loginStoreReturnedQuantity ?? null,
         });
       }
     }
@@ -389,13 +389,13 @@ export function CheckoutPage() {
       {/* 付款與收銀 Modal */}
       {(() => {
         const overStockList = cart.items
-          .filter((i) => i.quantity > 0 && i.quantity > (i.loginStoreQuantity ?? 0))
+          .filter((i) => i.quantity > 0 && exceedsLoginStoreQuantity(i.quantity, i.loginStoreQuantity))
           .map((i) => ({
             productId: i.productId,
             name: i.name,
             quantity: i.quantity,
-            loginStoreQuantity: i.loginStoreQuantity ?? 0,
-            loginStoreReturnedQuantity: i.loginStoreReturnedQuantity ?? 0,
+            loginStoreQuantity: i.loginStoreQuantity ?? null,
+            loginStoreReturnedQuantity: i.loginStoreReturnedQuantity ?? null,
           }));
 
         return (
