@@ -121,7 +121,8 @@ export class MockCheckoutService implements ICheckoutService {
     }
 
     // --- 3. 原子寫入異動階段 ---
-    // 3.1 銷售扣登入門市的正常貨地點（可以變負數）。退貨回補退貨地點。
+    // 3.1 銷售扣登入門市的正常貨地點（可以變負數）。
+    // 退貨：restock 不是 false 時加回正常貨（可售）；false 時加到退貨庫存點。
     const loginStore = loginStoreFrom(getStoredStores(), readPersistedStoreName());
     if (!loginStore) throw new BusinessError('LOCATION_NOT_FOUND', '找不到門市');
     const locationRaw = localStorage.getItem(LOCATIONS_STORAGE_KEY);
@@ -134,15 +135,13 @@ export class MockCheckoutService implements ICheckoutService {
         nextProducts[idx] = addQuantity(nextProducts[idx], loginStore.inventoryLocationId, -item.quantity, locations);
         item.inventoryLocationId = loginStore.inventoryLocationId;
         item.inventoryLocationName = loginStore.inventoryLocationName;
-      } else if (item.quantity < 0 && item.restock !== false) {
-        nextProducts[idx] = addQuantity(
-          nextProducts[idx],
-          loginStore.returnedInventoryLocationId,
-          Math.abs(item.quantity),
-          locations
-        );
-        item.inventoryLocationId = loginStore.returnedInventoryLocationId;
-        item.inventoryLocationName = loginStore.returnedInventoryLocationName;
+      } else if (item.quantity < 0) {
+        const toNormal = item.restock !== false;
+        const locationId = toNormal ? loginStore.inventoryLocationId : loginStore.returnedInventoryLocationId;
+        const locationName = toNormal ? loginStore.inventoryLocationName : loginStore.returnedInventoryLocationName;
+        nextProducts[idx] = addQuantity(nextProducts[idx], locationId, Math.abs(item.quantity), locations);
+        item.inventoryLocationId = locationId;
+        item.inventoryLocationName = locationName;
       }
     }
     setProducts(nextProducts);

@@ -560,7 +560,7 @@ paths:
            - Validate `sum(payments.amount) == totalAmount` (or `payments >= totalAmount` with cash change).
         4. **Inventory & Pre-Order Atomicity**:
            - Positive items: lock and deduct `store` stock with row lock (`WHERE quantity >= :qty`).
-           - Negative items: if `restock: true`, increment `store` stock; increment `returnedQuantity` on original order.
+           - Negative items: omitted or `restock: true` adds the count to the login store's normal location (sellable). `restock: false` adds the count to that store's returned location. Both change quantity. Also increment `returnedQuantity` on the original order.
            - Pre-order items: increment `qtyDelivered` and update pre-order status.
         5. **Member Asset Update**:
            - Update `customer.totalSpent += totalAmount`
@@ -1816,7 +1816,7 @@ components:
           type: string
         inventoryLocationId:
           type: string
-          description: Location used by this line. Empty when restock is false.
+          description: Location this line changed. Normal location when restock is not false; returned location when restock is false.
         inventoryLocationName:
           type: string
 
@@ -1920,7 +1920,7 @@ components:
         restock:
           type: boolean
           default: true
-          description: For returns, whether returned item is restocked to store inventory
+          description: For a return, true or omitted adds quantity to the login store's normal location. false adds it to the returned location. Both change quantity.
         returnReason:
           type: string
         note:

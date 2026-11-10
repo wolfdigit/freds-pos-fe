@@ -546,7 +546,7 @@ export function ReturnOrderModal({
                           onChange={(e) => handleRestockToggle(key, e.target.checked)}
                           className="rounded border-zinc-700 bg-zinc-900 text-rose-500 focus:ring-rose-400 h-3.5 w-3.5"
                         />
-                        <span>回庫</span>
+                        <span>回補至門市現貨</span>
                       </label>
 
                       {/* 小計折抵金額 */}

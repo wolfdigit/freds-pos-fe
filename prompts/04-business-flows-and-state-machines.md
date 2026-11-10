@@ -101,7 +101,7 @@ function derivePreOrderStatus(items: PreOrderItem[]): PreOrderStatus {
 | :--- | :--- |
 | 原單關聯 | 退換貨（`quantity < 0`）**必須關聯原銷售單據**（`originalOrderId` + `originalOrderItemId`） |
 | 可退數量校驗 | 驗證 `abs(quantity) <= (qtySold - qtyReturned)`，防重複或超額退貨 |
-| 庫存回補 | 若 `restock: true`，結帳完成後**加回 `store` 庫存**；若為嚴重瑕疵報廢可設為 `false` |
+| 庫存回補 | `restock` 省略或 `true` 時加回登入門市正常貨（可售）。`false` 時加到該門市退貨庫存點，數量仍會增加 |
 | 原單狀態推導 | 更新原單品項 `returnedQuantity`，全數退完轉為 `refunded`，部分退完轉為 `partially_refunded` |
 
 ### 2.3 結帳前置驗證 (Checkout Validation Gate)

@@ -149,9 +149,9 @@ export function OrderDetailModal({
               <span>
                 庫存處理：
                 {currentReturnItem.restock === false ? (
-                  <span className="text-amber-400 font-bold">✕ 不回補庫存</span>
+                  <span className="text-amber-400 font-bold">→ 退至退貨庫存點</span>
                 ) : (
-                  <span className="text-emerald-400 font-bold">✓ 回補至登入門市的退貨庫存點</span>
+                  <span className="text-emerald-400 font-bold">✓ 回補至門市現貨</span>
                 )}
               </span>
             </div>
@@ -202,14 +202,15 @@ export function OrderDetailModal({
                         已退 {returned} 件 {remaining > 0 ? `(可退: ${remaining})` : '(已退清)'}
                       </span>
                     )}
-                    {item.inventoryLocationName && (
-                      <span className="shrink-0 rounded bg-zinc-800/80 px-2 py-0.5 text-xs text-zinc-300 font-mono">
-                        {item.quantity < 0 ? '回補至' : '庫存點'} {item.inventoryLocationName}
+                    {item.quantity < 0 ? (
+                      <span className={`shrink-0 rounded px-2 py-0.5 text-xs font-bold ${item.restock === false ? 'bg-amber-950 text-amber-300' : 'bg-emerald-950 text-emerald-300'}`}>
+                        {item.restock === false ? '→ 退至退貨庫存點' : '✓ 回補至門市現貨'}
                       </span>
-                    )}
-                    {item.quantity < 0 && item.restock === false && (
-                      <span className="shrink-0 rounded bg-amber-950 px-2 py-0.5 text-xs text-amber-300">不回補庫存</span>
-                    )}
+                    ) : item.inventoryLocationName ? (
+                      <span className="shrink-0 rounded bg-zinc-800/80 px-2 py-0.5 text-xs text-zinc-300 font-mono">
+                        庫存點 {item.inventoryLocationName}
+                      </span>
+                    ) : null}
                     {item.note && (
                       <span className="shrink-0 rounded bg-zinc-800/80 px-2 py-0.5 text-xs text-amber-300/90 font-mono">
                         {item.note}
