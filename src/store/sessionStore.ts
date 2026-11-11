@@ -96,8 +96,12 @@ export const useSessionStore = create<SessionStore>()(
             }
             if (names.length > 0) {
               set((state) => {
-                const currentStore = state.storeName;
-                const newStore = names.includes(currentStore) ? currentStore : names[0];
+                const currentStore = state.storeName.trim();
+                const newStore = !currentStore
+                  ? ''
+                  : names.includes(currentStore)
+                    ? currentStore
+                    : names[0];
                 return { stores: names, storeName: newStore, storeListStatus: 'ready', storeListError: null };
               });
               resolveRequest(names);

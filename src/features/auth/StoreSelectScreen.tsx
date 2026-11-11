@@ -16,6 +16,7 @@ import type { StoreDto } from '@/types/system';
 export function StoreSelectScreen() {
   const user = useAuthStore((state) => state.user);
   const selectStore = useAuthStore((state) => state.selectStore);
+  const continueWithoutStore = useAuthStore((state) => state.continueWithoutStore);
   const logout = useAuthStore((state) => state.logout);
   const [stores, setStores] = useState<StoreDto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,6 +30,7 @@ export function StoreSelectScreen() {
   const [submitting, setSubmitting] = useState(false);
   const showToast = useToastStore((state) => state.showToast);
   const canCreateInitial = hasPermission(user?.role, 'store.createInitial');
+  const canSkipStore = hasPermission(user?.role, 'store.manage');
 
   useEffect(() => {
     let cancelled = false;
@@ -123,7 +125,9 @@ export function StoreSelectScreen() {
         ) : stores.length === 0 ? (
           canCreateInitial ? (
             <form onSubmit={createFirstStore} className="mt-6 space-y-3">
-              <p className="text-sm text-zinc-300">目前還沒有門市。請先建立第一間，建立後會直接選為這次登入門市。</p>
+              <p className="text-sm text-zinc-300">
+                目前還沒有門市。可以先建立第一間，或先進入系統管理庫存點，之後再在設定裡建立門市。
+              </p>
               <label htmlFor="first-store-name" className="block text-sm font-medium text-zinc-300">
                 門市名稱
               </label>
@@ -208,6 +212,13 @@ export function StoreSelectScreen() {
               </li>
             ))}
           </ul>
+        )}
+        {canSkipStore && !loading && (
+          <div className="mt-4">
+            <Button type="button" variant="secondary" onClick={continueWithoutStore} disabled={submitting}>
+              先不選門市，進入系統
+            </Button>
+          </div>
         )}
         {error && (
           <p className="mt-4 text-sm text-rose-300" role="alert">

@@ -5,6 +5,7 @@ import { Input } from '@/components/common/Input';
 import { Badge } from '@/components/common/Badge';
 import { checkoutService } from '@/services';
 import { useCartStore } from '@/store/cartStore';
+import { useSessionStore } from '@/store/sessionStore';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { formatCurrency } from '@/utils/currency';
 import { formatDateTime } from '@/utils/date';
@@ -178,6 +179,10 @@ export function ReturnOrderModal({
 
   // 批量確認帶入退貨
   const handleConfirmReturn = () => {
+    if (!useSessionStore.getState().storeName.trim()) {
+      showToast('請先在上方選擇登入門市，才能結帳或辦理退貨。', 'warning');
+      return;
+    }
     const selectedList = Object.values(selectedItems);
     if (selectedList.length === 0) return;
 

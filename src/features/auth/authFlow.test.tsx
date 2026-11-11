@@ -261,6 +261,86 @@ describe('live Google session', () => {
     stop();
   });
 
+  it('lets an admin enter without a store and stay inside when checkout requires one', async () => {
+    const user = userEvent.setup();
+    localStorage.setItem('AUTH_TOKEN', 'pos-session');
+    localStorage.setItem(
+      'FREDS_POS_CART:acct-a',
+      JSON.stringify({ items: [{ productId: 'p1', quantity: 1 }], attachedCustomer: null, shippingFee: 0, orderNote: '未選門市' })
+    );
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.endsWith('/auth/me')) {
+          return json({
+            expiresAt: '2099-01-01T00:00:00.000Z',
+            storeSelected: false,
+            storeName: null,
+            user: admin,
+          });
+        }
+        if (url.endsWith('/auth/stores')) return json([{ name: '奇可門市', isDefault: true }]);
+        if (url.includes('/inventory/locations')) return json([]);
+        if (url.endsWith('/checkout/orders')) {
+          return json({ code: 'AUTH_STORE_REQUIRED', message: '請先選擇門市' }, init?.method === 'POST' ? 403 : 200);
+        }
+        return json({ code: 'NOT_FOUND', message: 'no' }, 404);
+      })
+    );
+    const { AuthGate } = await import('@/features/auth/AuthGate');
+    const { useAuthStore } = await import('@/store/authStore');
+    const { useSessionStore } = await import('@/store/sessionStore');
+    const { httpClient } = await import('@/services/api/httpClient');
+    render(
+      <AuthGate>
+        <div>業務櫃檯</div>
+      </AuthGate>
+    );
+    await user.click(await screen.findByRole('button', { name: '先不選門市，進入系統' }));
+    expect(await screen.findByText('業務櫃檯')).toBeInTheDocument();
+    expect(useAuthStore.getState().phase).toBe('ready');
+    expect(useAuthStore.getState().storeSelected).toBe(false);
+    expect(useSessionStore.getState().storeName).toBe('');
+    expect(useAuthStore.getState().user?.role).toBe('admin');
+
+    await expect(httpClient.post('/checkout/orders', {})).rejects.toThrow('請先選擇門市');
+    expect(useAuthStore.getState().phase).toBe('ready');
+    expect(screen.getByText('業務櫃檯')).toBeInTheDocument();
+  });
+
+  it('does not let staff skip store selection', async () => {
+    localStorage.setItem('AUTH_TOKEN', 'pos-session');
+    const staff = { id: 'acct-staff', email: 'clerk@example.com', name: '店員', role: 'staff' };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith('/auth/me')) {
+          return json({
+            expiresAt: '2099-01-01T00:00:00.000Z',
+            storeSelected: false,
+            storeName: null,
+            user: staff,
+          });
+        }
+        if (url.endsWith('/auth/stores')) return json([]);
+        if (url.includes('/inventory/locations')) return json([]);
+        return json({ code: 'NOT_FOUND', message: 'no' }, 404);
+      })
+    );
+    const { AuthGate } = await import('@/features/auth/AuthGate');
+    render(
+      <AuthGate>
+        <div>業務櫃檯</div>
+      </AuthGate>
+    );
+    expect(await screen.findByRole('heading', { name: '選擇登入門市' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '先不選門市，進入系統' })).not.toBeInTheDocument();
+    expect(screen.getByText(/店員在還沒選門市時不能建立門市/)).toBeInTheDocument();
+    expect(screen.queryByText('業務櫃檯')).not.toBeInTheDocument();
+  });
+
   it('keeps the session on forbidden and store-required responses', async () => {
     localStorage.setItem('AUTH_TOKEN', 'pos-session');
     let role = 'admin';

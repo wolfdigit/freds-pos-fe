@@ -12,6 +12,7 @@ import { ProductDetailModal } from './components/ProductDetailModal';
 import { ReturnOrderModal } from './components/ReturnOrderModal';
 import { OrderDetailModal } from './components/OrderDetailModal';
 import { useCartStore } from '@/store/cartStore';
+import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { productService, checkoutService } from '@/services';
@@ -126,6 +127,10 @@ export function CheckoutPage() {
 
 
   const handleStartCheckout = () => {
+    if (!useSessionStore.getState().storeName.trim()) {
+      showToast('請先在上方選擇登入門市，才能結帳或辦理退貨。', 'warning');
+      return;
+    }
     // 檢查退貨數量是否超過原單上限
     const overReturnItems = cart.items.filter(
       (i) => i.quantity < 0 && i.maxReturnableQty !== undefined && Math.abs(i.quantity) > i.maxReturnableQty
