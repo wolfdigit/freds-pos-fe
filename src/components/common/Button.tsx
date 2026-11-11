@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import { Spinner } from '@/components/feedback/Spinner';
 import { cn } from '@/utils/cn';
 
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'success';
@@ -7,6 +8,8 @@ type Size = 'sm' | 'md' | 'lg';
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
+  /** Shows an in-place spinner and disables the control while a request is in flight. */
+  loading?: boolean;
   children: ReactNode;
 }
 
@@ -24,7 +27,15 @@ const sizeClasses: Record<Size, string> = {
   lg: 'px-6 py-3 text-base',
 };
 
-export function Button({ variant = 'secondary', size = 'md', className, children, ...rest }: ButtonProps) {
+export function Button({
+  variant = 'secondary',
+  size = 'md',
+  className,
+  children,
+  loading = false,
+  disabled,
+  ...rest
+}: ButtonProps) {
   return (
     <button
       className={cn(
@@ -35,8 +46,11 @@ export function Button({ variant = 'secondary', size = 'md', className, children
         sizeClasses[size],
         className
       )}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...rest}
     >
+      {loading ? <Spinner size="sm" className="shrink-0 border-current/30 border-t-current" /> : null}
       {children}
     </button>
   );

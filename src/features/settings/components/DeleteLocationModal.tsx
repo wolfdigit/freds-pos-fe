@@ -148,7 +148,8 @@ export function DeleteLocationModal({
           <Button
             variant="danger"
             type="submit"
-            disabled={isSubmitting || validTargets.length === 0}
+            loading={isSubmitting}
+            disabled={validTargets.length === 0}
             className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-5"
           >
             {isSubmitting ? '執行轉移刪除中...' : '確認移轉庫存並刪除地點'}

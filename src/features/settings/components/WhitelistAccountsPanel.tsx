@@ -37,6 +37,7 @@ export function WhitelistAccountsPanel({
   const [editName, setEditName] = useState('');
   const [editNote, setEditNote] = useState('');
   const [editRole, setEditRole] = useState<'admin' | 'staff'>('staff');
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -73,7 +74,9 @@ export function WhitelistAccountsPanel({
 
   const createAccount = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (pendingAction) return;
     setError(null);
+    setPendingAction('create');
     try {
       await service.createAccount({
         email: email.trim(),
@@ -88,6 +91,8 @@ export function WhitelistAccountsPanel({
       await reload();
     } catch (err) {
       setError(errorMessage(err, '無法新增帳號'));
+    } finally {
+      setPendingAction(null);
     }
   };
 
@@ -103,7 +108,9 @@ export function WhitelistAccountsPanel({
       setError(accountGuardMessage(blocked, 'demote'));
       return;
     }
+    if (pendingAction) return;
     setError(null);
+    setPendingAction(`save:${account.email}`);
     try {
       await service.updateAccount(account.email, {
         name: editName.trim(),
@@ -115,6 +122,8 @@ export function WhitelistAccountsPanel({
     } catch (err) {
       setError(errorMessage(err, '無法更新帳號'));
       await reload();
+    } finally {
+      setPendingAction(null);
     }
   };
 
@@ -129,13 +138,17 @@ export function WhitelistAccountsPanel({
       setError(accountGuardMessage(blocked, 'delete'));
       return;
     }
+    if (pendingAction) return;
     setError(null);
+    setPendingAction(`delete:${account.email}`);
     try {
       await service.deleteAccount(account.email);
       await reload();
     } catch (err) {
       setError(errorMessage(err, '無法刪除帳號'));
       await reload();
+    } finally {
+      setPendingAction(null);
     }
   };
 
@@ -170,8 +183,8 @@ export function WhitelistAccountsPanel({
           <option value="admin">admin</option>
         </select>
         <Input aria-label="附註" value={note} onChange={(event) => setNote(event.target.value)} placeholder="附註" />
-        <Button type="submit" variant="primary">
-          新增帳號
+        <Button type="submit" variant="primary" loading={pendingAction === 'create'} disabled={pendingAction !== null && pendingAction !== 'create'}>
+          {pendingAction === 'create' ? '新增中...' : '新增帳號'}
         </Button>
       </form>
       {error && (
@@ -207,6 +220,7 @@ export function WhitelistAccountsPanel({
                     type="button"
                     size="sm"
                     variant="secondary"
+                    disabled={pendingAction !== null}
                     onClick={() => {
                       setEditingEmail(account.email);
                       setEditName(account.name ?? '');
@@ -220,11 +234,12 @@ export function WhitelistAccountsPanel({
                     type="button"
                     size="sm"
                     variant="danger"
-                    disabled={Boolean(deleteBlocked)}
+                    loading={pendingAction === `delete:${account.email}`}
+                    disabled={Boolean(deleteBlocked) || (pendingAction !== null && pendingAction !== `delete:${account.email}`)}
                     title={deleteBlocked ? accountGuardMessage(deleteBlocked, 'delete') : '刪除帳號'}
                     onClick={() => void removeAccount(account)}
                   >
-                    刪除
+                    {pendingAction === `delete:${account.email}` ? '刪除中...' : '刪除'}
                   </Button>
                 </div>
               </div>
@@ -247,8 +262,14 @@ export function WhitelistAccountsPanel({
                     <option value="staff">staff</option>
                     <option value="admin">admin</option>
                   </select>
-                  <Button type="button" variant="primary" onClick={() => void saveAccount(account)}>
-                    儲存
+                  <Button
+                    type="button"
+                    variant="primary"
+                    loading={pendingAction === `save:${account.email}`}
+                    disabled={pendingAction !== null && pendingAction !== `save:${account.email}`}
+                    onClick={() => void saveAccount(account)}
+                  >
+                    {pendingAction === `save:${account.email}` ? '儲存中...' : '儲存'}
                   </Button>
                 </div>
               )}

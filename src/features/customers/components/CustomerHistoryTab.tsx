@@ -10,6 +10,7 @@ import { ReceiptModal } from '@/features/checkout/components/ReceiptModal';
 import { Modal } from '@/components/common/Modal';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
+import { Spinner } from '@/components/feedback/Spinner';
 
 interface CustomerHistoryTabProps {
   customerId: string;
@@ -18,6 +19,7 @@ interface CustomerHistoryTabProps {
 export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
   const [orders, setOrders] = useState<CheckoutOrder[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null);
 
   // 退換貨彈窗選取狀態
@@ -33,9 +35,17 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
 
   const fetchHistory = () => {
     setLoading(true);
+    setLoadError(null);
     checkoutService
       .getOrderHistory(customerId)
-      .then(setOrders)
+      .then((rows) => {
+        setOrders(rows);
+      })
+      .catch((err) => {
+        console.error(err);
+        setOrders([]);
+        setLoadError('無法載入結帳歷史');
+      })
       .finally(() => setLoading(false));
   };
 
@@ -129,7 +139,20 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
   };
 
   if (loading) {
-    return <p className="py-8 text-center text-base text-zinc-500">載入結帳歷史紀錄中...</p>;
+    return (
+      <div className="flex flex-col items-center justify-center gap-2 py-8 text-base text-zinc-400">
+        <Spinner />
+        <p>載入結帳歷史紀錄中...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <p className="py-8 text-center text-base text-rose-300" role="alert">
+        {loadError}
+      </p>
+    );
   }
 
   if (orders.length === 0) {

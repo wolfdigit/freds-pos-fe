@@ -47,7 +47,11 @@ export function LoginScreen() {
         <p className="mt-3 text-sm leading-relaxed text-zinc-400">
           只使用 Google 已驗證的 email 比對使用者管理中的帳號。不會要求 Gmail 權限，也不會在這裡建立新帳號。
         </p>
-        <div className="mt-6 min-h-11" ref={buttonHost} />
+        <div
+          className={`mt-6 min-h-11 ${submitting ? 'pointer-events-none opacity-60' : ''}`}
+          ref={buttonHost}
+          aria-busy={submitting || undefined}
+        />
         {submitting && (
           <div className="mt-4 flex items-center gap-2 text-sm text-zinc-300">
             <Spinner size="sm" />

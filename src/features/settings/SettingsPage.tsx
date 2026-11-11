@@ -49,6 +49,9 @@ export function SettingsPage() {
   const { locations, isLoading, reloadLocations } = useLocations();
 
   const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [productsFailed, setProductsFailed] = useState(false);
+  const [storePending, setStorePending] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SettingsSection>('locations');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<StockLocationDto | null>(null);
@@ -58,11 +61,15 @@ export function SettingsPage() {
   const [newStoreInput, setNewStoreInput] = useState('');
 
   const loadProducts = useCallback(async () => {
+    setProductsLoading(true);
+    setProductsFailed(false);
     try {
       const data = await productService.searchProducts({});
       setProducts(data);
     } catch {
-      // ignore
+      setProductsFailed(true);
+    } finally {
+      setProductsLoading(false);
     }
   }, []);
 
@@ -120,12 +127,18 @@ export function SettingsPage() {
       showToast('請輸入門市名稱', 'error');
       return;
     }
-    const success = await addStore(clean);
-    if (success) {
-      showToast(`成功新增門市：「${clean}」`, 'success');
-      setNewStoreInput('');
-    } else {
-      showToast(`門市「${clean}」已存在於清單中`, 'warning');
+    if (storePending) return;
+    setStorePending('add');
+    try {
+      const success = await addStore(clean);
+      if (success) {
+        showToast(`成功新增門市：「${clean}」`, 'success');
+        setNewStoreInput('');
+      } else {
+        showToast(`門市「${clean}」已存在於清單中`, 'warning');
+      }
+    } finally {
+      setStorePending(null);
     }
   };
 
@@ -139,12 +152,18 @@ export function SettingsPage() {
       showToast('系統至少需保留一間門市，無法全數刪除', 'error');
       return;
     }
-    const success = await removeStore(name);
-    if (success) {
-      showToast(`已刪除門市：「${name}」`, 'info');
-      if (!isMockService && storeName === name) {
-        showToast('已刪除目前登入門市。請再選擇一間登入門市，訂單才會歸到新的門市。', 'warning', 8000);
+    if (storePending) return;
+    setStorePending(`remove:${name}`);
+    try {
+      const success = await removeStore(name);
+      if (success) {
+        showToast(`已刪除門市：「${name}」`, 'info');
+        if (!isMockService && storeName === name) {
+          showToast('已刪除目前登入門市。請再選擇一間登入門市，訂單才會歸到新的門市。', 'warning', 8000);
+        }
       }
+    } finally {
+      setStorePending(null);
     }
   };
 
@@ -230,7 +249,16 @@ export function SettingsPage() {
                 <span>•</span>
                 <span>啟用中: <strong className="text-emerald-400 font-mono text-base font-bold">{activeLocationsCount}</strong> 個</span>
                 <span>•</span>
-                <span>全據點在庫總量: <strong className="text-amber-400 font-mono text-base font-bold">{totalStockAllLocations}</strong> 台</span>
+                <span>全據點在庫總量: {productsLoading ? (
+                  <span className="inline-flex items-center gap-1 align-middle text-zinc-400">
+                    <Spinner size="sm" />
+                    讀取中
+                  </span>
+                ) : productsFailed ? (
+                  <strong className="text-rose-300">讀取失敗</strong>
+                ) : (
+                  <strong className="text-amber-400 font-mono text-base font-bold">{totalStockAllLocations}</strong>
+                )}{productsLoading || productsFailed ? '' : ' 台'}</span>
               </div>
 
               <Button
@@ -308,18 +336,27 @@ export function SettingsPage() {
 
                             {/* 現有庫存數量 */}
                             <td className="py-3.5 px-3 text-right">
-                              <div className="flex flex-col items-end">
-                                <span
-                                  className={`font-mono text-base font-bold ${
-                                    stats.totalQty > 0 ? 'text-emerald-400' : 'text-zinc-500'
-                                  }`}
-                                >
-                                  {stats.totalQty} 台
+                              {productsLoading ? (
+                                <span className="inline-flex items-center justify-end gap-2 text-zinc-400">
+                                  <Spinner size="sm" />
+                                  讀取中
                                 </span>
-                                <span className="text-xs text-zinc-500 font-mono">
-                                  {stats.productCount} 項現貨商品
-                                </span>
-                              </div>
+                              ) : productsFailed ? (
+                                <span className="text-rose-300">讀取失敗</span>
+                              ) : (
+                                <div className="flex flex-col items-end">
+                                  <span
+                                    className={`font-mono text-base font-bold ${
+                                      stats.totalQty > 0 ? 'text-emerald-400' : 'text-zinc-500'
+                                    }`}
+                                  >
+                                    {stats.totalQty} 台
+                                  </span>
+                                  <span className="text-xs text-zinc-500 font-mono">
+                                    {stats.productCount} 項現貨商品
+                                  </span>
+                                </div>
+                              )}
                             </td>
 
                             {/* 啟用狀態 */}
@@ -388,13 +425,16 @@ export function SettingsPage() {
                 onChange={(e) => setNewStoreInput(e.target.value)}
                 placeholder="輸入新門市名稱 (例如: 台中公益店, 台南西門店)"
                 className="flex-1 font-semibold"
+                disabled={storePending !== null}
               />
               <Button
                 type="submit"
                 variant="primary"
+                loading={storePending === 'add'}
+                disabled={storePending !== null && storePending !== 'add'}
                 className="bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-bold px-4 whitespace-nowrap"
               >
-                新增門市
+                {storePending === 'add' ? '新增中...' : '新增門市'}
               </Button>
             </form>
 
@@ -423,20 +463,28 @@ export function SettingsPage() {
                         <Button
                           size="sm"
                           variant="secondary"
+                          loading={storePending === `switch:${store}`}
+                          disabled={storePending !== null && storePending !== `switch:${store}`}
                           onClick={() => {
+                            if (storePending) return;
+                            setStorePending(`switch:${store}`);
                             void (async () => {
-                              const result = await switchLoginStore(store);
-                              if (!result.ok) {
-                                showToast(result.message, 'error');
-                                return;
+                              try {
+                                const result = await switchLoginStore(store);
+                                if (!result.ok) {
+                                  showToast(result.message, 'error');
+                                  return;
+                                }
+                                if (result.cartItemCount > 0) showToast(storeSwitchNotice(store), 'warning', 8000);
+                                else showToast(`已切換目前登入門市為「${store}」`, 'info');
+                              } finally {
+                                setStorePending(null);
                               }
-                              if (result.cartItemCount > 0) showToast(storeSwitchNotice(store), 'warning', 8000);
-                              else showToast(`已切換目前登入門市為「${store}」`, 'info');
                             })();
                           }}
                           className="text-xs px-2.5 py-1 border-zinc-700 hover:border-emerald-500 hover:text-emerald-300"
                         >
-                          設為登入門市
+                          {storePending === `switch:${store}` ? '切換中...' : '設為登入門市'}
                         </Button>
                       )}
 
@@ -444,11 +492,12 @@ export function SettingsPage() {
                         size="sm"
                         variant="danger"
                         onClick={() => handleRemoveStore(store)}
-                        disabled={stores.length <= 1}
+                        loading={storePending === `remove:${store}`}
+                        disabled={stores.length <= 1 || (storePending !== null && storePending !== `remove:${store}`)}
                         className="text-xs px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60"
                         title={stores.length <= 1 ? '至少需保留一間門市' : `刪除門市「${store}」`}
                       >
-                        刪除
+                        {storePending === `remove:${store}` ? '刪除中...' : '刪除'}
                       </Button>
                     </div>
                   </div>

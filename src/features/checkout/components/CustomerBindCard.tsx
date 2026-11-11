@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Badge } from '@/components/common/Badge';
+import { Spinner } from '@/components/feedback/Spinner';
 import { useCartStore } from '@/store/cartStore';
 import { useUiStore } from '@/store/uiStore';
 import { customerService } from '@/services';
@@ -11,6 +12,7 @@ export function CustomerBindCard() {
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<Customer[]>([]);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const showToast = useToastStore((s) => s.showToast);
 
@@ -21,16 +23,30 @@ export function CustomerBindCard() {
     if (!trimmed) {
       setSuggestions([]);
       setIsDropdownOpen(false);
+      setIsSearching(false);
       return;
     }
 
+    setIsSearching(true);
     const timer = setTimeout(() => {
-      customerService.searchCustomers({ keyword: trimmed }).then((results) => {
-        if (!cancelled) {
-          setSuggestions(results.items);
-          setIsDropdownOpen(results.items.length > 0);
-        }
-      });
+      customerService
+        .searchCustomers({ keyword: trimmed })
+        .then((results) => {
+          if (!cancelled) {
+            setSuggestions(results.items);
+            setIsDropdownOpen(results.items.length > 0);
+          }
+        })
+        .catch((err) => {
+          console.error(err);
+          if (!cancelled) {
+            setSuggestions([]);
+            setIsDropdownOpen(false);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setIsSearching(false);
+        });
     }, 150);
 
     return () => {
@@ -109,8 +125,15 @@ export function CustomerBindCard() {
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => query.trim() && suggestions.length > 0 && setIsDropdownOpen(true)}
           placeholder="輸入電話、姓名或信箱查詢會員 (即時自動展開清單)"
-          className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2.5 pr-10 font-mono text-base text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400"
+          className={`w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2.5 font-mono text-base text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+            isSearching ? 'pr-16' : 'pr-10'
+          }`}
         />
+        {isSearching && (
+          <span className="absolute right-10 top-1/2 -translate-y-1/2">
+            <Spinner size="sm" />
+          </span>
+        )}
         {query && (
           <button
             type="button"
@@ -125,6 +148,13 @@ export function CustomerBindCard() {
           </button>
         )}
       </div>
+
+      {isSearching && query.trim() && !isDropdownOpen && (
+        <div className="absolute left-0 right-0 top-full z-30 mt-1 flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-300 shadow-2xl">
+          <Spinner size="sm" />
+          <span>搜尋會員中...</span>
+        </div>
+      )}
 
       {/* 自動彈出會員下拉列表 */}
       {isDropdownOpen && suggestions.length > 0 && (

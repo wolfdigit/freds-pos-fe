@@ -267,10 +267,10 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
         </div>
 
         <div className="flex justify-end gap-3 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
             取消
           </Button>
-          <Button type="submit" variant="primary" disabled={isSubmitting}>
+          <Button type="submit" variant="primary" loading={isSubmitting}>
             {isSubmitting ? '建檔中...' : '確認建檔'}
           </Button>
         </div>

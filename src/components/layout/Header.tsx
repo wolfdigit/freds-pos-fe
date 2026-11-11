@@ -4,6 +4,7 @@ import { useUiStore } from '@/store/uiStore';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Modal } from '@/components/common/Modal';
+import { Spinner } from '@/components/feedback/Spinner';
 import { displayAccountName } from '@/auth/displayName';
 import { hasPermission } from '@/auth/permissions';
 import { storeSwitchNotice } from '@/auth/storeSwitch';
@@ -50,6 +51,9 @@ export function Header() {
   const [customStoreOpen, setCustomStoreOpen] = useState(false);
   const [customStoreName, setCustomStoreName] = useState('');
   const [customStoreError, setCustomStoreError] = useState('');
+  const [switchingStore, setSwitchingStore] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [retryingStores, setRetryingStores] = useState(false);
 
   useEffect(() => {
     void fetchStores();
@@ -82,15 +86,20 @@ export function Header() {
       setCustomStoreOpen(true);
       return;
     }
-    if (!val || val === storeName) return;
+    if (!val || val === storeName || switchingStore) return;
+    setSwitchingStore(true);
     void (async () => {
-      const result = await switchLoginStore(val);
-      if (!result.ok) {
-        showToast(result.message, 'error');
-        return;
+      try {
+        const result = await switchLoginStore(val);
+        if (!result.ok) {
+          showToast(result.message, 'error');
+          return;
+        }
+        if (result.cartItemCount > 0) showToast(storeSwitchNotice(val), 'warning', 8000);
+        else showToast(`已成功更換登入門市為：「${val}」`, 'success');
+      } finally {
+        setSwitchingStore(false);
       }
-      if (result.cartItemCount > 0) showToast(storeSwitchNotice(val), 'warning', 8000);
-      else showToast(`已成功更換登入門市為：「${val}」`, 'success');
     })();
   };
 
@@ -107,14 +116,18 @@ export function Header() {
   };
 
   const handleLogoutClick = () => {
+    if (loggingOut) return;
     if (isMockService) {
       showToast('示範模式使用本機資料，沒有伺服器登入階段', 'warning');
       return;
     }
-    void logout().then(() => {
-      const message = useAuthStore.getState().errorMessage;
-      if (message) showToast(message, 'error');
-    });
+    setLoggingOut(true);
+    void logout()
+      .then(() => {
+        const message = useAuthStore.getState().errorMessage;
+        if (message) showToast(message, 'error');
+      })
+      .finally(() => setLoggingOut(false));
   };
 
   return (
@@ -137,7 +150,9 @@ export function Header() {
               value={storeName}
               onChange={handleStoreChange}
               aria-label="登入門市"
-              className="cursor-pointer rounded-lg border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-sm font-semibold text-cyan-300 shadow-sm transition-all hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+              aria-busy={switchingStore || undefined}
+              disabled={switchingStore}
+              className="cursor-pointer rounded-lg border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-sm font-semibold text-cyan-300 shadow-sm transition-all hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-wait disabled:opacity-60"
               title="點擊更改登入門市"
             >
               {availableStores.map((s) => (
@@ -150,15 +165,26 @@ export function Header() {
               )}
             </select>
           ) : (
-            <span className="text-sm font-semibold text-cyan-300">{storeName || '讀取門市清單'}</span>
+            <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-cyan-300">
+              {storeListStatus === 'loading' && <Spinner size="sm" />}
+              {storeName || (storeListStatus === 'loading' ? '讀取門市清單中...' : '讀取門市清單')}
+            </span>
           )}
+          {switchingStore && <Spinner size="sm" />}
           {storeListStatus === 'error' && (
             <button
               type="button"
-              onClick={() => void fetchStores()}
-              className="rounded border border-rose-800 px-2 py-0.5 text-xs text-rose-300"
+              disabled={retryingStores}
+              aria-busy={retryingStores || undefined}
+              onClick={() => {
+                if (retryingStores) return;
+                setRetryingStores(true);
+                void fetchStores().finally(() => setRetryingStores(false));
+              }}
+              className="inline-flex items-center gap-1 rounded border border-rose-800 px-2 py-0.5 text-xs text-rose-300 disabled:cursor-wait disabled:opacity-60"
             >
-              重試
+              {retryingStores && <Spinner size="sm" />}
+              {retryingStores ? '重試中...' : '重試'}
             </button>
           )}
         </div>
@@ -177,11 +203,15 @@ export function Header() {
             {userRole === 'admin' ? '管理員' : userRole === 'staff' ? '店員' : '未登入'}
           </span>
           <button
+            type="button"
             onClick={handleLogoutClick}
+            disabled={loggingOut}
+            aria-busy={loggingOut || undefined}
             title={isMockService ? '示範模式沒有伺服器登入' : '登出這個裝置'}
-            className="rounded border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-xs text-zinc-300 shadow-sm transition-all hover:border-rose-700/80 hover:bg-rose-950/60 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400"
+            className="inline-flex items-center gap-1 rounded border border-zinc-700 bg-zinc-800/80 px-2 py-0.5 text-xs text-zinc-300 shadow-sm transition-all hover:border-rose-700/80 hover:bg-rose-950/60 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-wait disabled:opacity-60"
           >
-            登出
+            {loggingOut && <Spinner size="sm" />}
+            {loggingOut ? '登出中...' : '登出'}
           </button>
         </div>
       </div>

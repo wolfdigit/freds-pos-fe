@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { checkoutService } from '@/services';
 import { useCartStore } from '@/store/cartStore';
 import { useToastStore } from '@/components/feedback/toastStore';
@@ -7,6 +7,7 @@ import type { CheckoutReceipt, CreateOrderPayload, PaymentTender } from '@/types
 
 export function useCheckoutWorkflow() {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const inFlight = useRef(false);
   const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null);
   const { items, attachedCustomer, shippingFee, orderNote, clearCart } = useCartStore();
   const showToast = useToastStore((s) => s.showToast);
@@ -24,6 +25,8 @@ export function useCheckoutWorkflow() {
       return null;
     }
 
+    if (inFlight.current) return null;
+    inFlight.current = true;
     setIsSubmitting(true);
     try {
       // 門市與收銀員由後端 session 決定。不要在 body 帶 branchId。
@@ -60,6 +63,7 @@ export function useCheckoutWorkflow() {
       }
       return null;
     } finally {
+      inFlight.current = false;
       setIsSubmitting(false);
     }
   };

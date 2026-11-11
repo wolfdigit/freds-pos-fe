@@ -44,11 +44,11 @@ export function ReportsPage() {
             variant="secondary"
             size="sm"
             onClick={reload}
-            disabled={isLoading}
+            loading={isLoading}
             className="flex items-center gap-1 text-xs px-2.5 py-1.5"
             title="重新整理訂單數據"
           >
-            <span>重新整理</span>
+            <span>{isLoading ? '重新整理中...' : '重新整理'}</span>
           </Button>
         </div>
       </div>

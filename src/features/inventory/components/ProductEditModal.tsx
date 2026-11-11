@@ -201,10 +201,10 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
         </div>
 
         <div className="flex justify-end gap-3 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>
+          <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>
             取消
           </Button>
-          <Button type="submit" variant="primary" disabled={isSubmitting}>
+          <Button type="submit" variant="primary" loading={isSubmitting}>
             {isSubmitting ? '儲存中...' : '確認更新'}
           </Button>
         </div>

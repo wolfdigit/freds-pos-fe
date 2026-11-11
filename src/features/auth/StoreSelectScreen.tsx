@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { hasPermission } from '@/auth/permissions';
 import { errorMessage } from '@/auth/businessError';
 import { storeSwitchNotice } from '@/auth/storeSwitch';
@@ -21,6 +21,9 @@ export function StoreSelectScreen() {
   const [error, setError] = useState<string | null>(null);
   const [newStoreName, setNewStoreName] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [pendingStore, setPendingStore] = useState<string | null>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const busyRef = useRef(false);
   const showToast = useToastStore((state) => state.showToast);
   const canCreateInitial = hasPermission(user?.role, 'store.createInitial');
 
@@ -44,8 +47,11 @@ export function StoreSelectScreen() {
   }, []);
 
   const choose = async (storeName: string) => {
+    if (busyRef.current || loggingOut) return;
+    busyRef.current = true;
     setError(null);
     setSubmitting(true);
+    setPendingStore(storeName);
     const savedItems = user?.id ? readPersistedCart(user.id).items.length : 0;
     try {
       await selectStore(storeName);
@@ -53,7 +59,9 @@ export function StoreSelectScreen() {
     } catch (err) {
       setError(errorMessage(err, '無法選擇門市'));
     } finally {
+      busyRef.current = false;
       setSubmitting(false);
+      setPendingStore(null);
     }
   };
 
@@ -64,14 +72,26 @@ export function StoreSelectScreen() {
       setError('請填寫門市名稱');
       return;
     }
+    if (busyRef.current || loggingOut) return;
+    busyRef.current = true;
     setSubmitting(true);
+    setPendingStore(name);
     setError(null);
+    const savedItems = user?.id ? readPersistedCart(user.id).items.length : 0;
     try {
       await systemService.createStore({ name });
-      await choose(name);
+      try {
+        await selectStore(name);
+        if (savedItems > 0) showToast(storeSwitchNotice(name), 'warning', 8000);
+      } catch (err) {
+        setError(errorMessage(err, '無法選擇門市'));
+      }
     } catch (err) {
       setError(errorMessage(err, '無法建立門市'));
+    } finally {
+      busyRef.current = false;
       setSubmitting(false);
+      setPendingStore(null);
     }
   };
 
@@ -99,8 +119,8 @@ export function StoreSelectScreen() {
                 onChange={(event) => setNewStoreName(event.target.value)}
                 placeholder="例如：奇可門市"
               />
-              <Button type="submit" variant="primary" disabled={submitting}>
-                建立並進入
+              <Button type="submit" variant="primary" loading={submitting} disabled={loggingOut}>
+                {submitting ? '建立中...' : '建立並進入'}
               </Button>
             </form>
           ) : (
@@ -114,11 +134,19 @@ export function StoreSelectScreen() {
               <li key={store.name}>
                 <button
                   type="button"
-                  disabled={submitting}
+                  disabled={submitting || loggingOut}
+                  aria-busy={(submitting && pendingStore === store.name) || undefined}
                   onClick={() => void choose(store.name)}
-                  className="flex w-full items-center justify-between rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-left hover:border-cyan-500 disabled:opacity-60"
+                  className="flex w-full items-center justify-between rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-left hover:border-cyan-500 disabled:cursor-wait disabled:opacity-60"
                 >
-                  <span className="font-semibold">{store.name}</span>
+                  {submitting && pendingStore === store.name ? (
+                    <span className="inline-flex items-center gap-2 font-semibold">
+                      <Spinner size="sm" />
+                      登入中...
+                    </span>
+                  ) : (
+                    <span className="font-semibold">{store.name}</span>
+                  )}
                   {store.isDefault && <span className="text-xs text-cyan-300">預設</span>}
                 </button>
               </li>
@@ -131,8 +159,18 @@ export function StoreSelectScreen() {
           </p>
         )}
         <div className="mt-6">
-          <Button type="button" variant="ghost" onClick={() => void logout()}>
-            登出
+          <Button
+            type="button"
+            variant="ghost"
+            loading={loggingOut}
+            disabled={submitting}
+            onClick={() => {
+              if (loggingOut || submitting) return;
+              setLoggingOut(true);
+              void logout().finally(() => setLoggingOut(false));
+            }}
+          >
+            {loggingOut ? '登出中...' : '登出'}
           </Button>
         </div>
       </section>

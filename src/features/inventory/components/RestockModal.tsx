@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
+import { Spinner } from '@/components/feedback/Spinner';
 import type { Product, StockLocation } from '@/types/product';
 import type { StockItemAdjustment } from '@/types/inventory';
 import { productService } from '@/services';
@@ -43,9 +44,13 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
 
   const [restockBatch, setRestockBatch] = useState<RestockItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const searchReqIdRef = useRef(0);
+  const addingRef = useRef(false);
+  const confirmingRef = useRef(false);
 
   // 1. 將搜尋結果依照 barcode 分組 (完整條碼相同才併入同一組)
   const productGroups = useMemo(() => {
@@ -151,22 +156,28 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
     setBarcodeInput(val);
     const query = val.trim();
     if (!query) {
+      searchReqIdRef.current += 1;
       setMatchedProducts([]);
+      setIsSearching(false);
       return;
     }
 
     const reqId = ++searchReqIdRef.current;
+    setIsSearching(true);
     try {
       const results = await productService.searchProducts({ keyword: query });
       if (reqId === searchReqIdRef.current) {
         setMatchedProducts(results);
       }
     } catch {
-      // ignore
+      if (reqId === searchReqIdRef.current) setMatchedProducts([]);
+    } finally {
+      if (reqId === searchReqIdRef.current) setIsSearching(false);
     }
   };
 
   const handleProcessBarcode = async (directQuery?: string) => {
+    if (addingRef.current || isSubmitting) return;
     const query = (directQuery !== undefined ? directQuery : barcodeInput).trim();
     if (!query && !selectedProduct) {
       showToast('請先掃描或輸入條碼/貨號', 'error');
@@ -180,46 +191,52 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
     }
 
     let targetProduct: Product | undefined = selectedProduct ?? undefined;
-
-    // 若尚未匹配到商品（例如條碼槍瞬間送出 Enter），立即執行即時搜尋
-    if (!targetProduct && query) {
-      try {
-        const results = await productService.searchProducts({ keyword: query });
-        if (results.length === 0) {
-          showToast(`找不到條碼/貨號「${query}」對應的商品`, 'error');
+    addingRef.current = true;
+    setIsAdding(true);
+    try {
+      // 若尚未匹配到商品（例如條碼槍瞬間送出 Enter），立即執行即時搜尋
+      if (!targetProduct && query) {
+        try {
+          const results = await productService.searchProducts({ keyword: query });
+          if (results.length === 0) {
+            showToast(`找不到條碼/貨號「${query}」對應的商品`, 'error');
+            return;
+          }
+          setMatchedProducts(results);
+          targetProduct = results[0];
+        } catch {
+          showToast('搜尋商品失敗，請重試', 'error');
           return;
         }
-        setMatchedProducts(results);
-        targetProduct = results[0];
-      } catch {
-        showToast('搜尋商品失敗，請重試', 'error');
+      }
+
+      if (!targetProduct) {
+        showToast('請先掃描或選擇進貨商品', 'error');
         return;
       }
+
+      // 加入進貨批次清單
+      setRestockBatch((prev) => {
+        const idx = prev.findIndex(
+          (item) => item.product.id === targetProduct!.id && item.targetLocation === targetLocation
+        );
+        if (idx !== -1) {
+          const next = [...prev];
+          next[idx] = { ...next[idx], restockQty: next[idx].restockQty + qty };
+          return next;
+        }
+        return [...prev, { product: targetProduct!, targetLocation, restockQty: qty }];
+      });
+
+      showToast(`已加入進貨: ${targetProduct.sku} (${qty}台)`, 'success');
+      setBarcodeInput('');
+      setMatchedProducts([]);
+      setQuantity('1');
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } finally {
+      addingRef.current = false;
+      setIsAdding(false);
     }
-
-    if (!targetProduct) {
-      showToast('請先掃描或選擇進貨商品', 'error');
-      return;
-    }
-
-    // 加入進貨批次清單
-    setRestockBatch((prev) => {
-      const idx = prev.findIndex(
-        (item) => item.product.id === targetProduct!.id && item.targetLocation === targetLocation
-      );
-      if (idx !== -1) {
-        const next = [...prev];
-        next[idx] = { ...next[idx], restockQty: next[idx].restockQty + qty };
-        return next;
-      }
-      return [...prev, { product: targetProduct!, targetLocation, restockQty: qty }];
-    });
-
-    showToast(`已加入進貨: ${targetProduct.sku} (${qty}台)`, 'success');
-    setBarcodeInput('');
-    setMatchedProducts([]);
-    setQuantity('1');
-    setTimeout(() => inputRef.current?.focus(), 50);
   };
 
   const handleBarcodeKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -251,11 +268,14 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
   };
 
   const handleConfirmRestock = async () => {
-    if (restockBatch.length === 0) {
-      showToast('進貨批次清單為空', 'error');
+    if (confirmingRef.current || addingRef.current || restockBatch.length === 0) {
+      if (!confirmingRef.current && !addingRef.current && restockBatch.length === 0) {
+        showToast('進貨批次清單為空', 'error');
+      }
       return;
     }
 
+    confirmingRef.current = true;
     setIsSubmitting(true);
     try {
       const adjustments: StockItemAdjustment[] = restockBatch.map((item) => {
@@ -297,6 +317,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
     } catch {
       showToast('進貨處理失敗，請再試一次', 'error');
     } finally {
+      confirmingRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -350,7 +371,12 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
 
           {/* 條碼匹配結果與選擇區 */}
           <div className="min-h-[140px] rounded-xl border border-zinc-800 bg-zinc-950/80 p-3 flex flex-col justify-center">
-            {productGroups.length === 0 ? (
+            {isSearching && productGroups.length === 0 ? (
+              <div className="flex h-24 items-center justify-center gap-2 text-sm text-zinc-400">
+                <Spinner size="sm" />
+                <span>搜尋商品中...</span>
+              </div>
+            ) : productGroups.length === 0 ? (
               <div className="flex h-24 flex-col items-center justify-center text-zinc-500 font-mono text-sm">
                 <span>請於上方掃描條碼或輸入貨號 SKU</span>
               </div>
@@ -497,10 +523,11 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
             <Button
               variant="primary"
               onClick={() => handleProcessBarcode()}
+              loading={isAdding}
               disabled={!barcodeInput.trim() && !selectedProduct}
               className="bg-cyan-500 text-zinc-950 font-bold px-4 py-2"
             >
-              加入進貨批次清單
+              {isAdding ? '加入中...' : '加入進貨批次清單'}
             </Button>
           </div>
         </div>
@@ -611,7 +638,8 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
           <Button
             variant="primary"
             onClick={handleConfirmRestock}
-            disabled={isSubmitting || restockBatch.length === 0}
+            loading={isSubmitting}
+            disabled={restockBatch.length === 0}
             className="bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-bold px-5"
           >
             {isSubmitting ? '寫入進貨庫存中...' : '確認完成進貨 (產生理貨單)'}
