@@ -9,6 +9,7 @@ import { Modal } from '@/components/common/Modal';
 import { Spinner } from '@/components/feedback/Spinner';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { useLocations } from '@/features/inventory/hooks/useLocations';
+import { invalidateLocationCatalog } from '@/features/inventory/locationCatalog';
 import { CreateLocationModal } from './components/CreateLocationModal';
 import { EditLocationModal } from './components/EditLocationModal';
 import { DeleteLocationModal } from './components/DeleteLocationModal';
@@ -133,6 +134,11 @@ export function SettingsPage() {
     void refreshStoreRecords();
   };
 
+  const refreshLocationView = useCallback(() => {
+    void reloadLocations({ silent: true });
+    void loadProducts();
+  }, [reloadLocations, loadProducts]);
+
   // 門市新增處理
   const handleAddStoreSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,6 +163,7 @@ export function SettingsPage() {
     if (success) {
       showToast(`成功新增門市：「${clean}」`, 'success');
       setNewStoreInput('');
+      invalidateLocationCatalog();
     } else {
       showToast(`門市「${clean}」已存在於清單中`, 'warning');
     }
@@ -175,6 +182,7 @@ export function SettingsPage() {
     const success = await removeStore(name);
     if (success) {
       showToast(`已刪除門市：「${name}」`, 'info');
+      invalidateLocationCatalog();
       if (!isMockService && storeName === name) {
         showToast('已刪除目前登入門市。請再選擇一間登入門市，訂單才會歸到新的門市。', 'warning', 8000);
       }
@@ -574,15 +582,9 @@ export function SettingsPage() {
       {/* 刪除地點與庫存轉移彈窗 */}
       <DeleteLocationModal
         location={deletingLocation}
-        availableTargets={locations.filter((l) => l.id !== deletingLocation?.id)}
-        hasQuantity={Boolean(
-          deletingLocation &&
-            products.some((product) =>
-              product.inventories.some((row) => row.location === deletingLocation.id && row.quantity !== 0)
-            )
-        )}
         onClose={() => setDeletingLocation(null)}
         onSuccess={handleDataRefresh}
+        onRefresh={refreshLocationView}
       />
       {editingStoreName && (
         <StoreRebindForm
@@ -595,6 +597,7 @@ export function SettingsPage() {
           onSaved={() => {
             setEditingStoreName(null);
             void refreshStoreRecords();
+            invalidateLocationCatalog();
           }}
         />
       )}

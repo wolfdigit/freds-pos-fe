@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSessionEnd, readBusinessError } from './businessError';
+import { errorDetail, isSessionEnd, readBusinessError, readValidationMessage } from './businessError';
 
 describe('backend auth error envelope', () => {
   it('reads { code, message } and does not invent a wrapper', () => {
@@ -8,6 +8,21 @@ describe('backend auth error envelope', () => {
       message: '門市不存在',
     });
     expect(readBusinessError({ detail: [{ msg: 'field required' }] })).toEqual({ code: null, message: null });
+  });
+
+  it('reads validation text that is not a business error envelope', () => {
+    expect(readValidationMessage({ detail: [{ msg: 'field required' }] })).toBe('field required');
+    expect(readValidationMessage({
+      errors: { Name: ['The field Name must be a string with a maximum length of 64.'] },
+    })).toBe('The field Name must be a string with a maximum length of 64.');
+  });
+
+  it('prefers the validation body over a generic HTTP wrapper and keeps the code', () => {
+    const err = Object.assign(new Error('API 請求失敗 (400)：/inventory/locations/loc'), {
+      code: 'INVENTORY_LOCATION_IN_USE',
+      responseBody: { code: 'INVENTORY_LOCATION_IN_USE', message: '門市仍綁定此庫存點' },
+    });
+    expect(errorDetail(err, '刪除地點失敗')).toBe('門市仍綁定此庫存點（INVENTORY_LOCATION_IN_USE）');
   });
 
   it('ends the session only for the 401 session codes', () => {

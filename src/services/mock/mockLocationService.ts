@@ -16,6 +16,7 @@ import {
   renameInventoryCopies,
 } from './inventoryCatalog';
 import { BusinessError } from '@/utils/errors';
+import { validateLocationName } from '@/utils/locationName';
 
 function readStoredLocations(): InventoryLocationDto[] {
   const raw = localStorage.getItem(LOCATIONS_STORAGE_KEY);
@@ -56,8 +57,9 @@ export class MockLocationService implements ILocationService {
 
   async createLocation(location: CreateInventoryLocationRequest): Promise<InventoryLocationDto> {
     await simulateDelay(50, 100);
+    const nameError = validateLocationName(location.name);
+    if (nameError) throw new BusinessError(location.name.trim() ? 'LOCATION_NAME_TOO_LONG' : 'INVALID_LOCATION_TRANSFER', nameError);
     const name = location.name.trim();
-    if (!name) throw new BusinessError('INVALID_LOCATION_TRANSFER', '地點名稱不可空白');
     const current = readStoredLocations();
     if (current.some((row) => row.name === name)) {
       throw new BusinessError('LOCATION_NAME_TAKEN', '庫存點名稱已存在');
@@ -81,6 +83,12 @@ export class MockLocationService implements ILocationService {
     const idx = current.findIndex((location) => location.id === id);
     if (idx === -1) throw new BusinessError('LOCATION_NOT_FOUND', '找不到庫存地點');
     const name = data.name !== undefined ? data.name.trim() : current[idx].name;
+    if (data.name !== undefined) {
+      const nameError = validateLocationName(data.name);
+      if (nameError) {
+        throw new BusinessError(name ? 'LOCATION_NAME_TOO_LONG' : 'INVALID_LOCATION_TRANSFER', nameError);
+      }
+    }
     if (!name) throw new BusinessError('INVALID_LOCATION_TRANSFER', '地點名稱不可空白');
     if (current.some((location) => location.id !== id && location.name === name)) {
       throw new BusinessError('LOCATION_NAME_TAKEN', '庫存點名稱已存在');

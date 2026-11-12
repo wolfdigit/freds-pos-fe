@@ -5,7 +5,8 @@ import { Input } from '@/components/common/Input';
 import { locationService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import type { InventoryLocationDto } from '@/types/inventory';
-import { errorMessage } from '@/auth/businessError';
+import { errorDetail } from '@/auth/businessError';
+import { LOCATION_NAME_MAX_LENGTH, validateLocationName } from '@/utils/locationName';
 
 interface EditLocationModalProps {
   location: InventoryLocationDto | null;
@@ -26,12 +27,14 @@ export function EditLocationModal({
   const [icon, setIcon] = useState('📍');
   const [displayOrder, setDisplayOrder] = useState('1');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (location) {
       setName(location.name || '');
       setIcon(location.icon || '📍');
       setDisplayOrder(String(location.displayOrder ?? 1));
+      setFormError(null);
     }
   }, [location]);
 
@@ -40,13 +43,15 @@ export function EditLocationModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName = name.trim();
-
-    if (!cleanName) {
-      showToast('請輸入地點名稱', 'error');
+    const nameError = validateLocationName(name);
+    if (nameError) {
+      setFormError(nameError);
+      showToast(nameError, 'error');
       return;
     }
 
     setIsSubmitting(true);
+    setFormError(null);
     try {
       const updated = await locationService.updateLocation(location.id, {
         name: cleanName,
@@ -58,7 +63,9 @@ export function EditLocationModal({
       onSuccess(updated);
       onClose();
     } catch (err) {
-      showToast(errorMessage(err, '更新地點失敗，請重試'), 'error');
+      const text = errorDetail(err, '更新地點失敗，請重試');
+      setFormError(text);
+      showToast(text, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -74,12 +81,20 @@ export function EditLocationModal({
           <Input
             id="edit-location-name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              setFormError(null);
+            }}
             placeholder="例如: 高雄巨蛋門市"
             required
             autoFocus
+            maxLength={LOCATION_NAME_MAX_LENGTH}
             className="font-bold text-lg"
           />
+          <span className="mt-1 block text-xs text-zinc-500">最多 {LOCATION_NAME_MAX_LENGTH} 個字</span>
+          {formError && (
+            <p role="alert" className="mt-2 text-sm text-rose-300">{formError}</p>
+          )}
         </div>
 
         <div>

@@ -1,5 +1,8 @@
 import type { StockLocation } from './product';
 
+/** Backend rejects a trimmed inventory location name longer than this. */
+export const LOCATION_NAME_MAX_LENGTH = 64;
+
 /** Seeded when the location table is empty. Ids match the backend inventory contract. */
 export const DEFAULT_INVENTORY_LOCATIONS = [
   {
