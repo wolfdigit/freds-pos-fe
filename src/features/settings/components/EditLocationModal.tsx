@@ -4,12 +4,14 @@ import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { locationService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
-import type { StockLocationDto } from '@/types/inventory';
+import type { InventoryLocationDto } from '@/types/inventory';
+import { errorDetail } from '@/auth/businessError';
+import { LOCATION_NAME_MAX_LENGTH, validateLocationName } from '@/utils/locationName';
 
 interface EditLocationModalProps {
-  location: StockLocationDto | null;
+  location: InventoryLocationDto | null;
   onClose: () => void;
-  onSuccess: (updatedLoc: StockLocationDto) => void;
+  onSuccess: (updatedLoc: InventoryLocationDto) => void;
 }
 
 const PRESET_ICONS = ['🏪', '📦', '🏢', '🚚', '🏬', '🏠', '📍', '🌐', '🏷️', '✈️'];
@@ -24,15 +26,15 @@ export function EditLocationModal({
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('📍');
   const [displayOrder, setDisplayOrder] = useState('1');
-  const [isActive, setIsActive] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (location) {
       setName(location.name || '');
       setIcon(location.icon || '📍');
       setDisplayOrder(String(location.displayOrder ?? 1));
-      setIsActive(location.isActive !== false);
+      setFormError(null);
     }
   }, [location]);
 
@@ -41,26 +43,29 @@ export function EditLocationModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName = name.trim();
-
-    if (!cleanName) {
-      showToast('請輸入地點名稱', 'error');
+    const nameError = validateLocationName(name);
+    if (nameError) {
+      setFormError(nameError);
+      showToast(nameError, 'error');
       return;
     }
 
     setIsSubmitting(true);
+    setFormError(null);
     try {
       const updated = await locationService.updateLocation(location.id, {
         name: cleanName,
         icon: icon || '📍',
         displayOrder: Number(displayOrder) || 1,
-        isActive,
       });
 
       showToast(`成功修改庫存地點：「${updated.name}」`, 'success');
       onSuccess(updated);
       onClose();
-    } catch {
-      showToast('更新地點失敗，請重試', 'error');
+    } catch (err) {
+      const text = errorDetail(err, '更新地點失敗，請重試');
+      setFormError(text);
+      showToast(text, 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -76,12 +81,20 @@ export function EditLocationModal({
           <Input
             id="edit-location-name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              setFormError(null);
+            }}
             placeholder="例如: 高雄巨蛋門市"
             required
             autoFocus
+            maxLength={LOCATION_NAME_MAX_LENGTH}
             className="font-bold text-lg"
           />
+          <span className="mt-1 block text-xs text-zinc-500">最多 {LOCATION_NAME_MAX_LENGTH} 個字</span>
+          {formError && (
+            <p role="alert" className="mt-2 text-sm text-rose-300">{formError}</p>
+          )}
         </div>
 
         <div>
@@ -118,36 +131,15 @@ export function EditLocationModal({
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 pt-1">
-          <div>
-            <label className="mb-1 block text-sm font-semibold text-zinc-300">
-              排序權重 (Display Order)
-            </label>
-            <Input
-              type="number"
-              value={displayOrder}
-              onChange={(e) => setDisplayOrder(e.target.value)}
-              min={1}
-              className="text-center font-mono font-bold"
-            />
-          </div>
-
-          <div>
-            <label className="mb-1 block text-sm font-semibold text-zinc-300">
-              啟用狀態
-            </label>
-            <button
-              type="button"
-              onClick={() => setIsActive(!isActive)}
-              className={`w-full py-2.5 px-3 rounded-lg border text-sm font-bold transition-all flex items-center justify-center gap-2 ${
-                isActive
-                  ? 'border-emerald-500/60 bg-emerald-950/40 text-emerald-300'
-                  : 'border-zinc-700 bg-zinc-900 text-zinc-500'
-              }`}
-            >
-              <span>{isActive ? '🟢 啟用中' : '⚪ 停用中'}</span>
-            </button>
-          </div>
+        <div className="pt-1">
+          <label className="mb-1 block text-sm font-semibold text-zinc-300">排序權重</label>
+          <Input
+            type="number"
+            value={displayOrder}
+            onChange={(e) => setDisplayOrder(e.target.value)}
+            min={1}
+            className="text-center font-mono font-bold"
+          />
         </div>
 
         <div className="flex justify-end gap-3 pt-3 border-t border-zinc-800">

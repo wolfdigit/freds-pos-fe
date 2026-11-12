@@ -1,10 +1,21 @@
 export interface StoreDto {
   name: string;
   isDefault?: boolean;
+  inventoryLocationId: string;
+  inventoryLocationName: string;
+  returnedInventoryLocationId: string;
+  returnedInventoryLocationName: string;
 }
 
 export interface CreateStoreRequest {
   name: string;
+  inventoryLocationId: string;
+  returnedInventoryLocationId: string;
+}
+
+export interface UpdateStoreBindingRequest {
+  inventoryLocationId: string;
+  returnedInventoryLocationId: string;
 }
 
 export interface DeleteStoreResponse {

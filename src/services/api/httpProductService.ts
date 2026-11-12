@@ -7,11 +7,31 @@ import type {
 } from '@/types/product';
 import type {
   InventoryTransferRequest,
-  StockAdjustRequest,
-  BatchStockAdjustRequest,
-  StockAdjustmentLog,
+  InventoryAdjustRequest,
+  BatchInventoryAdjustRequest,
+  InventoryAdjustmentLog,
+  MoveAllInventoryRequest,
+  CreateInventoryReceiptRequest,
+  InventoryReceipt,
+  InventoryReceiptPage,
+  InventoryReceiptQuery,
+  InventoryMovementPage,
+  InventoryMovementQuery,
 } from '@/types/inventory';
 import { httpClient } from './httpClient';
+
+function asLoginQuantity(value: number | null | undefined): number | null {
+  return typeof value === 'number' ? value : null;
+}
+
+/** Keep a missing login store as null. Do not turn it into 0. */
+function mapProduct(product: Product): Product {
+  return {
+    ...product,
+    loginStoreQuantity: asLoginQuantity(product.loginStoreQuantity),
+    loginStoreReturnedQuantity: asLoginQuantity(product.loginStoreReturnedQuantity),
+  };
+}
 
 export class HttpProductService implements IProductService {
   async searchProducts(params: ProductSearchParams): Promise<Product[]> {
@@ -19,44 +39,78 @@ export class HttpProductService implements IProductService {
     if (params.keyword) query.set('keyword', params.keyword);
     if (params.scale && params.scale !== 'ALL') query.set('scale', params.scale);
     if (params.brand && params.brand !== 'ALL') query.set('brand', params.brand);
-    if (params.inStockOnly !== undefined) query.set('inStockOnly', String(params.inStockOnly));
+    if (params.inInventoryOnly !== undefined) query.set('inInventoryOnly', String(params.inInventoryOnly));
 
     const qs = query.toString();
-    return httpClient.get<Product[]>(`/products${qs ? `?${qs}` : ''}`);
+    const rows = await httpClient.get<Product[]>(`/products${qs ? `?${qs}` : ''}`);
+    return (rows || []).map(mapProduct);
   }
 
   async getProductById(id: string): Promise<Product | null> {
     try {
-      return await httpClient.get<Product>(`/products/${id}`);
+      return mapProduct(await httpClient.get<Product>(`/products/${id}`));
     } catch {
       return null;
     }
   }
 
   async createProduct(product: CreateProductRequest): Promise<Product> {
-    return httpClient.post<Product>('/products', product);
+    return mapProduct(await httpClient.post<Product>('/products', product));
   }
 
   async updateProduct(id: string, product: UpdateProductRequest): Promise<Product> {
-    return httpClient.put<Product>(`/products/${id}`, product);
+    return mapProduct(await httpClient.put<Product>(`/products/${id}`, product));
   }
 
   async transferStock(request: InventoryTransferRequest): Promise<boolean> {
-    const res = await httpClient.post<{ success: boolean }>('/inventory/transfers', request);
-    return res.success ?? true;
+    const res = await httpClient.post<{ ok?: boolean }>('/inventory/transfers', request);
+    return res.ok ?? true;
   }
 
-  async adjustStock(request: StockAdjustRequest): Promise<boolean> {
-    const res = await httpClient.post<{ success: boolean }>('/inventory/adjustments', request);
-    return res.success ?? true;
+  async moveAllStock(request: MoveAllInventoryRequest): Promise<boolean> {
+    const res = await httpClient.post<{ ok?: boolean }>('/inventory/transfers/all', request);
+    return res.ok ?? true;
   }
 
-  async batchAdjustStock(request: BatchStockAdjustRequest): Promise<boolean> {
-    const res = await httpClient.post<{ success: boolean }>('/inventory/batch-adjustments', request);
-    return res.success ?? true;
+  async adjustStock(request: InventoryAdjustRequest): Promise<boolean> {
+    const res = await httpClient.post<{ ok?: boolean }>('/inventory/adjustments', request);
+    return res.ok ?? true;
   }
 
-  async getStockAdjustmentLogs(): Promise<StockAdjustmentLog[]> {
-    return httpClient.get<StockAdjustmentLog[]>('/inventory/adjustments/logs');
+  async batchAdjustStock(request: BatchInventoryAdjustRequest): Promise<boolean> {
+    const res = await httpClient.post<{ ok?: boolean }>('/inventory/batch-adjustments', {
+      adjustments: request.adjustments,
+      note: request.note,
+    });
+    return res.ok ?? true;
+  }
+
+  async getStockAdjustmentLogs(): Promise<InventoryAdjustmentLog[]> {
+    return httpClient.get<InventoryAdjustmentLog[]>('/inventory/adjustments/logs');
+  }
+
+  async createReceipt(request: CreateInventoryReceiptRequest): Promise<InventoryReceipt> {
+    return httpClient.post<InventoryReceipt>('/inventory/receipts', request);
+  }
+
+  async searchReceipts(query: InventoryReceiptQuery = {}): Promise<InventoryReceiptPage> {
+    const params = new URLSearchParams();
+    if (query.locationId) params.set('locationId', query.locationId);
+    if (query.productId) params.set('productId', query.productId);
+    if (query.page) params.set('page', String(query.page));
+    if (query.pageSize) params.set('pageSize', String(query.pageSize));
+    const qs = params.toString();
+    return httpClient.get<InventoryReceiptPage>(`/inventory/receipts${qs ? `?${qs}` : ''}`);
+  }
+
+  async searchMovements(query: InventoryMovementQuery = {}): Promise<InventoryMovementPage> {
+    const params = new URLSearchParams();
+    if (query.productId) params.set('productId', query.productId);
+    if (query.locationId) params.set('locationId', query.locationId);
+    if (query.type) params.set('type', query.type);
+    if (query.page) params.set('page', String(query.page));
+    if (query.pageSize) params.set('pageSize', String(query.pageSize));
+    const qs = params.toString();
+    return httpClient.get<InventoryMovementPage>(`/inventory/movements${qs ? `?${qs}` : ''}`);
   }
 }

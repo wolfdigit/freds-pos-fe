@@ -18,8 +18,9 @@ export interface CartItem {
   isManualPrice: boolean;
   priceChangeReason?: string;
   quantity: number;
-  storeStock?: number;
-  totalStock?: number;
+  loginStoreQuantity?: number | null;
+  loginStoreReturnedQuantity?: number | null;
+  totalInventory?: number;
   originalOrderId?: string;
   originalOrderNumber?: string;
   originalOrderItemId?: string;
@@ -96,7 +97,6 @@ export const useCartStore = create<CartStore>()((set, get) => ({
           return;
         }
 
-        const storeStock = product.stocks.find((s) => s.location === 'store')?.quantity ?? 0;
         const newItem: CartItem = {
           productId: product.id,
           sku: product.sku,
@@ -109,8 +109,9 @@ export const useCartStore = create<CartStore>()((set, get) => ({
           unitPrice: product.listPrice,
           isManualPrice: false,
           quantity: qty,
-          storeStock,
-          totalStock: product.totalStock,
+          loginStoreQuantity: product.loginStoreQuantity,
+          loginStoreReturnedQuantity: product.loginStoreReturnedQuantity,
+          totalInventory: product.totalInventory,
         };
         set({ items: [...items, newItem] });
       },
@@ -143,7 +144,6 @@ export const useCartStore = create<CartStore>()((set, get) => ({
           return;
         }
 
-        const storeStock = newProduct.stocks.find((s) => s.location === 'store')?.quantity ?? 0;
         set({
           items: items.map((i) => {
             if (i !== currentItem) return i;
@@ -158,8 +158,9 @@ export const useCartStore = create<CartStore>()((set, get) => ({
               spec: newProduct.spec,
               originalPrice: newProduct.listPrice,
               unitPrice: i.isManualPrice ? i.unitPrice : newProduct.listPrice,
-              storeStock,
-              totalStock: newProduct.totalStock,
+              loginStoreQuantity: newProduct.loginStoreQuantity,
+              loginStoreReturnedQuantity: newProduct.loginStoreReturnedQuantity,
+              totalInventory: newProduct.totalInventory,
             };
           }),
         });

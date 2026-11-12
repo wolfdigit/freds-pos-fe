@@ -16,8 +16,10 @@ const product = {
   name: '模型',
   brand: 'Fred',
   listPrice: 100,
-  stocks: [{ location: 'store', quantity: 3 }],
-  totalStock: 3,
+  inventories: [{ location: 'e1a10001-0000-4000-8000-000000000001', locationName: '門市現貨', quantity: 3 }],
+  totalInventory: 3,
+  loginStoreQuantity: 3,
+  loginStoreReturnedQuantity: 0,
 } as Product;
 
 describe('per-account cart', () => {

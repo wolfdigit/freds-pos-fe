@@ -6,27 +6,32 @@ import type {
 } from '@/types/product';
 import type {
   InventoryTransferRequest,
-  StockAdjustRequest,
-  BatchStockAdjustRequest,
-  StockAdjustmentLog,
+  InventoryAdjustRequest,
+  BatchInventoryAdjustRequest,
+  InventoryAdjustmentLog,
+  MoveAllInventoryRequest,
+  CreateInventoryReceiptRequest,
+  InventoryReceipt,
+  InventoryReceiptPage,
+  InventoryReceiptQuery,
+  InventoryMovementPage,
+  InventoryMovementQuery,
 } from '@/types/inventory';
 
 export interface IProductService {
-  /** 模糊搜尋商品 (支援條碼、貨號無 dash 比對、車型名稱) */
   searchProducts(params: ProductSearchParams): Promise<Product[]>;
-  /** 依 ID 取得單一商品 */
   getProductById(id: string): Promise<Product | null>;
-  /** 新增商品建檔 */
   createProduct(product: CreateProductRequest): Promise<Product>;
-  /** 更新既有商品資訊 (品名、條碼、價格等) */
   updateProduct(id: string, product: UpdateProductRequest): Promise<Product>;
-  /** 跨據點庫存調撥 (門市/倉庫/公司) */
+  /** 單一商品調撥。來源不夠時丟 INSUFFICIENT_INVENTORY，兩邊數量都不改。 */
   transferStock(request: InventoryTransferRequest): Promise<boolean>;
-  /** 手動單一調整庫存數量 */
-  adjustStock(request: StockAdjustRequest): Promise<boolean>;
-  /** 批量調整庫存數量並紀錄操作日誌 */
-  batchAdjustStock(request: BatchStockAdjustRequest): Promise<boolean>;
-  /** 取得庫存操作歷史日誌 */
-  getStockAdjustmentLogs(): Promise<StockAdjustmentLog[]>;
+  /** 把來源地點每一筆非零數量（含負數）搬到目標地點。綁定不變。 */
+  moveAllStock(request: MoveAllInventoryRequest): Promise<boolean>;
+  /** 把該地點設成絕對數量，可以是負數。 */
+  adjustStock(request: InventoryAdjustRequest): Promise<boolean>;
+  batchAdjustStock(request: BatchInventoryAdjustRequest): Promise<boolean>;
+  getStockAdjustmentLogs(): Promise<InventoryAdjustmentLog[]>;
+  createReceipt(request: CreateInventoryReceiptRequest): Promise<InventoryReceipt>;
+  searchReceipts(query?: InventoryReceiptQuery): Promise<InventoryReceiptPage>;
+  searchMovements(query?: InventoryMovementQuery): Promise<InventoryMovementPage>;
 }
-

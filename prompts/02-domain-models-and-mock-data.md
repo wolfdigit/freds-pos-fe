@@ -187,7 +187,7 @@ export interface CheckoutOrderItem {
   preOrderItemId?: string;
   originalOrderId?: string; // 關聯原銷售單號 (若為退換貨)
   originalOrderItemId?: string;
-  restock?: boolean;       // 退貨時是否回補門市庫存
+  restock?: boolean;       // true/省略：回補正常貨；false：進退貨庫存點
   returnReason?: string;
 }
 
@@ -225,7 +225,7 @@ export interface CreateOrderItemPayload {
   preOrderItemId?: string;
   originalOrderId?: string; // 退換貨時必填
   originalOrderItemId?: string; // 退換貨時必填
-  restock?: boolean;       // 預設 true (是否加回門市現貨)
+  restock?: boolean;       // 預設 true：加回門市現貨；false：加到退貨庫存點
   returnReason?: string;
 }
 

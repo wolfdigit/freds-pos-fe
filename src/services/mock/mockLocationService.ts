@@ -1,176 +1,179 @@
 import type { ILocationService } from '@/services/interfaces/ILocationService';
 import type {
-  StockLocationDto,
-  CreateStockLocationRequest,
-  UpdateStockLocationRequest,
-  DeleteStockLocationRequest,
-  DeleteStockLocationResponse,
+  InventoryLocationDto,
+  CreateInventoryLocationRequest,
+  UpdateInventoryLocationRequest,
+  DeleteInventoryLocationRequest,
+  DeleteInventoryLocationResponse,
+  ReboundStore,
 } from '@/types/inventory';
-import type { Product } from '@/types/product';
-import { simulateDelay, STORAGE_KEYS } from './storageHelper';
+import { getProducts, getStoredStores, setProducts, setStoredStores, simulateDelay } from './storageHelper';
+import {
+  LOCATIONS_STORAGE_KEY,
+  attachStoreBindings,
+  defaultLocationRows,
+  quantityAt,
+  renameInventoryCopies,
+} from './inventoryCatalog';
 import { BusinessError } from '@/utils/errors';
+import { validateLocationName } from '@/utils/locationName';
 
-const DEFAULT_LOCATIONS: StockLocationDto[] = [
-  { id: 'e1a10001-0000-4000-8000-000000000001', name: '門市現貨', icon: '🏪', isDefault: true, displayOrder: 1, isActive: true },
-  { id: 'e1a10002-0000-4000-8000-000000000002', name: '後方倉庫', icon: '📦', isDefault: false, displayOrder: 2, isActive: true },
-  { id: 'e1a10003-0000-4000-8000-000000000003', name: '公司總倉', icon: '🏢', isDefault: false, displayOrder: 3, isActive: true },
-  { id: 'e1a10004-0000-4000-8000-000000000004', name: '調度暫存', icon: '🚚', isDefault: false, displayOrder: 4, isActive: true },
-];
-
-function generateUuid(): string {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
+function readStoredLocations(): InventoryLocationDto[] {
+  const raw = localStorage.getItem(LOCATIONS_STORAGE_KEY);
+  if (!raw) return defaultLocationRows();
+  try {
+    const parsed = JSON.parse(raw) as InventoryLocationDto[];
+    if (!Array.isArray(parsed) || parsed.length === 0) return defaultLocationRows();
+    return parsed.map((location, index) => ({
+      id: location.id,
+      name: location.name || '未命名據點',
+      icon: location.icon || '📍',
+      isDefault: Boolean(location.isDefault),
+      displayOrder: location.displayOrder ?? index + 1,
+      storeNames: [],
+      returnedStoreNames: [],
+    }));
+  } catch {
+    return defaultLocationRows();
   }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
+}
+
+function writeLocations(locations: InventoryLocationDto[]): void {
+  localStorage.setItem(
+    LOCATIONS_STORAGE_KEY,
+    JSON.stringify(locations.map(({ storeNames: _storeNames, returnedStoreNames: _returned, ...location }) => location))
+  );
+}
+
+function listed(): InventoryLocationDto[] {
+  return attachStoreBindings(readStoredLocations(), getStoredStores());
 }
 
 export class MockLocationService implements ILocationService {
-  async getLocations(): Promise<StockLocationDto[]> {
+  async getLocations(): Promise<InventoryLocationDto[]> {
     await simulateDelay(30, 80);
-    const raw = localStorage.getItem('FREDS_POS_LOCATIONS');
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // 確保每筆資料都有 id (UUID)
-          const list: StockLocationDto[] = parsed.map((loc: any, idx: number) => ({
-            id: loc.id || `e1a1000${idx + 1}-0000-4000-8000-00000000000${idx + 1}`,
-            name: loc.name || '未命名據點',
-            icon: loc.icon || '📍',
-            isDefault: Boolean(loc.isDefault),
-            displayOrder: loc.displayOrder ?? idx + 1,
-            isActive: loc.isActive !== false,
-          }));
-          return list.sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999));
-        }
-      } catch {
-        // fallback
-      }
-    }
-    return DEFAULT_LOCATIONS.slice().sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999));
+    return listed();
   }
 
-  async createLocation(location: CreateStockLocationRequest): Promise<StockLocationDto> {
+  async createLocation(location: CreateInventoryLocationRequest): Promise<InventoryLocationDto> {
     await simulateDelay(50, 100);
-    const current = await this.getLocations();
-    const newId = generateUuid();
-
-    const newLoc: StockLocationDto = {
-      id: newId,
-      name: location.name.trim() || '未命名地點',
+    const nameError = validateLocationName(location.name);
+    if (nameError) throw new BusinessError(location.name.trim() ? 'LOCATION_NAME_TOO_LONG' : 'INVALID_LOCATION_TRANSFER', nameError);
+    const name = location.name.trim();
+    const current = readStoredLocations();
+    if (current.some((row) => row.name === name)) {
+      throw new BusinessError('LOCATION_NAME_TAKEN', '庫存點名稱已存在');
+    }
+    const created: InventoryLocationDto = {
+      id: crypto.randomUUID(),
+      name,
       icon: location.icon || '📍',
       isDefault: false,
       displayOrder: location.displayOrder ?? current.length + 1,
-      isActive: location.isActive !== false,
+      storeNames: [],
+      returnedStoreNames: [],
     };
-
-    const updated = [...current, newLoc];
-    localStorage.setItem('FREDS_POS_LOCATIONS', JSON.stringify(updated));
-    return newLoc;
+    writeLocations([...current, created]);
+    return attachStoreBindings([created], getStoredStores())[0];
   }
 
-  async updateLocation(id: string, data: UpdateStockLocationRequest): Promise<StockLocationDto> {
+  async updateLocation(id: string, data: UpdateInventoryLocationRequest): Promise<InventoryLocationDto> {
     await simulateDelay(50, 100);
-    const current = await this.getLocations();
-    const idx = current.findIndex((l) => l.id === id);
-    if (idx === -1) {
-      throw new BusinessError('LOCATION_NOT_FOUND', `找不到庫存地點: ${id}`);
-    }
-
-    const updatedLoc: StockLocationDto = {
-      ...current[idx],
-      name: data.name !== undefined ? data.name.trim() : current[idx].name,
-      icon: data.icon !== undefined ? data.icon : current[idx].icon,
-      displayOrder: data.displayOrder !== undefined ? data.displayOrder : current[idx].displayOrder,
-      isActive: data.isActive !== undefined ? data.isActive : current[idx].isActive,
-    };
-
-    const next = [...current];
-    next[idx] = updatedLoc;
-    localStorage.setItem('FREDS_POS_LOCATIONS', JSON.stringify(next));
-    return updatedLoc;
-  }
-
-  async deleteLocation(id: string, request: DeleteStockLocationRequest): Promise<DeleteStockLocationResponse> {
-    await simulateDelay(80, 150);
-    const currentLocations = await this.getLocations();
-    const targetLoc = currentLocations.find((l) => l.id === id);
-
-    if (!targetLoc) {
-      throw new BusinessError('LOCATION_NOT_FOUND', `找不到欲刪除的庫存地點: ${id}`);
-    }
-
-    if (targetLoc.id === request.transferToLocation) {
-      throw new BusinessError('INVALID_LOCATION_TRANSFER', '轉移目標地點不能與被刪除地點相同');
-    }
-
-    const destLoc = currentLocations.find((l) => l.id === request.transferToLocation);
-    if (!destLoc) {
-      throw new BusinessError('TARGET_LOCATION_NOT_FOUND', `找不到轉移目標地點: ${request.transferToLocation}`);
-    }
-
-    // 1. 轉移商品庫存
-    let affectedProductsCount = 0;
-    let totalQuantityTransferred = 0;
-
-    const rawProducts = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-    if (rawProducts) {
-      try {
-        const products: Product[] = JSON.parse(rawProducts);
-
-        const updatedProducts = products.map((prod) => {
-          const fromStock = prod.stocks.find((s) => s.location === targetLoc.id);
-          const fromQty = fromStock ? fromStock.quantity : 0;
-
-          if (fromQty > 0) {
-            affectedProductsCount += 1;
-            totalQuantityTransferred += fromQty;
-          }
-
-          // 重新計算 stocks: 移除被刪除地點，將數量合併入 destLoc.id
-          const newStocks = prod.stocks.filter((s) => s.location !== targetLoc.id);
-          const destStockIdx = newStocks.findIndex((s) => s.location === destLoc.id);
-
-          if (destStockIdx !== -1) {
-            newStocks[destStockIdx] = {
-              ...newStocks[destStockIdx],
-              quantity: newStocks[destStockIdx].quantity + fromQty,
-            };
-          } else if (fromQty > 0) {
-            newStocks.push({
-              location: destLoc.id,
-              locationName: destLoc.name,
-              quantity: fromQty,
-            });
-          }
-
-          return {
-            ...prod,
-            stocks: newStocks,
-          };
-        });
-
-        localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(updatedProducts));
-      } catch {
-        // ignore
+    const current = readStoredLocations();
+    const idx = current.findIndex((location) => location.id === id);
+    if (idx === -1) throw new BusinessError('LOCATION_NOT_FOUND', '找不到庫存地點');
+    const name = data.name !== undefined ? data.name.trim() : current[idx].name;
+    if (data.name !== undefined) {
+      const nameError = validateLocationName(data.name);
+      if (nameError) {
+        throw new BusinessError(name ? 'LOCATION_NAME_TOO_LONG' : 'INVALID_LOCATION_TRANSFER', nameError);
       }
     }
-
-    // 2. 從地點清單中移除
-    const remainingLocations = currentLocations.filter((l) => l.id !== targetLoc.id);
-    localStorage.setItem('FREDS_POS_LOCATIONS', JSON.stringify(remainingLocations));
-
-    return {
-      success: true,
-      deletedLocation: targetLoc.id,
-      transferredToLocation: destLoc.id,
-      affectedProductsCount,
-      totalQuantityTransferred,
-      message: `成功刪除地點「${targetLoc.name}」，並將 ${affectedProductsCount} 項商品共 ${totalQuantityTransferred} 台庫存轉移至「${destLoc.name}」`,
+    if (!name) throw new BusinessError('INVALID_LOCATION_TRANSFER', '地點名稱不可空白');
+    if (current.some((location) => location.id !== id && location.name === name)) {
+      throw new BusinessError('LOCATION_NAME_TAKEN', '庫存點名稱已存在');
+    }
+    const updated: InventoryLocationDto = {
+      ...current[idx],
+      name,
+      icon: data.icon !== undefined ? data.icon : current[idx].icon,
+      displayOrder: data.displayOrder !== undefined ? data.displayOrder : current[idx].displayOrder,
     };
+    const next = [...current];
+    next[idx] = updated;
+    writeLocations(next);
+    if (name !== current[idx].name) {
+      setProducts(renameInventoryCopies(getProducts(), id, name));
+      const stores = getStoredStores().map((store) => ({
+        ...store,
+        inventoryLocationName: store.inventoryLocationId === id ? name : store.inventoryLocationName,
+        returnedInventoryLocationName:
+          store.returnedInventoryLocationId === id ? name : store.returnedInventoryLocationName,
+      }));
+      setStoredStores(stores);
+    }
+    return attachStoreBindings([updated], getStoredStores())[0];
+  }
+
+  async deleteLocation(
+    id: string,
+    request: DeleteInventoryLocationRequest
+  ): Promise<DeleteInventoryLocationResponse> {
+    await simulateDelay(80, 150);
+    const current = readStoredLocations();
+    const source = current.find((location) => location.id === id);
+    if (!source) throw new BusinessError('LOCATION_NOT_FOUND', '找不到欲刪除的庫存地點');
+    if (current.length <= 1) throw new BusinessError('LAST_LOCATION', '至少要保留一個庫存點');
+
+    const products = getProducts();
+    const blocked = products.some((product) => quantityAt(product, source.id) !== 0);
+    if (blocked) {
+      throw new BusinessError('LOCATION_NOT_EMPTY', '庫存點仍有數量（含負數），請先轉移或將數量改為 0');
+    }
+
+    const stores = getStoredStores();
+    const bound = stores.filter(
+      (store) => store.inventoryLocationId === source.id || store.returnedInventoryLocationId === source.id
+    );
+    const rebound: ReboundStore[] = [];
+    let nextStores = stores;
+    if (bound.length > 0) {
+      if (!request.rebindToLocation) {
+        throw new BusinessError('INVALID_LOCATION_TRANSFER', '請指定這些門市要改綁的庫存點');
+      }
+      const target = current.find((location) => location.id === request.rebindToLocation);
+      if (!target || target.id === source.id) {
+        throw new BusinessError('INVALID_LOCATION_TRANSFER', '改綁目標不能是即將刪除的庫存點');
+      }
+      nextStores = stores.map((store) => {
+        let next = store;
+        if (store.inventoryLocationId === source.id) {
+          next = { ...next, inventoryLocationId: target.id, inventoryLocationName: target.name };
+          rebound.push({ name: store.name, binding: 'normal', inventoryLocationId: target.id });
+        }
+        if (store.returnedInventoryLocationId === source.id) {
+          next = {
+            ...next,
+            returnedInventoryLocationId: target.id,
+            returnedInventoryLocationName: target.name,
+          };
+          rebound.push({ name: store.name, binding: 'returned', inventoryLocationId: target.id });
+        }
+        return next;
+      });
+      setStoredStores(nextStores);
+    }
+
+    setProducts(
+      products.map((product) => ({
+        ...product,
+        inventories: product.inventories.filter((row) => row.location !== source.id),
+        totalInventory: product.inventories
+          .filter((row) => row.location !== source.id)
+          .reduce((sum, row) => sum + row.quantity, 0),
+      }))
+    );
+    writeLocations(current.filter((location) => location.id !== source.id));
+    return { deletedLocation: source.id, reboundStoreNames: rebound };
   }
 }

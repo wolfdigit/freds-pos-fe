@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { hasPermission } from '@/auth/permissions';
 import { errorMessage } from '@/auth/businessError';
 import { storeSwitchNotice } from '@/auth/storeSwitch';
 import { readPersistedCart } from '@/auth/cartPersistence';
 import { authApi } from '@/services/api/httpAuthService';
-import { systemService } from '@/services';
+import { locationService, systemService } from '@/services';
+import type { InventoryLocationDto } from '@/types/inventory';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Spinner } from '@/components/feedback/Spinner';
@@ -15,14 +16,21 @@ import type { StoreDto } from '@/types/system';
 export function StoreSelectScreen() {
   const user = useAuthStore((state) => state.user);
   const selectStore = useAuthStore((state) => state.selectStore);
+  const continueWithoutStore = useAuthStore((state) => state.continueWithoutStore);
   const logout = useAuthStore((state) => state.logout);
   const [stores, setStores] = useState<StoreDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [newStoreName, setNewStoreName] = useState('');
+  const [locations, setLocations] = useState<InventoryLocationDto[]>([]);
+  const [locationsLoading, setLocationsLoading] = useState(true);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [normalLocationId, setNormalLocationId] = useState('');
+  const [returnedLocationId, setReturnedLocationId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const showToast = useToastStore((state) => state.showToast);
   const canCreateInitial = hasPermission(user?.role, 'store.createInitial');
+  const canSkipStore = hasPermission(user?.role, 'store.manage');
 
   useEffect(() => {
     let cancelled = false;
@@ -43,6 +51,30 @@ export function StoreSelectScreen() {
     };
   }, []);
 
+  const loadLocations = useCallback(() => {
+    setLocationsLoading(true);
+    setLocationError(null);
+    locationService
+      .getLocations()
+      .then((rows) => {
+        setLocations(rows);
+        const firstId = rows[0]?.id ?? '';
+        setNormalLocationId((current) => (rows.some((row) => row.id === current) ? current : firstId));
+        setReturnedLocationId((current) => (rows.some((row) => row.id === current) ? current : firstId));
+      })
+      .catch((err: unknown) => {
+        setLocations([]);
+        setNormalLocationId('');
+        setReturnedLocationId('');
+        setLocationError(errorMessage(err, '無法讀取庫存點'));
+      })
+      .finally(() => setLocationsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    loadLocations();
+  }, [loadLocations]);
+
   const choose = async (storeName: string) => {
     setError(null);
     setSubmitting(true);
@@ -60,14 +92,18 @@ export function StoreSelectScreen() {
   const createFirstStore = async (event: React.FormEvent) => {
     event.preventDefault();
     const name = newStoreName.trim();
-    if (!name) {
-      setError('請填寫門市名稱');
+    if (!name || !normalLocationId || !returnedLocationId) {
+      setError('請填寫門市名稱，並選擇正常貨與退貨庫存點');
       return;
     }
     setSubmitting(true);
     setError(null);
     try {
-      await systemService.createStore({ name });
+      await systemService.createStore({
+        name,
+        inventoryLocationId: normalLocationId,
+        returnedInventoryLocationId: returnedLocationId,
+      });
       await choose(name);
     } catch (err) {
       setError(errorMessage(err, '無法建立門市'));
@@ -80,7 +116,7 @@ export function StoreSelectScreen() {
       <section className="w-full max-w-lg rounded-2xl border border-zinc-800 bg-zinc-900/80 p-8 shadow-2xl">
         <h1 className="text-2xl font-bold">選擇登入門市</h1>
         <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-          {user?.name}（{user?.email}）已登入。登入門市只決定訂單歸屬，與庫存據點無關，也不會改扣其他門市的庫存。
+          {user?.name}（{user?.email}）已登入。登入門市決定結帳扣哪個正常貨庫存點、退貨進哪個退貨庫存點。
         </p>
         {loading ? (
           <div className="mt-6 flex justify-center">
@@ -89,7 +125,9 @@ export function StoreSelectScreen() {
         ) : stores.length === 0 ? (
           canCreateInitial ? (
             <form onSubmit={createFirstStore} className="mt-6 space-y-3">
-              <p className="text-sm text-zinc-300">目前還沒有門市。請先建立第一間，建立後會直接選為這次登入門市。</p>
+              <p className="text-sm text-zinc-300">
+                目前還沒有門市。可以先建立第一間，或先進入系統管理庫存點，之後再在設定裡建立門市。
+              </p>
               <label htmlFor="first-store-name" className="block text-sm font-medium text-zinc-300">
                 門市名稱
               </label>
@@ -99,7 +137,57 @@ export function StoreSelectScreen() {
                 onChange={(event) => setNewStoreName(event.target.value)}
                 placeholder="例如：奇可門市"
               />
-              <Button type="submit" variant="primary" disabled={submitting}>
+              {locationsLoading ? (
+                <div className="flex justify-center py-4">
+                  <Spinner />
+                </div>
+              ) : locationError ? (
+                <div className="rounded-xl border border-rose-900/60 bg-rose-950/30 p-4 text-sm text-rose-200" role="alert">
+                  <p>無法讀取庫存點。請再試一次。</p>
+                  <p className="mt-1 text-rose-300/80">{locationError}</p>
+                  <Button type="button" variant="secondary" className="mt-3" onClick={loadLocations}>
+                    再試一次
+                  </Button>
+                </div>
+              ) : locations.length === 0 ? (
+                <div className="rounded-xl border border-amber-700/50 bg-amber-950/30 p-4 text-sm text-amber-100" role="status">
+                  <p>目前沒有庫存點，無法建立門市。</p>
+                  <Button type="button" variant="secondary" className="mt-3" onClick={loadLocations}>
+                    再試一次
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <label className="block text-sm text-zinc-300" htmlFor="first-store-normal">
+                    正常貨庫存點
+                    <select
+                      id="first-store-normal"
+                      value={normalLocationId}
+                      onChange={(event) => setNormalLocationId(event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
+                    >
+                      {locations.map((location) => (
+                        <option key={location.id} value={location.id}>{location.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block text-sm text-zinc-300" htmlFor="first-store-returned">
+                    退貨庫存點
+                    <select
+                      id="first-store-returned"
+                      value={returnedLocationId}
+                      onChange={(event) => setReturnedLocationId(event.target.value)}
+                      className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2"
+                    >
+                      {locations.map((location) => (
+                        <option key={`returned-${location.id}`} value={location.id}>{location.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <p className="text-xs text-zinc-500">兩個可以選同一個庫存點。</p>
+                </>
+              )}
+              <Button type="submit" variant="primary" disabled={submitting || locationsLoading || !!locationError || locations.length === 0}>
                 建立並進入
               </Button>
             </form>
@@ -124,6 +212,13 @@ export function StoreSelectScreen() {
               </li>
             ))}
           </ul>
+        )}
+        {canSkipStore && !loading && (
+          <div className="mt-4">
+            <Button type="button" variant="secondary" onClick={continueWithoutStore} disabled={submitting}>
+              先不選門市，進入系統
+            </Button>
+          </div>
         )}
         {error && (
           <p className="mt-4 text-sm text-rose-300" role="alert">

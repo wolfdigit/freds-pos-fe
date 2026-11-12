@@ -1,4 +1,4 @@
-import { readBusinessError } from '@/auth/businessError';
+import { readBusinessError, readValidationMessage } from '@/auth/businessError';
 import { useToastStore } from '@/components/feedback/toastStore';
 
 export interface AuthFailureNotice {
@@ -143,13 +143,7 @@ export class HttpClient {
       let userFriendlyMsg = '';
 
       const businessError = readBusinessError(responseBody);
-      const bodyMessage =
-        businessError.message ||
-        (typeof responseBody === 'object' && responseBody !== null
-          ? typeof (responseBody as { detail?: unknown }).detail === 'string'
-            ? (responseBody as { detail: string }).detail
-            : undefined
-          : undefined);
+      const bodyMessage = businessError.message || readValidationMessage(responseBody);
 
       if (bodyMessage && typeof bodyMessage === 'string') {
         userFriendlyMsg = bodyMessage;

@@ -2,234 +2,190 @@ import { useState, useEffect, useMemo } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
-import type { Product, StockLocation } from '@/types/product';
+import type { Product } from '@/types/product';
+import { inventoryQuantity } from '@/types/product';
+import { productService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { useLocations } from '../hooks/useLocations';
+import { errorMessage } from '@/auth/businessError';
 
 interface StockTransferModalProps {
   product: Product | null;
-  currentDrafts?: Record<StockLocation, number>;
   onClose: () => void;
-  onApplyTransfer: (
-    productId: string,
-    fromLocation: StockLocation,
-    toLocation: StockLocation,
-    quantity: number
-  ) => void;
+  onTransferred: () => void;
 }
 
-export function StockTransferModal({
-  product,
-  currentDrafts,
-  onClose,
-  onApplyTransfer,
-}: StockTransferModalProps) {
+export function StockTransferModal({ product, onClose, onTransferred }: StockTransferModalProps) {
   const showToast = useToastStore((s) => s.showToast);
   const { locations: apiLocations } = useLocations();
+  const [fromLocation, setFromLocation] = useState('');
+  const [toLocation, setToLocation] = useState('');
+  const [quantity, setQuantity] = useState('1');
+  const [submitting, setSubmitting] = useState(false);
 
   const locations = useMemo(() => {
-    const iconMap: Record<string, string> = {
-      store: '🏪',
-      warehouse: '📦',
-      company: '🏢',
-      other: '🚚',
-    };
     const map = new Map<string, { value: string; label: string; icon: string }>();
-
-    if (apiLocations && apiLocations.length > 0) {
-      apiLocations.forEach((l) => {
-        if (l.isActive !== false) {
-          const locKey = l.id;
-          map.set(locKey, {
-            value: locKey,
-            label: l.name,
-            icon: l.icon || iconMap[locKey] || '📍',
-          });
-        }
+    apiLocations.forEach((location) => {
+      map.set(location.id, {
+        value: location.id,
+        label: location.name,
+        icon: location.icon || '📍',
       });
-    }
-
-    if (product?.stocks && product.stocks.length > 0) {
-      product.stocks.forEach((s) => {
-        if (s.location && !map.has(s.location)) {
-          map.set(s.location, {
-            value: s.location,
-            label: s.locationName || s.location,
-            icon: iconMap[s.location] || '📍',
-          });
-        }
-      });
-    }
-
-    if (map.size === 0) {
-      return [
-        { value: 'store', label: '門市現貨', icon: '🏪' },
-        { value: 'warehouse', label: '後方倉庫', icon: '📦' },
-        { value: 'company', label: '公司總倉', icon: '🏢' },
-        { value: 'other', label: '調度暫存', icon: '🚚' },
-      ];
-    }
-
+    });
+    product?.inventories.forEach((row) => {
+      if (row.location && !map.has(row.location)) {
+        map.set(row.location, { value: row.location, label: row.locationName || row.location, icon: '📍' });
+      }
+    });
     return Array.from(map.values());
   }, [apiLocations, product]);
 
-  const [fromLocation, setFromLocation] = useState<StockLocation>('warehouse');
-  const [toLocation, setToLocation] = useState<StockLocation>('store');
-  const [quantity, setQuantity] = useState('1');
-
-  // 每次打開或更換商品時重置欄位
   useEffect(() => {
-    if (product && product.stocks && product.stocks.length > 0) {
-      const warehouseLoc = product.stocks.find((s) => s.location === 'warehouse');
-      const storeLoc = product.stocks.find((s) => s.location === 'store');
-      setFromLocation(warehouseLoc ? warehouseLoc.location : product.stocks[0].location);
-      setToLocation(storeLoc ? storeLoc.location : product.stocks.length > 1 ? product.stocks[1].location : product.stocks[0].location);
-      setQuantity('1');
-    }
-  }, [product]);
+    if (!product || locations.length === 0) return;
+    setFromLocation(locations[0]?.value ?? '');
+    setToLocation(locations[1]?.value ?? locations[0]?.value ?? '');
+    setQuantity('1');
+  }, [product, locations]);
 
   if (!product) return null;
 
-  const getQty = (loc: StockLocation) => {
-    if (currentDrafts && currentDrafts[loc] !== undefined) {
-      return currentDrafts[loc];
-    }
-    return product.stocks.find((s) => s.location === loc)?.quantity ?? 0;
-  };
+  const getQty = (locationId: string) => inventoryQuantity(product, locationId);
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     const qty = Number(quantity);
-    if (qty <= 0) return;
-    const avail = getQty(fromLocation);
-    if (avail < qty) {
-      showToast(`${fromLocation} 庫存不足，無法調撥`, 'error');
+    if (!Number.isInteger(qty) || qty < 1) return;
+    if (fromLocation === toLocation) {
+      showToast('調出與調入地點不可相同', 'error');
       return;
     }
+    setSubmitting(true);
+    try {
+      await productService.transferStock({
+        productId: product.id,
+        fromLocation,
+        toLocation,
+        quantity: qty,
+      });
+      showToast('已完成單項調撥', 'success');
+      onTransferred();
+    } catch (err) {
+      showToast(errorMessage(err, '調撥失敗，兩邊數量都沒有改變'), 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-    onApplyTransfer(product.id, fromLocation, toLocation, qty);
-    showToast('已將單項調撥暫存至編輯清單（請點擊儲存庫存變更存檔）', 'info');
-    onClose();
+  const handleMoveAll = async () => {
+    if (fromLocation === toLocation) {
+      showToast('調出與調入地點不可相同', 'error');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await productService.moveAllStock({ fromLocation, toLocation });
+      showToast('已移動來源地點全部非零數量（含負數）。門市綁定沒有改變。', 'success');
+      onTransferred();
+    } catch (err) {
+      showToast(errorMessage(err, '整批移動失敗'), 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <Modal open={!!product} onClose={onClose} title={`⇄ 單項庫存調撥：${product.name}`}>
+    <Modal open={!!product} onClose={onClose} title={`⇄ 庫存調撥：${product.name}`}>
       <div className="space-y-4 text-base">
-        {/* 貨號與品名標示 */}
         <div className="flex items-center justify-between rounded-lg border border-zinc-800 bg-zinc-950 p-3">
           <div>
             <span className="font-mono text-cyan-400 font-bold mr-2">{product.sku}</span>
             <span className="text-zinc-200 font-medium">{product.name}</span>
           </div>
-          <span className="text-sm font-mono text-zinc-400">總庫存: {product.totalStock} 台</span>
+          <span className="text-sm font-mono text-zinc-400">全據點合計: {product.totalInventory} 台</span>
         </div>
 
-        {/* 兩地選擇 (直列卡片，無須下拉選單) */}
         <div className="grid grid-cols-2 gap-4">
-          {/* 來源地點直列 */}
           <div>
-            <label className="mb-2 block text-sm font-semibold text-amber-400">
-              1. 選擇來源地點 (From)
-            </label>
+            <label className="mb-2 block text-sm font-semibold text-amber-400">1. 來源地點</label>
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-              {locations.map((l) => {
-                const qty = getQty(l.value);
-                const isSelected = fromLocation === l.value;
-
+              {locations.map((location) => {
+                const qty = getQty(location.value);
+                const isSelected = fromLocation === location.value;
                 return (
-                  <div
-                    key={`from-${l.value}`}
-                    onClick={() => setFromLocation(l.value)}
-                    className={`cursor-pointer rounded-xl border p-3 flex items-center justify-between transition-all ${
+                  <button
+                    type="button"
+                    key={`from-${location.value}`}
+                    onClick={() => setFromLocation(location.value)}
+                    className={`w-full cursor-pointer rounded-xl border p-3 flex items-center justify-between transition-all ${
                       isSelected
                         ? 'border-amber-400 bg-amber-950/40 text-amber-300 ring-1 ring-amber-400'
-                        : 'border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-850'
+                        : 'border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:border-zinc-700'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span>{l.icon}</span>
-                      <span className="font-medium text-base">{l.label}</span>
-                    </div>
-                    <span
-                      className={`font-mono text-base font-bold ${
-                        qty > 0 ? 'text-emerald-400' : 'text-zinc-500'
-                      }`}
-                    >
+                    <span className="font-medium">{location.icon} {location.label}</span>
+                    <span className={`font-mono font-bold ${qty > 0 ? 'text-emerald-400' : qty < 0 ? 'text-rose-400' : 'text-zinc-500'}`}>
                       {qty} 台
                     </span>
-                  </div>
+                  </button>
                 );
               })}
             </div>
           </div>
-
-          {/* 目標地點直列 */}
           <div>
-            <label className="mb-2 block text-sm font-semibold text-cyan-400">
-              2. 選擇目標地點 (To)
-            </label>
+            <label className="mb-2 block text-sm font-semibold text-cyan-400">2. 目標地點</label>
             <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-              {locations.map((l) => {
-                const qty = getQty(l.value);
-                const isSelected = toLocation === l.value;
-                const isSameAsFrom = fromLocation === l.value;
-
+              {locations.map((location) => {
+                const qty = getQty(location.value);
+                const isSelected = toLocation === location.value;
+                const isSame = fromLocation === location.value;
                 return (
-                  <div
-                    key={`to-${l.value}`}
-                    onClick={() => !isSameAsFrom && setToLocation(l.value)}
-                    className={`rounded-xl border p-3 flex items-center justify-between transition-all ${
-                      isSameAsFrom
-                        ? 'opacity-40 cursor-not-allowed border-zinc-800 bg-zinc-950 text-zinc-600'
+                  <button
+                    type="button"
+                    key={`to-${location.value}`}
+                    disabled={isSame}
+                    onClick={() => setToLocation(location.value)}
+                    className={`w-full rounded-xl border p-3 flex items-center justify-between transition-all ${
+                      isSame
+                        ? 'cursor-not-allowed border-zinc-800 bg-zinc-950 text-zinc-600 opacity-40'
                         : isSelected
-                        ? 'cursor-pointer border-cyan-400 bg-cyan-950/40 text-cyan-300 ring-1 ring-cyan-400'
-                        : 'cursor-pointer border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:border-zinc-700 hover:bg-zinc-850'
+                        ? 'border-cyan-400 bg-cyan-950/40 text-cyan-300 ring-1 ring-cyan-400'
+                        : 'border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:border-zinc-700'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
-                      <span>{l.icon}</span>
-                      <span className="font-medium text-base">{l.label}</span>
-                    </div>
-                    <span className="font-mono text-base font-bold text-zinc-300">
-                      {qty} 台
-                    </span>
-                  </div>
+                    <span className="font-medium">{location.icon} {location.label}</span>
+                    <span className="font-mono font-bold text-zinc-300">{qty} 台</span>
+                  </button>
                 );
               })}
             </div>
           </div>
         </div>
 
-        {/* 調撥數量 */}
         <div>
-          <label className="mb-1 block text-sm font-medium text-zinc-300">3. 調撥數量</label>
+          <label className="mb-1 block text-sm font-medium text-zinc-300">3. 這個商品的調撥數量</label>
           <Input
             monospace
             type="number"
             min={1}
-            max={getQty(fromLocation)}
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
             className="text-lg font-bold"
           />
-          {getQty(fromLocation) < Number(quantity) && (
-            <p className="mt-1 text-xs text-rose-400">⚠️ 來源地點數量不足可調撥配額</p>
-          )}
+          <p className="mt-1 text-xs text-zinc-500">來源不夠時不會調撥，兩個地點都維持原數量。</p>
         </div>
 
-        <div className="flex justify-end gap-3 pt-2">
-          <Button variant="ghost" onClick={onClose}>
+        <div className="flex flex-wrap justify-end gap-3 pt-2">
+          <Button variant="ghost" onClick={onClose} disabled={submitting}>
             取消
+          </Button>
+          <Button variant="secondary" onClick={() => void handleMoveAll()} disabled={submitting || fromLocation === toLocation}>
+            移動來源地點全部非零數量
           </Button>
           <Button
             variant="primary"
-            onClick={handleConfirm}
-            disabled={
-              fromLocation === toLocation ||
-              Number(quantity) <= 0 ||
-              getQty(fromLocation) < Number(quantity)
-            }
+            onClick={() => void handleConfirm()}
+            disabled={submitting || fromLocation === toLocation || Number(quantity) < 1}
           >
-            套用至編輯列表
+            {submitting ? '調撥中...' : '調撥這個商品'}
           </Button>
         </div>
       </div>

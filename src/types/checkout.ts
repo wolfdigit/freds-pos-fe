@@ -36,6 +36,9 @@ export interface CheckoutOrderItem {
   originalOrderItemId?: string;
   restock?: boolean;
   returnReason?: string;
+  /** 退貨入帳的地點。restock 不是 false 時是正常貨，false 時是退貨庫存點。 */
+  inventoryLocationId?: string;
+  inventoryLocationName?: string;
 }
 
 export type OrderStatus = 'completed' | 'partially_refunded' | 'refunded';
@@ -70,6 +73,7 @@ export interface CreateOrderItemPayload {
   priceDiffReason?: string;
   originalOrderId?: string;
   originalOrderItemId?: string;
+  /** 省略或 true：加回登入門市正常貨。false：加到登入門市退貨庫存點。都會改數量。 */
   restock?: boolean;
   returnReason?: string;
   note?: string;

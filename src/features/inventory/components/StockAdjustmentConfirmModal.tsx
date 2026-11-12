@@ -2,16 +2,16 @@ import { useState } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
-import type { StockItemAdjustment } from '@/types/inventory';
+import type { InventoryItemAdjustment } from '@/types/inventory';
 import { productService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { formatDateTime, nowIso } from '@/utils/date';
 
 interface StockAdjustmentConfirmModalProps {
   open: boolean;
-  adjustments: StockItemAdjustment[];
+  adjustments: InventoryItemAdjustment[];
   onClose: () => void;
-  onSuccess: (adjustments: StockItemAdjustment[]) => void;
+  onSuccess: (adjustments: InventoryItemAdjustment[]) => void;
 }
 
 export function StockAdjustmentConfirmModal({
@@ -22,7 +22,6 @@ export function StockAdjustmentConfirmModal({
 }: StockAdjustmentConfirmModalProps) {
   const showToast = useToastStore((s) => s.showToast);
 
-  const operatorName = 'Fred';
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -31,13 +30,15 @@ export function StockAdjustmentConfirmModal({
   const currentTimestamp = formatDateTime(nowIso());
 
   const handleSave = async () => {
+    if (!note.trim()) {
+      showToast('請填寫異動備註', 'error');
+      return;
+    }
     setIsSubmitting(true);
     try {
       await productService.batchAdjustStock({
         adjustments,
-        operatorName,
-        timestamp: new Date().toISOString(),
-        note: note.trim() || undefined,
+        note: note.trim(),
       });
 
       showToast(`已成功更新 ${adjustments.length} 項商品庫存並紀錄操作日誌`, 'success');
@@ -54,7 +55,7 @@ export function StockAdjustmentConfirmModal({
     <Modal open={open} onClose={onClose} title="庫存變更確認與操作紀錄" widthClassName="max-w-2xl">
       <div className="space-y-4 text-base">
         <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-300">
-          ⚠️ 請核對以下庫存數量修改明細。點擊「確認存檔」後，系統將寫入資料庫並記錄操作人員與時間。
+          ⚠️ 請核對以下庫存數量。數量可以改成負數。確認後由伺服器記入登入人員與時間。
         </div>
 
         {/* 異動商品列表 (精緻雙層卡片版面) */}
@@ -127,9 +128,9 @@ export function StockAdjustmentConfirmModal({
         {/* 操作人員與時間紀錄 (純粹簡潔標籤) */}
         <div className="grid grid-cols-2 gap-3 rounded-xl border border-zinc-800 bg-zinc-900/80 p-3.5">
           <div>
-            <label className="mb-1 block text-xs font-semibold text-zinc-400">操作人員</label>
+            <label className="mb-1 block text-xs font-semibold text-zinc-400">操作人員（伺服器記入）</label>
             <Input
-              value={operatorName}
+              value="登入人員"
               disabled
               readOnly
               className="bg-zinc-950/90 border-zinc-800 text-zinc-300 font-medium select-none cursor-not-allowed"
@@ -148,7 +149,7 @@ export function StockAdjustmentConfirmModal({
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-semibold text-zinc-400">異動原因 / 備註說明 (選填)</label>
+          <label className="mb-1 block text-xs font-semibold text-zinc-400">異動原因 / 備註說明 *</label>
           <Input
             value={note}
             onChange={(e) => setNote(e.target.value)}

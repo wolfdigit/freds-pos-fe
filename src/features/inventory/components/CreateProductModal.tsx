@@ -3,6 +3,7 @@ import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import type { ModelScale, Product, StockLocation, CreateProductRequest } from '@/types/product';
+import { useLocations } from '../hooks/useLocations';
 import { productService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { BusinessError } from '@/utils/errors';
@@ -19,6 +20,7 @@ const SCALE_OPTIONS: ModelScale[] = ['1:18', '1:43', '1:64', '1:24', '1:12', '�
 
 export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = '' }: CreateProductModalProps) {
   const showToast = useToastStore((s) => s.showToast);
+  const { locations } = useLocations();
 
   const [brand, setBrand] = useState('AutoArt');
   const [sku, setSku] = useState('');
@@ -88,17 +90,24 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
 
       const created = await productService.createProduct(payload);
 
-      const hasInitialStocks = storeQty > 0 || warehouseQty > 0 || companyQty > 0;
-      const initialDrafts: Record<StockLocation, number> | undefined = hasInitialStocks
-        ? { store: storeQty, warehouse: warehouseQty, company: companyQty, other: 0 }
-        : undefined;
+      const qtyByName: Record<string, number> = {
+        門市現貨: storeQty,
+        後方倉庫: warehouseQty,
+        公司總倉: companyQty,
+      };
+      const initialDrafts: Record<StockLocation, number> = {};
+      locations.forEach((location) => {
+        const qty = qtyByName[location.name];
+        if (qty > 0) initialDrafts[location.id] = qty;
+      });
+      const hasInitialStocks = Object.keys(initialDrafts).length > 0;
 
       if (hasInitialStocks) {
         showToast('新商品建檔成功！初始庫存已載入編輯列表，請點擊【儲存庫存變更】存檔', 'success');
       } else {
         showToast('新商品建檔成功！', 'success');
       }
-      onSuccess(created, initialDrafts);
+      onSuccess(created, hasInitialStocks ? initialDrafts : undefined);
       onClose();
     } catch (err: any) {
       console.error(err);

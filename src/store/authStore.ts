@@ -12,6 +12,7 @@ import {
 } from '@/auth/runtimeConfig';
 import { authApi } from '@/services/api/httpAuthService';
 import { subscribeAuthFailure, type AuthFailureNotice } from '@/services/api/httpClient';
+import { hasPermission } from '@/auth/permissions';
 import { isMockService } from '@/services';
 import type { AuthState, AuthUser } from '@/types/auth';
 import { useCartStore } from '@/store/cartStore';
@@ -37,6 +38,7 @@ interface AuthStore {
   loginWithCredential: (credential: string) => Promise<void>;
   logout: () => Promise<void>;
   selectStore: (storeName: string) => Promise<void>;
+  continueWithoutStore: () => void;
   retry: () => Promise<void>;
 }
 
@@ -67,9 +69,18 @@ function endLocalSession(): void {
 }
 
 function applyAuthState(state: AuthState): void {
-  const phase: AuthPhase = state.storeSelected ? 'ready' : 'needs-store';
-  const previousUserId = useAuthStore.getState().user?.id ?? null;
-  useSessionStore.getState().applyAuthenticatedUser(state.user, phase === 'ready' ? state.storeName : null);
+  const current = useAuthStore.getState();
+  const adminStayingIn =
+    current.phase === 'ready' &&
+    !state.storeSelected &&
+    current.user?.id === state.user.id &&
+    hasPermission(state.user.role, 'store.manage');
+  const phase: AuthPhase = state.storeSelected || adminStayingIn ? 'ready' : 'needs-store';
+  const previousUserId = current.user?.id ?? null;
+  useSessionStore.getState().applyAuthenticatedUser(
+    state.user,
+    state.storeSelected ? state.storeName : null
+  );
   if (phase === 'ready') {
     if (getBoundCartUserId() !== state.user.id || previousUserId !== state.user.id) {
       bindCartToUser(state.user.id);
@@ -161,6 +172,11 @@ export function handleAuthFailure(failure: AuthFailureNotice): void {
   }
   if (failure.status === 403 && failure.code === 'AUTH_STORE_REQUIRED') {
     const user = useAuthStore.getState().user;
+    if (user && hasPermission(user.role, 'store.manage')) {
+      useSessionStore.getState().applyAuthenticatedUser(user, null);
+      useAuthStore.setState({ storeSelected: false, storeName: null });
+      return;
+    }
     bindCartToUser(null);
     if (user) useSessionStore.getState().applyAuthenticatedUser(user, null);
     useAuthStore.setState({ phase: 'needs-store', storeSelected: false, storeName: null });
@@ -298,6 +314,20 @@ export const useAuthStore = create<AuthStore>()(() => ({
   selectStore: async (storeName) => {
     const state = await authApi.selectStore(storeName);
     applyAuthState(state);
+  },
+
+  continueWithoutStore: () => {
+    const user = useAuthStore.getState().user;
+    if (!user || !hasPermission(user.role, 'store.manage')) return;
+    useSessionStore.getState().applyAuthenticatedUser(user, null);
+    if (getBoundCartUserId() !== user.id) bindCartToUser(user.id);
+    if (!isMockService) void useSessionStore.getState().fetchStores();
+    useAuthStore.setState({
+      phase: 'ready',
+      storeSelected: false,
+      storeName: null,
+      errorMessage: null,
+    });
   },
 
   retry: async () => {
