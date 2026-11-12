@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { checkoutService } from '@/services';
 import { useCartStore } from '@/store/cartStore';
+import { useSessionStore } from '@/store/sessionStore';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { BusinessError } from '@/utils/errors';
 import type { CheckoutReceipt, CreateOrderPayload, PaymentTender } from '@/types/checkout';
@@ -22,6 +23,10 @@ export function useCheckoutWorkflow() {
         `「${overReturnItem.name}」退貨數量超出原單可退上限 (${overReturnItem.maxReturnableQty}件)，請調整後再送出`,
         'error'
       );
+      return null;
+    }
+    if (!useSessionStore.getState().storeName.trim()) {
+      showToast('請先在上方選擇登入門市，才能結帳或辦理退貨。', 'warning');
       return null;
     }
 

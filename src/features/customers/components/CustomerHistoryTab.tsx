@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { CheckoutOrder, CheckoutOrderItem, CheckoutReceipt } from '@/types/checkout';
 import { checkoutService } from '@/services';
 import { useCartStore } from '@/store/cartStore';
+import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { formatCurrency } from '@/utils/currency';
@@ -88,6 +89,10 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
 
     if (returnQty > remaining || returnQty <= 0) {
       showToast(`退貨數量不可超過剩餘可退數量 (${remaining} 件)`, 'warning');
+      return;
+    }
+    if (!useSessionStore.getState().storeName.trim()) {
+      showToast('請先在上方選擇登入門市，才能結帳或辦理退貨。', 'warning');
       return;
     }
 

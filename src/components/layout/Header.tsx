@@ -155,6 +155,7 @@ export function Header() {
               className="cursor-pointer rounded-lg border border-zinc-700/80 bg-zinc-800/90 px-2.5 py-1 text-sm font-semibold text-cyan-300 shadow-sm transition-all hover:border-zinc-500 hover:bg-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 disabled:cursor-wait disabled:opacity-60"
               title="點擊更改登入門市"
             >
+              {!storeName && <option value="">尚未選擇門市</option>}
               {availableStores.map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -167,7 +168,7 @@ export function Header() {
           ) : (
             <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-cyan-300">
               {storeListStatus === 'loading' && <Spinner size="sm" />}
-              {storeName || (storeListStatus === 'loading' ? '讀取門市清單中...' : '讀取門市清單')}
+              {storeName || (storeListStatus === 'loading' ? '讀取門市清單中...' : '尚未選擇門市')}
             </span>
           )}
           {switchingStore && <Spinner size="sm" />}

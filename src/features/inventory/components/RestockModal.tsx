@@ -4,7 +4,8 @@ import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Spinner } from '@/components/feedback/Spinner';
 import type { Product, StockLocation } from '@/types/product';
-import type { StockItemAdjustment } from '@/types/inventory';
+import type { InventoryReceipt } from '@/types/inventory';
+import { errorMessage } from '@/auth/businessError';
 import { productService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { useLocations } from '../hooks/useLocations';
@@ -12,7 +13,7 @@ import { useLocations } from '../hooks/useLocations';
 interface RestockModalProps {
   open: boolean;
   onClose: () => void;
-  onSuccess: (adjustments: StockItemAdjustment[]) => void;
+  onSuccess: (receipts: InventoryReceipt[]) => void;
 }
 
 interface RestockItem {
@@ -102,24 +103,18 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
     const map = new Map<string, string>();
     if (apiLocations && apiLocations.length > 0) {
       apiLocations.forEach((l) => {
-        if (l.isActive !== false) {
+        if (l.id) {
           const locKey = l.id;
           map.set(locKey, l.name);
         }
       });
     }
-    if (selectedProduct?.stocks) {
-      selectedProduct.stocks.forEach((s) => {
-        if (s.location && !map.has(s.location)) {
-          map.set(s.location, s.locationName || s.location);
+    if (selectedProduct?.inventories) {
+      selectedProduct.inventories.forEach((row) => {
+        if (row.location && !map.has(row.location)) {
+          map.set(row.location, row.locationName || row.location);
         }
       });
-    }
-    if (map.size === 0) {
-      map.set('warehouse', '後方倉庫');
-      map.set('store', '門市現貨');
-      map.set('company', '公司總倉');
-      map.set('other', '調度暫存');
     }
     return Array.from(map.entries()).map(([value, label]) => ({ value, label }));
   }, [apiLocations, selectedProduct]);
@@ -278,44 +273,29 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
     confirmingRef.current = true;
     setIsSubmitting(true);
     try {
-      const adjustments: StockItemAdjustment[] = restockBatch.map((item) => {
-        const origQty = item.product.stocks.find((s) => s.location === item.targetLocation)?.quantity ?? 0;
-        const newQty = origQty + item.restockQty;
-        const locName =
-          item.product.stocks.find((s) => s.location === item.targetLocation)?.locationName ||
-          item.targetLocation;
-
-        return {
-          productId: item.product.id,
-          sku: item.product.sku,
-          barcode: item.product.barcode,
-          name: item.product.name,
-          brand: item.product.brand,
-          changes: [
-            {
-              location: item.targetLocation,
-              locationName: locName,
-              oldQty: origQty,
-              newQty,
-              diff: item.restockQty,
-            },
-          ],
-          summaryText: `${locName}進貨 +${item.restockQty} 台`,
-        };
+      const grouped = new Map<string, typeof restockBatch>();
+      restockBatch.forEach((item) => {
+        const rows = grouped.get(item.targetLocation) ?? [];
+        rows.push(item);
+        grouped.set(item.targetLocation, rows);
       });
-
-      await productService.batchAdjustStock({
-        adjustments,
-        operatorName: 'Fred',
-        timestamp: new Date().toISOString(),
-        note: '快速條碼進貨入庫',
-      });
-
-      showToast(`成功完成 ${restockBatch.length} 項商品進貨入庫！`, 'success');
-      onSuccess(adjustments);
+      const receipts = [];
+      for (const [locationId, rows] of grouped) {
+        const receipt = await productService.createReceipt({
+          locationId,
+          note: '快速條碼進貨',
+          items: rows.map((row) => ({ productId: row.product.id, quantity: row.restockQty })),
+        });
+        receipts.push(receipt);
+      }
+      const summary = receipts
+        .flatMap((receipt) => receipt.items.map((item) => `${item.sku} ${item.name} ×${item.quantity}`))
+        .join('、');
+      showToast(`已入庫：${summary}`, 'success');
+      onSuccess(receipts);
       onClose();
-    } catch {
-      showToast('進貨處理失敗，請再試一次', 'error');
+    } catch (err) {
+      showToast(errorMessage(err, '進貨處理失敗，請再試一次'), 'error');
     } finally {
       confirmingRef.current = false;
       setIsSubmitting(false);
@@ -435,7 +415,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
 
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-mono text-zinc-400 pt-1.5 border-t border-zinc-800/80">
                       <span className="text-zinc-500 font-sans">現有庫存：</span>
-                      {selectedProduct.stocks.map((s) => (
+                      {selectedProduct.inventories.map((s) => (
                         <span key={s.location} className="inline-flex items-center gap-1 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800">
                           <span className="text-zinc-400">{s.locationName}:</span>
                           <strong className={s.quantity > 0 ? 'text-emerald-400 font-bold' : 'text-zinc-400'}>
@@ -601,7 +581,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
 
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-emerald-400 bg-emerald-950 border border-emerald-800/60 px-2 py-0.5 rounded font-medium whitespace-nowrap">
-                        ➔ {item.product.stocks.find((s) => s.location === item.targetLocation)?.locationName || item.targetLocation}
+                        ➔ {dynamicLocationOptions.find((option) => option.value === item.targetLocation)?.label || item.targetLocation}
                       </span>
 
                       <div className="flex items-center gap-1">

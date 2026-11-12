@@ -9,6 +9,13 @@ import type { Product } from '@/types/product';
 import type { Customer } from '@/types/customer';
 import type { CheckoutOrder } from '@/types/checkout';
 import type { StoreDto } from '@/types/system';
+import {
+  LOCATIONS_STORAGE_KEY,
+  MOVEMENTS_STORAGE_KEY,
+  RECEIPTS_STORAGE_KEY,
+  defaultLocationRows,
+  normalizeSeedProduct,
+} from './inventoryCatalog';
 
 export const STORAGE_KEYS = {
   PRODUCTS: 'FREDS_POS_PRODUCTS',
@@ -22,7 +29,7 @@ export const STORAGE_KEYS = {
 
 // 每次修改 seed 資料結構（型別新增/移除欄位）時，遞增此版本號，
 // 讓已存在瀏覽器中的舊資料自動失效並重新寫入 seed，避免開發期間手動清 localStorage。
-export const CURRENT_SCHEMA_VERSION = '4';
+export const CURRENT_SCHEMA_VERSION = '5';
 
 /** 模擬非同步網路延遲，讓 Loading / Skeleton 呈現更真實 */
 export function simulateDelay(minMs = 80, maxMs = 180): Promise<void> {
@@ -46,10 +53,18 @@ function writeRaw<T>(key: string, value: T): void {
 
 /** 寫入預設示範資料種子（首次啟動或 resetDemoData 時呼叫） */
 function seedAll(): void {
-  writeRaw(STORAGE_KEYS.PRODUCTS, INITIAL_PRODUCTS);
+  const locations = defaultLocationRows();
+  writeRaw(
+    STORAGE_KEYS.PRODUCTS,
+    INITIAL_PRODUCTS.map((product) => normalizeSeedProduct(product, locations))
+  );
   writeRaw(STORAGE_KEYS.CUSTOMERS, INITIAL_CUSTOMERS);
   writeRaw(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
   writeRaw(STORAGE_KEYS.STORES, INITIAL_STORES);
+  writeRaw(LOCATIONS_STORAGE_KEY, locations);
+  localStorage.removeItem(RECEIPTS_STORAGE_KEY);
+  localStorage.removeItem(MOVEMENTS_STORAGE_KEY);
+  localStorage.removeItem(STORAGE_KEYS.STOCK_LOGS);
   writeRaw(STORAGE_KEYS.INITIALIZED, true);
   writeRaw(STORAGE_KEYS.SCHEMA_VERSION, CURRENT_SCHEMA_VERSION);
 }
@@ -85,7 +100,8 @@ export function resetDemoData(): void {
 }
 
 export function getProducts(): Product[] {
-  return readRaw<Product[]>(STORAGE_KEYS.PRODUCTS) ?? [];
+  const raw = readRaw<Parameters<typeof normalizeSeedProduct>[0][]>(STORAGE_KEYS.PRODUCTS) ?? [];
+  return raw.map((product) => normalizeSeedProduct(product));
 }
 export function setProducts(products: Product[]): void {
   writeRaw(STORAGE_KEYS.PRODUCTS, products);

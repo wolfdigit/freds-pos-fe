@@ -9,7 +9,11 @@ import { RestockModal } from './components/RestockModal';
 import { ProductDetailModal } from '@/features/checkout/components/ProductDetailModal';
 import { ProductEditModal } from './components/ProductEditModal';
 import type { Product, StockLocation } from '@/types/product';
-import type { StockItemAdjustment, StockLocationChange } from '@/types/inventory';
+import type { InventoryItemAdjustment, InventoryLocationChange } from '@/types/inventory';
+import { useLocations } from './hooks/useLocations';
+import { useSessionStore } from '@/store/sessionStore';
+import { systemService } from '@/services';
+import type { StoreDto } from '@/types/system';
 import { Button } from '@/components/common/Button';
 import { useUiStore } from '@/store/uiStore';
 
@@ -41,15 +45,18 @@ const STOCK_FILTER_OPTIONS: { value: StockFilterType; label: string }[] = [
   { value: 'HAS_STOCK', label: '任一據點有現貨 (> 0 台)' },
 ];
 
-const DEFAULT_LOCATION_NAMES: Record<string, string> = {
-  store: '門市現貨',
-  warehouse: '後方倉庫',
-  company: '公司總倉',
-  other: '調度暫存',
-};
-
 export function InventoryPage() {
   const { keyword, setKeyword, brand, setBrand, products, isLoading, reload } = useProductList();
+  const { locations } = useLocations();
+  const warehouseLocationId = locations.find((location) => location.name === '後方倉庫')?.id ?? '';
+  const storeName = useSessionStore((state) => state.storeName);
+  const [storeBindings, setStoreBindings] = useState<StoreDto[]>([]);
+
+  useEffect(() => {
+    systemService.getStores().then(setStoreBindings).catch(() => setStoreBindings([]));
+  }, [storeName]);
+
+  const loginStore = storeName ? storeBindings.find((store) => store.name === storeName) ?? null : null;
 
   const [stockFilter, setStockFilter] = useState<StockFilterType>('ALL');
 
@@ -73,7 +80,7 @@ export function InventoryPage() {
   const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
 
   // 理貨單彈窗狀態
-  const [receiptAdjustments, setReceiptAdjustments] = useState<StockItemAdjustment[]>([]);
+  const [receiptAdjustments, setReceiptAdjustments] = useState<InventoryItemAdjustment[]>([]);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
   // 暫存各地點數量: productId -> location -> newQuantity
@@ -90,35 +97,6 @@ export function InventoryPage() {
     }));
   };
 
-  // 處理單項調撥：套用至編輯清單草稿中，而不直接寫資料庫
-  const handleApplyTransfer = (
-    productId: string,
-    fromLocation: StockLocation,
-    toLocation: StockLocation,
-    quantity: number
-  ) => {
-    const p = products.find((item) => item.id === productId);
-    if (!p) return;
-
-    const pDraft = draftStocks[productId] || {};
-    const getQty = (loc: StockLocation) =>
-      pDraft[loc] !== undefined
-        ? pDraft[loc]
-        : p.stocks.find((s) => s.location === loc)?.quantity ?? 0;
-
-    const currentFromQty = getQty(fromLocation);
-    const currentToQty = getQty(toLocation);
-
-    setDraftStocks((prev) => ({
-      ...prev,
-      [productId]: {
-        ...(prev[productId] || {}),
-        [fromLocation]: Math.max(0, currentFromQty - quantity),
-        [toLocation]: currentToQty + quantity,
-      },
-    }));
-  };
-
   // 重置未儲存的修改
   const handleResetDrafts = () => {
     setDraftStocks({});
@@ -130,21 +108,21 @@ export function InventoryPage() {
       const getQty = (loc: string) =>
         draftStocks[p.id]?.[loc] !== undefined
           ? draftStocks[p.id][loc]
-          : p.stocks.find((s) => s.location === loc)?.quantity ?? 0;
+          : p.inventories.find((s) => s.location === loc)?.quantity ?? 0;
 
-      const storeQty = getQty('store');
-      const warehouseQty = getQty('warehouse');
-      const allLocKeys = Array.from(new Set([...p.stocks.map((s) => s.location), ...Object.keys(draftStocks[p.id] || {})]));
+      const storeQty = loginStore ? getQty(loginStore.inventoryLocationId) : p.loginStoreQuantity;
+      const warehouseQty = warehouseLocationId ? getQty(warehouseLocationId) : Number.POSITIVE_INFINITY;
+      const allLocKeys = Array.from(new Set([...p.inventories.map((s) => s.location), ...Object.keys(draftStocks[p.id] || {})]));
       const totalQty = allLocKeys.reduce((sum, loc) => sum + getQty(loc), 0);
 
       if (stockFilter === 'STORE_LOW') {
-        return storeQty <= 2;
+        return typeof storeQty === 'number' && storeQty <= 2;
       }
       if (stockFilter === 'WAREHOUSE_LOW') {
         return warehouseQty <= 2;
       }
       if (stockFilter === 'STORE_OUT') {
-        return storeQty === 0;
+        return typeof storeQty === 'number' && storeQty === 0;
       }
       if (stockFilter === 'TOTAL_OUT') {
         return totalQty === 0;
@@ -154,31 +132,31 @@ export function InventoryPage() {
       }
       return true;
     });
-  }, [products, stockFilter, draftStocks]);
+  }, [products, stockFilter, draftStocks, loginStore, warehouseLocationId]);
 
   // 計算並整理已修改的商品與動態分析明細 (支援 DB 動態據點)
-  const pendingAdjustments = useMemo<StockItemAdjustment[]>(() => {
-    const list: StockItemAdjustment[] = [];
+  const pendingAdjustments = useMemo<InventoryItemAdjustment[]>(() => {
+    const list: InventoryItemAdjustment[] = [];
 
     for (const p of products) {
       const pDraft = draftStocks[p.id];
       if (!pDraft) continue;
 
-      const changes: StockLocationChange[] = [];
+      const changes: InventoryLocationChange[] = [];
       let totalDiff = 0;
 
       const allLocations = Array.from(
         new Set([
-          ...p.stocks.map((s) => s.location),
+          ...p.inventories.map((s) => s.location),
           ...Object.keys(pDraft),
         ])
       );
 
       for (const loc of allLocations) {
         if (pDraft[loc] !== undefined) {
-          const origStock = p.stocks.find((s) => s.location === loc);
+          const origStock = p.inventories.find((s) => s.location === loc);
           const origQty = origStock?.quantity ?? 0;
-          const locName = origStock?.locationName || DEFAULT_LOCATION_NAMES[loc] || loc;
+          const locName = origStock?.locationName || loc;
           const newQty = pDraft[loc];
           const diff = newQty - origQty;
           if (diff !== 0) {
@@ -229,16 +207,14 @@ export function InventoryPage() {
 
   const modifiedCount = pendingAdjustments.length;
 
-  const handleBatchSaveSuccess = (adjustments: StockItemAdjustment[]) => {
+  const handleBatchSaveSuccess = (adjustments: InventoryItemAdjustment[]) => {
     setReceiptAdjustments(adjustments);
     setIsReceiptModalOpen(true);
     setDraftStocks({});
     reload();
   };
 
-  const handleRestockSuccess = (adjustments: StockItemAdjustment[]) => {
-    setReceiptAdjustments(adjustments);
-    setIsReceiptModalOpen(true);
+  const handleRestockSuccess = () => {
     reload();
   };
 
@@ -375,9 +351,11 @@ export function InventoryPage() {
       {/* 跨據點單項調撥彈窗 (套用至編輯列表) */}
       <StockTransferModal
         product={transferTarget}
-        currentDrafts={transferTarget ? draftStocks[transferTarget.id] : undefined}
         onClose={() => setTransferTarget(null)}
-        onApplyTransfer={handleApplyTransfer}
+        onTransferred={() => {
+          setTransferTarget(null);
+          reload();
+        }}
       />
 
       {/* 新增商品建檔彈窗 */}

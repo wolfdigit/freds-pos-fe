@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Product } from '@/types/product';
 import { productService } from '@/services';
+import { useSessionStore } from '@/store/sessionStore';
 
 export function useProductList() {
   const [keyword, setKeyword] = useState('');
@@ -8,6 +9,7 @@ export function useProductList() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const storeName = useSessionStore((state) => state.storeName);
   const reload = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -20,7 +22,7 @@ export function useProductList() {
 
   useEffect(() => {
     reload();
-  }, [reload]);
+  }, [reload, storeName]);
 
   return { keyword, setKeyword, brand, setBrand, products, isLoading, reload };
 }

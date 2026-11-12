@@ -1,147 +1,213 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
-import { Input } from '@/components/common/Input';
 import { locationService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
-import type { StockLocationDto, DeleteStockLocationResponse } from '@/types/inventory';
+import { errorDetail } from '@/auth/businessError';
+import type { InventoryLocationDto, DeleteInventoryLocationResponse } from '@/types/inventory';
+import { loadLocationDeleteSnapshot, type LocationDeleteSnapshot } from '../locationDeleteSnapshot';
 
 interface DeleteLocationModalProps {
-  location: StockLocationDto | null;
-  availableTargets: StockLocationDto[];
+  location: InventoryLocationDto | null;
   onClose: () => void;
-  onSuccess: (res: DeleteStockLocationResponse) => void;
+  onSuccess: (res: DeleteInventoryLocationResponse) => void;
+  /** Reload the location list after a fresh snapshot or a failed delete. */
+  onRefresh?: () => void;
+}
+
+const BINDING_LABEL = { normal: '正常商品', returned: '退貨' } as const;
+
+function isBound(location: InventoryLocationDto | null | undefined): boolean {
+  return Boolean(location && (location.storeNames.length > 0 || location.returnedStoreNames.length > 0));
 }
 
 export function DeleteLocationModal({
   location,
-  availableTargets,
   onClose,
   onSuccess,
+  onRefresh,
 }: DeleteLocationModalProps) {
   const showToast = useToastStore((s) => s.showToast);
-
-  const validTargets = location
-    ? availableTargets.filter((t) => t.id !== location.id)
-    : [];
-
-  const [transferToLocation, setTransferToLocation] = useState<string>('');
-  const [reason, setReason] = useState('');
+  const onRefreshRef = useRef(onRefresh);
+  onRefreshRef.current = onRefresh;
+  const [snapshot, setSnapshot] = useState<LocationDeleteSnapshot | null>(null);
+  const [phase, setPhase] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [rebindToLocation, setRebindToLocation] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const locationId = location?.id ?? null;
 
   useEffect(() => {
-    if (location && validTargets.length > 0) {
-      setTransferToLocation(validTargets[0].id || '');
-    } else {
-      setTransferToLocation('');
+    if (!locationId) {
+      setSnapshot(null);
+      setFormError(null);
+      setPhase('idle');
+      return;
     }
-    setReason('');
-  }, [location, availableTargets]);
+    let cancelled = false;
+    setPhase('loading');
+    setFormError(null);
+    setSnapshot(null);
+    void loadLocationDeleteSnapshot(locationId)
+      .then((fresh) => {
+        if (cancelled) return;
+        if (!fresh.location) {
+          setFormError('找不到這個庫存點，請重新整理後再試。');
+          setPhase('error');
+          onRefreshRef.current?.();
+          return;
+        }
+        setSnapshot(fresh);
+        setPhase('ready');
+        onRefreshRef.current?.();
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setFormError(errorDetail(err, '無法確認這個地點能不能刪除'));
+        setPhase('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [locationId]);
+
+  useEffect(() => {
+    setRebindToLocation((current) => {
+      if (snapshot?.targets.some((item) => item.id === current)) return current;
+      return snapshot?.targets[0]?.id ?? '';
+    });
+  }, [snapshot]);
 
   if (!location) return null;
 
-  const handleDelete = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const shown = snapshot?.location ?? location;
+  const needsRebind = Boolean(snapshot && isBound(snapshot.location));
+  const blocked =
+    phase !== 'ready' ||
+    !snapshot ||
+    snapshot.hasQuantity ||
+    (needsRebind && (snapshot.targets.length === 0 || !rebindToLocation));
 
-    if (!transferToLocation) {
-      showToast('請選擇庫存移轉目標地點', 'error');
-      return;
-    }
-
-    if (transferToLocation === location.id) {
-      showToast('轉移目標地點不能與被刪除地點相同', 'error');
-      return;
-    }
-
+  const handleDelete = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!locationId || phase !== 'ready' || !snapshot || snapshot.hasQuantity) return;
     setIsSubmitting(true);
+    setFormError(null);
+    let fresh: LocationDeleteSnapshot;
     try {
-      const res = await locationService.deleteLocation(location.id, {
-        transferToLocation,
-        reason: reason.trim() || `撤點整併至目標地點`,
+      fresh = await loadLocationDeleteSnapshot(locationId);
+    } catch (err) {
+      const text = errorDetail(err, '無法確認這個地點能不能刪除');
+      setFormError(text);
+      showToast(text, 'error');
+      setIsSubmitting(false);
+      return;
+    }
+    if (!fresh.location) {
+      setSnapshot(null);
+      setPhase('error');
+      setFormError('找不到這個庫存點，請重新整理後再試。');
+      onRefreshRef.current?.();
+      setIsSubmitting(false);
+      return;
+    }
+    const wasBound = isBound(snapshot.location);
+    setSnapshot(fresh);
+    if (fresh.hasQuantity) {
+      setIsSubmitting(false);
+      return;
+    }
+    const nowBound = isBound(fresh.location);
+    const selected = fresh.targets.some((item) => item.id === rebindToLocation) ? rebindToLocation : '';
+    if (nowBound && (!wasBound || !selected)) {
+      if (!selected) setRebindToLocation(fresh.targets[0]?.id ?? '');
+      setIsSubmitting(false);
+      return;
+    }
+    try {
+      const res = await locationService.deleteLocation(fresh.location.id, {
+        rebindToLocation: nowBound ? selected : undefined,
       });
-
+      const targetName = fresh.targets.find((item) => item.id === selected)?.name ?? '';
+      const reboundText = res.reboundStoreNames
+        .map((store) => `${store.name}（${BINDING_LABEL[store.binding]}→${targetName || store.inventoryLocationId}）`)
+        .join('、');
       showToast(
-        `${res.message || `成功刪除「${location.name}」，庫存已安全移轉`}`,
+        reboundText ? `已刪除「${fresh.location.name}」。改綁：${reboundText}` : `已刪除「${fresh.location.name}」`,
         'success'
       );
       onSuccess(res);
       onClose();
-    } catch {
-      showToast('刪除地點失敗，請再試一次', 'error');
+    } catch (err) {
+      const text = errorDetail(err, '刪除地點失敗');
+      setFormError(text);
+      showToast(text, 'error');
+      onRefreshRef.current?.();
+      try {
+        const again = await loadLocationDeleteSnapshot(locationId);
+        if (again.location) setSnapshot(again);
+      } catch (refreshErr) {
+        console.error('Failed to refresh location after delete error', refreshErr);
+      }
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <Modal
-      open={!!location}
-      onClose={onClose}
-      title="刪除庫存據點與庫存轉移"
-      widthClassName="max-w-lg"
-    >
+    <Modal open={!!location} onClose={onClose} title="刪除庫存據點" widthClassName="max-w-lg">
       <form onSubmit={handleDelete} className="space-y-4 text-base">
-        {/* 被刪除地點資訊 */}
         <div className="rounded-xl border border-rose-900/60 bg-rose-950/20 p-4">
-          <div className="flex items-center gap-3">
-            <span className="text-3xl">{location.icon || '📍'}</span>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-lg text-rose-200">{location.name}</span>
-              </div>
-              <p className="text-xs text-rose-300/80 mt-1">
-                即將自系統資料庫中永久刪除此庫存地點。
-              </p>
-            </div>
-          </div>
+          <div className="font-bold text-lg text-rose-200">{shown.icon || '📍'} {shown.name}</div>
+          <p className="mt-1 text-xs text-rose-300/80">刪除不會搬走數量。這個地點的數量必須剛好是 0。</p>
         </div>
 
-        {/* 庫存安全移轉提醒與目標選擇 */}
-        <div className="rounded-xl border border-amber-600/40 bg-amber-950/20 p-4 space-y-3">
-          <div className="flex items-start gap-2">
-            <span className="text-xl">⚠️</span>
-            <div>
-              <h5 className="font-bold text-amber-300 text-sm">強制庫存安全移轉</h5>
-              <p className="text-xs text-amber-200/80 mt-0.5 leading-relaxed">
-                為防止商品庫存帳目遺失，刪除此地點時，<strong>該地點下所有商品現有的庫存數量將全數自動轉移至所選之目標據點</strong>。
-              </p>
-            </div>
+        {formError && (
+          <div role="alert" className="rounded-xl border border-rose-700/70 bg-rose-950/50 p-4 text-sm text-rose-100">
+            {formError}
           </div>
+        )}
 
-          <div>
-            <label htmlFor="delete-location-target" className="mb-1.5 block text-sm font-semibold text-zinc-200">
-              請選擇庫存移轉目標據點 (Transfer Target) <span className="text-rose-400">*</span>
-            </label>
-            <select
-              id="delete-location-target"
-              value={transferToLocation}
-              onChange={(e) => setTransferToLocation(e.target.value)}
-              className="w-full rounded-lg border border-amber-400/60 bg-zinc-900 px-3 py-2.5 text-base font-semibold text-amber-200 focus:border-cyan-400 focus:outline-none focus:ring-1 focus:ring-cyan-400"
-              required
-            >
-              {validTargets.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.icon || '📍'} {t.name}
-                </option>
-              ))}
-            </select>
+        {phase === 'loading' ? (
+          <p className="text-sm text-zinc-300">正在確認門市綁定與剩餘數量…</p>
+        ) : phase === 'ready' && snapshot?.hasQuantity ? (
+          <div className="rounded-xl border border-amber-600/40 bg-amber-950/20 p-4 text-sm text-amber-200">
+            這個地點還有數量（含負數）。請先調撥，或把數量手動改成 0，再刪除。
           </div>
-
-          <div>
-            <label htmlFor="delete-location-reason" className="mb-1 block text-xs font-semibold text-zinc-400">
-              撤點/刪除原因備註 (選填)
-            </label>
-            <Input
-              id="delete-location-reason"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="例如: 租約到期撤點、展場結束整併"
-              className="text-sm"
-            />
+        ) : phase === 'ready' && snapshot?.location && isBound(snapshot.location) ? (
+          <div className="space-y-2">
+            <p className="text-sm text-zinc-300">
+              正常商品門市：{snapshot.location.storeNames.join('、') || '無'}。退貨門市：{snapshot.location.returnedStoreNames.join('、') || '無'}。
+              請指定既有的另一個地點，兩邊角色都會改綁過去，可以綁到同一個地點。
+            </p>
+            {snapshot.targets.length === 0 ? (
+              <p className="text-sm text-amber-200">沒有其他庫存點可以改綁，請先建立另一個地點。</p>
+            ) : (
+              <>
+                <label htmlFor="delete-location-target" className="block text-sm font-semibold text-zinc-200">
+                  改綁目標 <span className="text-rose-400">*</span>
+                </label>
+                <select
+                  id="delete-location-target"
+                  value={rebindToLocation}
+                  onChange={(e) => setRebindToLocation(e.target.value)}
+                  className="w-full rounded-lg border border-amber-400/60 bg-zinc-900 px-3 py-2.5 text-base font-semibold text-amber-200 focus:border-cyan-400 focus:outline-none"
+                  required
+                >
+                  {snapshot.targets.map((target) => (
+                    <option key={target.id} value={target.id}>
+                      {target.icon || '📍'} {target.name}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
           </div>
-        </div>
+        ) : phase === 'ready' ? (
+          <p className="text-sm text-zinc-400">沒有門市綁這個地點，也沒有剩餘數量，可以直接刪除。</p>
+        ) : null}
 
-        <div className="flex justify-end gap-3 pt-3 border-t border-zinc-800">
+        <div className="flex justify-end gap-3 border-t border-zinc-800 pt-3">
           <Button variant="ghost" type="button" onClick={onClose} disabled={isSubmitting}>
             取消
           </Button>
@@ -149,10 +215,10 @@ export function DeleteLocationModal({
             variant="danger"
             type="submit"
             loading={isSubmitting}
-            disabled={validTargets.length === 0}
-            className="bg-rose-600 hover:bg-rose-500 text-white font-bold px-5"
+            disabled={isSubmitting || blocked}
+            className="bg-rose-600 font-bold text-white hover:bg-rose-500"
           >
-            {isSubmitting ? '執行轉移刪除中...' : '確認移轉庫存並刪除地點'}
+            {isSubmitting ? '確認中...' : '確認刪除'}
           </Button>
         </div>
       </form>

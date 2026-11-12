@@ -1,8 +1,8 @@
-import type { Product } from '@/types/product';
 import type { Customer } from '@/types/customer';
 import type { CheckoutOrder } from '@/types/checkout';
+import type { LegacySeedProduct } from './inventoryCatalog';
 
-export const INITIAL_PRODUCTS: Product[] = [
+export const INITIAL_PRODUCTS: LegacySeedProduct[] = [
   {
     "id": "prod-1856801cl16",
     "sku": "18-56801CL16",
@@ -14936,9 +14936,17 @@ export const INITIAL_STORES = [
   {
     name: '奇可門市',
     isDefault: true,
+    inventoryLocationId: 'e1a10001-0000-4000-8000-000000000001',
+    inventoryLocationName: '門市現貨',
+    returnedInventoryLocationId: 'e1a10005-0000-4000-8000-000000000005',
+    returnedInventoryLocationName: '退貨品',
   },
   {
     name: '線上網購',
     isDefault: false,
+    inventoryLocationId: 'e1a10001-0000-4000-8000-000000000001',
+    inventoryLocationName: '門市現貨',
+    returnedInventoryLocationId: 'e1a10005-0000-4000-8000-000000000005',
+    returnedInventoryLocationName: '退貨品',
   },
 ];
