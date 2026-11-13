@@ -7,7 +7,7 @@ export function useProductList() {
   const [keyword, setKeyword] = useState('');
   const [brand, setBrand] = useState<string | 'ALL'>('ALL');
   const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const storeName = useSessionStore((state) => state.storeName);
   const reload = useCallback(async () => {

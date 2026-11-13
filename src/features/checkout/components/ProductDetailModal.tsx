@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
+import { Spinner } from '@/components/feedback/Spinner';
 import { formatCurrency } from '@/utils/currency';
 import { formatLoginStoreQuantity, type Product } from '@/types/product';
 import { productService } from '@/services';
@@ -28,6 +29,7 @@ export function ProductDetailModal({
 }: ProductDetailModalProps) {
   const [activeProduct, setActiveProduct] = useState<Product | null>(product);
   const [siblingProducts, setSiblingProducts] = useState<Product[]>([]);
+  const [siblingsLoading, setSiblingsLoading] = useState(false);
 
   useEffect(() => {
     setActiveProduct(product);
@@ -36,6 +38,7 @@ export function ProductDetailModal({
   useEffect(() => {
     if (!open || !activeProduct) {
       setSiblingProducts([]);
+      setSiblingsLoading(false);
       return;
     }
 
@@ -45,19 +48,36 @@ export function ProductDetailModal({
           (p) => p.barcode === activeProduct.barcode && p.barcode !== ''
         );
         setSiblingProducts(siblings);
+        setSiblingsLoading(false);
       } else {
         // 若未傳入 allProducts，自 productService 查詢同條碼商品
-        productService.searchProducts({ keyword: activeProduct.barcode }).then((res) => {
-          const siblings = res.filter((p) => p.barcode === activeProduct.barcode);
-          if (siblings.length > 1) {
-            setSiblingProducts(siblings);
-          } else {
-            setSiblingProducts([activeProduct]);
-          }
-        });
+        let cancelled = false;
+        setSiblingsLoading(true);
+        productService
+          .searchProducts({ keyword: activeProduct.barcode })
+          .then((res) => {
+            if (cancelled) return;
+            const siblings = res.filter((p) => p.barcode === activeProduct.barcode);
+            if (siblings.length > 1) {
+              setSiblingProducts(siblings);
+            } else {
+              setSiblingProducts([activeProduct]);
+            }
+          })
+          .catch((err) => {
+            console.error(err);
+            if (!cancelled) setSiblingProducts([activeProduct]);
+          })
+          .finally(() => {
+            if (!cancelled) setSiblingsLoading(false);
+          });
+        return () => {
+          cancelled = true;
+        };
       }
     } else {
       setSiblingProducts([activeProduct]);
+      setSiblingsLoading(false);
     }
   }, [open, activeProduct?.barcode, allProducts]);
 
@@ -89,6 +109,12 @@ export function ProductDetailModal({
             </span>
           </div>
           <h3 className="text-xl font-bold text-zinc-100">{currentProduct.name}</h3>
+          {siblingsLoading && (
+            <div className="mt-2 flex items-center gap-2 text-sm text-zinc-400">
+              <Spinner size="sm" />
+              <span>載入同條碼貨號中...</span>
+            </div>
+          )}
         </div>
 
         {/* 同條碼多貨號切換下拉選單 (依需求 6) */}

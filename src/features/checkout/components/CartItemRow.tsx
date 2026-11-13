@@ -4,20 +4,25 @@ import { useCartStore } from '@/store/cartStore';
 import type { Product } from '@/types/product';
 import { formatCurrency } from '@/utils/currency';
 import { checkoutService } from '@/services';
+import { Spinner } from '@/components/feedback/Spinner';
 
-function useOriginalOrderNumber(item: CartItem): string {
+function useOriginalOrderNumber(item: CartItem): { orderNumber: string; loading: boolean } {
   const [resolved, setResolved] = useState(item.originalOrderNumber ?? '');
+  const [loading, setLoading] = useState(!item.originalOrderNumber && Boolean(item.originalOrderId));
 
   useEffect(() => {
     if (item.originalOrderNumber) {
       setResolved(item.originalOrderNumber);
+      setLoading(false);
       return;
     }
     if (!item.originalOrderId) {
       setResolved('');
+      setLoading(false);
       return;
     }
     let cancelled = false;
+    setLoading(true);
     checkoutService
       .getOrderById(item.originalOrderId)
       .then((order) => {
@@ -25,13 +30,16 @@ function useOriginalOrderNumber(item: CartItem): string {
       })
       .catch(() => {
         if (!cancelled) setResolved('');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
   }, [item.originalOrderId, item.originalOrderNumber]);
 
-  return resolved;
+  return { orderNumber: resolved, loading };
 }
 
 interface CartItemRowProps {
@@ -41,6 +49,7 @@ interface CartItemRowProps {
   onUpdatePrice: (price: number) => void;
   onRemove: () => void;
   onViewDetail?: () => void;
+  busy?: boolean;
   siblingProducts?: Product[];
   onSwitchSku?: (newProduct: Product) => void;
 }
@@ -52,6 +61,7 @@ export function CartItemRow({
   onUpdatePrice,
   onRemove,
   onViewDetail,
+  busy = false,
   siblingProducts = [],
   onSwitchSku,
 }: CartItemRowProps) {
@@ -130,12 +140,18 @@ export function CartItemRow({
     >
       {/* 品名與貨號：點擊跳出商品詳情 */}
       <div
-        onClick={onViewDetail}
-        className="min-w-0 flex-1 cursor-pointer select-none rounded p-1 -m-1 hover:bg-zinc-800/50 transition-colors"
+        onClick={() => {
+          if (!busy) onViewDetail?.();
+        }}
+        aria-busy={busy || undefined}
+        className={`min-w-0 flex-1 select-none rounded p-1 -m-1 transition-colors ${
+          busy ? 'cursor-progress' : 'cursor-pointer hover:bg-zinc-800/50'
+        }`}
         title="點擊查看此商品詳細資訊與庫存分佈"
       >
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="font-mono text-zinc-500 text-sm shrink-0">{index}.</span>
+          {busy && <Spinner size="sm" />}
 
           {/* 合併高亮標籤 (持續 3 秒) */}
           {isHighlighted && (
@@ -282,6 +298,7 @@ export function ReturnCartItemRow({
   onUpdateQuantity,
   onRemove,
   onViewDetail,
+  busy = false,
 }: CartItemRowProps) {
   const [qtyInput, setQtyInput] = useState(String(Math.abs(item.quantity)));
 
@@ -318,7 +335,7 @@ export function ReturnCartItemRow({
 
   const absQty = Math.abs(item.quantity);
   const refundSubtotal = item.unitPrice * item.quantity; // 負數金額
-  const originalOrderNumber = useOriginalOrderNumber(item);
+  const { orderNumber: originalOrderNumber, loading: orderNumberLoading } = useOriginalOrderNumber(item);
   const originalOrderLabel = originalOrderNumber ? `原單: ${originalOrderNumber}` : '原單';
   const isMaxReturnReached = item.maxReturnableQty !== undefined && absQty >= item.maxReturnableQty;
 
@@ -326,8 +343,13 @@ export function ReturnCartItemRow({
     <div className="group flex items-center justify-between gap-2.5 border-b border-rose-900/40 py-1.5 px-2 text-base transition-colors rounded bg-rose-950/40 hover:bg-rose-950/60">
       {/* 品名與貨號：點擊跳出原單收據或關聯原單 */}
       <div
-        onClick={onViewDetail}
-        className="min-w-0 flex-1 cursor-pointer select-none rounded p-1 -m-1 hover:bg-rose-900/30 transition-colors"
+        onClick={() => {
+          if (!busy) onViewDetail?.();
+        }}
+        aria-busy={busy || orderNumberLoading || undefined}
+        className={`min-w-0 flex-1 select-none rounded p-1 -m-1 transition-colors ${
+          busy ? 'cursor-progress' : 'cursor-pointer hover:bg-rose-900/30'
+        }`}
         title={
           item.originalOrderId
             ? originalOrderNumber
@@ -338,12 +360,20 @@ export function ReturnCartItemRow({
       >
         <div className="flex items-center gap-1.5">
           <span className="font-mono text-rose-400/80 text-xs shrink-0">{index}.</span>
+          {busy && <Spinner size="sm" />}
           {item.originalOrderId ? (
             <span
               className="rounded bg-rose-900/50 border border-rose-700/60 px-1.5 py-0.5 text-xs font-mono text-rose-200 shrink-0 flex items-center gap-1 hover:bg-rose-800 transition-colors"
               title={originalOrderNumber ? `原始銷售單據: ${originalOrderNumber}（點擊查看原單明細）` : '原始銷售單據（點擊查看原單明細）'}
             >
-              <span>{originalOrderLabel}</span>
+              {orderNumberLoading ? (
+                <span className="inline-flex items-center gap-1">
+                  <Spinner size="sm" />
+                  <span>讀取單號</span>
+                </span>
+              ) : (
+                <span>{originalOrderLabel}</span>
+              )}
             </span>
           ) : (
             <span

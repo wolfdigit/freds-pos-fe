@@ -9,6 +9,7 @@ export function useCustomerSearch() {
   const [pageSize] = useState(20);
   const [total, setTotal] = useState(0);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { selectedCustomerId, setSelectedCustomerId } = useUiStore();
   const [selectedId, setSelectedIdState] = useState<string | null>(selectedCustomerId);
 
@@ -27,19 +28,26 @@ export function useCustomerSearch() {
 
   const reload = useCallback(
     async (targetId?: string) => {
-      const res = await customerService.searchCustomers({ keyword, page, pageSize });
-      setCustomers(res.items);
-      setTotal(res.total);
-      const activeTarget = targetId ?? selectedCustomerId;
+      setIsLoading(true);
+      try {
+        const res = await customerService.searchCustomers({ keyword, page, pageSize });
+        setCustomers(res.items);
+        setTotal(res.total);
+        const activeTarget = targetId ?? selectedCustomerId;
 
-      if (activeTarget && res.items.some((c) => c.id === activeTarget)) {
-        setSelectedIdState(activeTarget);
-      } else if (!selectedId && res.items.length > 0) {
-        const defaultId = res.items[0].id;
-        setSelectedIdState(defaultId);
-      } else if (selectedId && !res.items.some((c) => c.id === selectedId)) {
-        const fallbackId = res.items[0]?.id ?? null;
-        setSelectedIdState(fallbackId);
+        if (activeTarget && res.items.some((c) => c.id === activeTarget)) {
+          setSelectedIdState(activeTarget);
+        } else if (!selectedId && res.items.length > 0) {
+          const defaultId = res.items[0].id;
+          setSelectedIdState(defaultId);
+        } else if (selectedId && !res.items.some((c) => c.id === selectedId)) {
+          const fallbackId = res.items[0]?.id ?? null;
+          setSelectedIdState(fallbackId);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsLoading(false);
       }
     },
     [keyword, page, pageSize, selectedId, selectedCustomerId]
@@ -66,6 +74,7 @@ export function useCustomerSearch() {
     total,
     totalPages,
     customers,
+    isLoading,
     selectedId,
     setSelectedId: selectCustomer,
     reload,

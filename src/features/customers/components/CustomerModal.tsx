@@ -170,7 +170,7 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
           <Button type="button" variant="secondary" onClick={onClose} disabled={submitting}>
             取消
           </Button>
-          <Button type="submit" variant="primary" disabled={submitting}>
+          <Button type="submit" variant="primary" loading={submitting}>
             {submitting ? '儲存中...' : isEdit ? '更新資料' : '建立會員'}
           </Button>
         </div>

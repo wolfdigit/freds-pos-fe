@@ -154,7 +154,7 @@ export function CreateLocationModal({
           <Button
             variant="primary"
             type="submit"
-            disabled={isSubmitting}
+            loading={isSubmitting}
             className="bg-cyan-500 text-zinc-950 font-bold px-5 shadow-sm"
           >
             {isSubmitting ? '儲存中...' : '確認新增'}

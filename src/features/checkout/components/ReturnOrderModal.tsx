@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Badge } from '@/components/common/Badge';
+import { Spinner } from '@/components/feedback/Spinner';
 import { checkoutService } from '@/services';
 import { useCartStore } from '@/store/cartStore';
 import { useSessionStore } from '@/store/sessionStore';
@@ -42,6 +43,8 @@ export function ReturnOrderModal({
 
   const [orders, setOrders] = useState<CheckoutOrder[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [trackedOpen, setTrackedOpen] = useState(open);
+  const requestIdRef = useRef(0);
 
   // 複選品項狀態：key 為 `${order.id}_${item.productId || (item as any).id}_${item.sku}`
   const [selectedItems, setSelectedItems] = useState<Record<string, SelectedReturnItemEntry>>({});
@@ -53,7 +56,17 @@ export function ReturnOrderModal({
     return `${order.id}_${item.productId || (item as any).id}_${item.sku}`;
   };
 
+  if (open !== trackedOpen) {
+    setTrackedOpen(open);
+    if (open) {
+      setIsLoading(true);
+      setProductKeyword(prefillKeyword || '');
+      setSelectedItems({});
+    }
+  }
+
   const fetchOrders = async () => {
+    const requestId = ++requestIdRef.current;
     setIsLoading(true);
     try {
       const parsedAmount = Number(amountInput);
@@ -71,6 +84,7 @@ export function ReturnOrderModal({
         maxAmount,
       });
 
+      if (requestId !== requestIdRef.current) return;
       // 依時間倒序
       setOrders(
         results.sort(
@@ -78,10 +92,11 @@ export function ReturnOrderModal({
         )
       );
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       console.error(err);
       showToast('查詢歷史訂單失敗', 'error');
     } finally {
-      setIsLoading(false);
+      if (requestId === requestIdRef.current) setIsLoading(false);
     }
   };
 
@@ -320,11 +335,12 @@ export function ReturnOrderModal({
               <button
                 type="button"
                 onClick={handleResetFilters}
-                className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors shrink-0"
+                disabled={isLoading}
+                className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 transition-colors shrink-0 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 重置
               </button>
-              <Button size="md" variant="primary" onClick={fetchOrders} disabled={isLoading} className="font-bold flex-1">
+              <Button size="md" variant="primary" onClick={fetchOrders} loading={isLoading} className="font-bold flex-1">
                 {isLoading ? '查詢中...' : '查詢'}
               </Button>
             </div>
@@ -332,8 +348,13 @@ export function ReturnOrderModal({
         </div>
 
         {/* 歷史訂單列表與品項分項勾選 */}
-        <div className="max-h-[360px] overflow-y-auto space-y-3 pr-1">
-          {orders.length === 0 ? (
+        <div className="max-h-[360px] overflow-y-auto space-y-3 pr-1" aria-busy={isLoading || undefined}>
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center gap-2 py-12 text-zinc-400">
+              <Spinner />
+              <p className="text-sm">查詢歷史訂單中...</p>
+            </div>
+          ) : orders.length === 0 ? (
             <div className="py-12 text-center text-zinc-500 rounded-xl border border-dashed border-zinc-800">
               <p className="text-sm">查無符合條件之歷史訂單，請調整搜尋條件</p>
             </div>

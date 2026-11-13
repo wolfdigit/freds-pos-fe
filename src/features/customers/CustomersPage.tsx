@@ -14,6 +14,7 @@ export function CustomersPage() {
     total,
     totalPages,
     customers,
+    isLoading,
     selectedId,
     setSelectedId,
     reload,
@@ -45,6 +46,7 @@ export function CustomersPage() {
         keyword={keyword}
         onKeywordChange={setKeyword}
         customers={customers}
+        isLoading={isLoading}
         selectedId={selectedId}
         onSelect={setSelectedId}
         onAddClick={handleOpenAdd}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
@@ -24,16 +24,19 @@ export function StockAdjustmentConfirmModal({
 
   const [note, setNote] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const inFlight = useRef(false);
 
   if (!open || adjustments.length === 0) return null;
 
   const currentTimestamp = formatDateTime(nowIso());
 
   const handleSave = async () => {
+    if (inFlight.current) return;
     if (!note.trim()) {
       showToast('請填寫異動備註', 'error');
       return;
     }
+    inFlight.current = true;
     setIsSubmitting(true);
     try {
       await productService.batchAdjustStock({
@@ -47,6 +50,7 @@ export function StockAdjustmentConfirmModal({
     } catch {
       showToast('庫存調整儲存失敗，請重試', 'error');
     } finally {
+      inFlight.current = false;
       setIsSubmitting(false);
     }
   };
@@ -161,7 +165,7 @@ export function StockAdjustmentConfirmModal({
           <Button variant="ghost" onClick={onClose} disabled={isSubmitting}>
             取消修訂
           </Button>
-          <Button variant="primary" onClick={handleSave} disabled={isSubmitting}>
+          <Button variant="primary" onClick={handleSave} loading={isSubmitting}>
             {isSubmitting ? '寫入資料庫中...' : '確認存檔 (寫入紀錄)'}
           </Button>
         </div>

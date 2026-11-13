@@ -35,6 +35,10 @@ export function CheckoutPage() {
   const [returnModalPrefill, setReturnModalPrefill] = useState<{ productId?: string; keyword?: string }>({});
   const [inspectedOrder, setInspectedOrder] = useState<CheckoutOrder | null>(null);
   const [inspectedReturnItem, setInspectedReturnItem] = useState<(typeof cart.items)[number] | null>(null);
+  const [detailBusyId, setDetailBusyId] = useState<string | null>(null);
+  const [returnBusyKey, setReturnBusyKey] = useState<string | null>(null);
+  const detailLock = useRef(false);
+  const returnLock = useRef(false);
 
   // 全域商品快取，用於同條碼貨號關聯
   const [allCatalogProducts, setAllCatalogProducts] = useState<Product[]>([]);
@@ -155,50 +159,67 @@ export function CheckoutPage() {
   };
 
   const handleViewCartItemDetail = async (productId: string) => {
-    const product = await productService.getProductById(productId);
-    if (product) {
-      setDetailProduct(product);
-    } else {
-      const item = cart.items.find((i) => i.productId === productId);
-      if (item) {
-        setDetailProduct({
-          id: item.productId,
-          sku: item.sku,
-          normalizedSku: item.sku.replace(/-/g, ''),
-          barcode: item.barcode || '',
-          name: item.name,
-          brand: item.brand,
-          scale: item.scale,
-          spec: item.spec,
-          listPrice: item.originalPrice,
-          inventories: [],
-          totalInventory: item.totalInventory ?? 0,
-          loginStoreQuantity: item.loginStoreQuantity ?? null,
-          loginStoreReturnedQuantity: item.loginStoreReturnedQuantity ?? null,
-        });
+    if (detailLock.current) return;
+    detailLock.current = true;
+    setDetailBusyId(productId);
+    try {
+      const product = await productService.getProductById(productId);
+      if (product) {
+        setDetailProduct(product);
+      } else {
+        const item = cart.items.find((i) => i.productId === productId);
+        if (item) {
+          setDetailProduct({
+            id: item.productId,
+            sku: item.sku,
+            normalizedSku: item.sku.replace(/-/g, ''),
+            barcode: item.barcode || '',
+            name: item.name,
+            brand: item.brand,
+            scale: item.scale,
+            spec: item.spec,
+            listPrice: item.originalPrice,
+            inventories: [],
+            totalInventory: item.totalInventory ?? 0,
+            loginStoreQuantity: item.loginStoreQuantity ?? null,
+            loginStoreReturnedQuantity: item.loginStoreReturnedQuantity ?? null,
+          });
+        }
       }
+    } finally {
+      detailLock.current = false;
+      setDetailBusyId(null);
     }
   };
 
   const handleViewReturnOriginalOrder = async (item: (typeof cart.items)[number]) => {
-    if (item.originalOrderId) {
-      try {
-        const originalOrder = await checkoutService.getOrderById(item.originalOrderId);
-        if (originalOrder) {
-          setInspectedOrder(originalOrder);
-          setInspectedReturnItem(item);
-          return;
+    if (returnLock.current) return;
+    returnLock.current = true;
+    const busyKey = `${item.productId}:${item.originalOrderId ?? 'none'}`;
+    setReturnBusyKey(busyKey);
+    try {
+      if (item.originalOrderId) {
+        try {
+          const originalOrder = await checkoutService.getOrderById(item.originalOrderId);
+          if (originalOrder) {
+            setInspectedOrder(originalOrder);
+            setInspectedReturnItem(item);
+            return;
+          }
+        } catch (err) {
+          console.error('Failed to fetch original order:', err);
         }
-      } catch (err) {
-        console.error('Failed to fetch original order:', err);
+        showToast(
+          item.originalOrderNumber ? `查無原始訂單（${item.originalOrderNumber}）之資料` : '查無原始訂單資料',
+          'warning'
+        );
       }
-      showToast(
-        item.originalOrderNumber ? `查無原始訂單（${item.originalOrderNumber}）之資料` : '查無原始訂單資料',
-        'warning'
-      );
+      setReturnModalPrefill({ productId: item.productId, keyword: item.sku });
+      setIsReturnModalOpen(true);
+    } finally {
+      returnLock.current = false;
+      setReturnBusyKey(null);
     }
-    setReturnModalPrefill({ productId: item.productId, keyword: item.sku });
-    setIsReturnModalOpen(true);
   };
 
   return (
@@ -275,9 +296,10 @@ export function CheckoutPage() {
                       onUpdateQuantity={(q) => handleUpdateQuantity(item, q)}
                       onUpdatePrice={(p) => cart.updateItemPrice(item.productId, p, '現場改價')}
                       onRemove={() => cart.removeItem(item.productId)}
+                      busy={detailBusyId === item.productId}
                       onViewDetail={() => {
                         setDetailSource('cart');
-                        handleViewCartItemDetail(item.productId);
+                        void handleViewCartItemDetail(item.productId);
                       }}
                     />
                   );
@@ -362,7 +384,10 @@ export function CheckoutPage() {
                     onUpdateQuantity={(q) => handleUpdateQuantity(item, q)}
                     onUpdatePrice={(p) => cart.updateItemPrice(item.productId, p, '瑕疵退貨改價')}
                     onRemove={() => cart.removeItem(item.productId)}
-                    onViewDetail={() => handleViewReturnOriginalOrder(item)}
+                    busy={returnBusyKey === `${item.productId}:${item.originalOrderId ?? 'none'}`}
+                    onViewDetail={() => {
+                      void handleViewReturnOriginalOrder(item);
+                    }}
                   />
                 ))}
               </div>
@@ -407,6 +432,7 @@ export function CheckoutPage() {
           <PaymentModal
             open={isPaymentOpen}
             onClose={() => {
+              if (isSubmitting) return;
               setIsPaymentOpen(false);
               focusBarcode();
             }}
@@ -415,9 +441,10 @@ export function CheckoutPage() {
             hasOverStockItems={overStockList.length > 0}
             overStockItemsList={overStockList}
             onConfirm={async (payments) => {
-              setIsPaymentOpen(false);
               const result = await submitCheckout(payments);
-              if (!result) focusBarcode();
+              if (result) {
+                setIsPaymentOpen(false);
+              }
             }}
           />
         );

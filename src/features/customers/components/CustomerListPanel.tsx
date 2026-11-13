@@ -1,6 +1,7 @@
 import { Input } from '@/components/common/Input';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
+import { Spinner } from '@/components/feedback/Spinner';
 import type { Customer } from '@/types/customer';
 import { cn } from '@/utils/cn';
 
@@ -8,6 +9,7 @@ interface CustomerListPanelProps {
   keyword: string;
   onKeywordChange: (value: string) => void;
   customers: Customer[];
+  isLoading?: boolean;
   selectedId: string | null;
   onSelect: (id: string) => void;
   onAddClick: () => void;
@@ -21,6 +23,7 @@ export function CustomerListPanel({
   keyword,
   onKeywordChange,
   customers,
+  isLoading = false,
   selectedId,
   onSelect,
   onAddClick,
@@ -71,8 +74,13 @@ export function CustomerListPanel({
         )}
       </div>
 
-      <div className="mt-3 flex-1 space-y-1.5 overflow-y-auto pr-1">
-        {customers.length === 0 ? (
+      <div className="mt-3 flex-1 space-y-1.5 overflow-y-auto pr-1" aria-busy={isLoading || undefined}>
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center gap-2 py-12 text-xs text-zinc-400">
+            <Spinner />
+            <p>載入會員中...</p>
+          </div>
+        ) : customers.length === 0 ? (
           <div className="py-12 text-center text-xs text-zinc-500">
             <p>未找到符合「{keyword}」的會員</p>
           </div>
@@ -117,7 +125,7 @@ export function CustomerListPanel({
         <div className="mt-2 flex items-center justify-between border-t border-zinc-800/60 pt-2 text-xs font-mono text-zinc-400">
           <button
             type="button"
-            disabled={page <= 1}
+            disabled={isLoading || page <= 1}
             onClick={() => onPageChange(page - 1)}
             className="rounded px-2.5 py-1 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed text-zinc-200"
           >
@@ -128,7 +136,7 @@ export function CustomerListPanel({
           </span>
           <button
             type="button"
-            disabled={page >= totalPages}
+            disabled={isLoading || page >= totalPages}
             onClick={() => onPageChange(page + 1)}
             className="rounded px-2.5 py-1 bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed text-zinc-200"
           >

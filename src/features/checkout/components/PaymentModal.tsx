@@ -107,8 +107,9 @@ export function PaymentModal({
                 <button
                   key={m.type}
                   type="button"
+                  disabled={isSubmitting}
                   onClick={() => setMethod(m.type)}
-                  className={`flex items-center justify-center gap-2 rounded-xl border py-3 px-2 text-sm font-bold transition-all ${
+                  className={`flex items-center justify-center gap-2 rounded-xl border py-3 px-2 text-sm font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
                     isSelected
                       ? isNegative
                         ? 'border-rose-500 bg-rose-500/20 text-rose-200 shadow-md shadow-rose-950/50 ring-2 ring-rose-500/60'
@@ -132,7 +133,7 @@ export function PaymentModal({
             variant={isNegative ? 'danger' : 'primary'}
             size="lg"
             onClick={handleConfirmClick}
-            disabled={isSubmitting}
+            loading={isSubmitting}
             className="px-8 text-base font-bold shadow-lg"
           >
             {isSubmitting
@@ -175,11 +176,11 @@ export function PaymentModal({
               ))}
             </div>
             <div className="flex justify-end gap-3 pt-2">
-              <Button variant="ghost" onClick={() => setShowOverStockConfirm(false)}>
+              <Button variant="ghost" onClick={() => setShowOverStockConfirm(false)} disabled={isSubmitting}>
                 返回修改
               </Button>
-              <Button variant="primary" onClick={proceedSubmit} disabled={isSubmitting}>
-                確認繼續結帳
+              <Button variant="primary" onClick={proceedSubmit} loading={isSubmitting}>
+                {isSubmitting ? '結帳處理中...' : '確認繼續結帳'}
               </Button>
             </div>
           </div>

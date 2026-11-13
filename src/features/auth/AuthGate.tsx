@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { isMockService } from '@/services';
 import { startAuthRuntime, useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/common/Button';
@@ -11,6 +11,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const errorMessage = useAuthStore((state) => state.errorMessage);
   const restore = useAuthStore((state) => state.restore);
   const retry = useAuthStore((state) => state.retry);
+  const [retrying, setRetrying] = useState(false);
 
   useEffect(() => {
     const stop = startAuthRuntime();
@@ -48,8 +49,17 @@ export function AuthGate({ children }: { children: ReactNode }) {
         <section className="max-w-lg rounded-2xl border border-zinc-800 bg-zinc-900 p-8">
           <h1 className="text-2xl font-bold">無法確認登入</h1>
           <p className="mt-3 text-sm leading-relaxed text-zinc-300">{errorMessage}</p>
-          <Button className="mt-6" variant="primary" onClick={() => void retry()}>
-            再試一次
+          <Button
+            className="mt-6"
+            variant="primary"
+            loading={retrying}
+            onClick={() => {
+              if (retrying) return;
+              setRetrying(true);
+              void retry().finally(() => setRetrying(false));
+            }}
+          >
+            {retrying ? '重新確認中...' : '再試一次'}
           </Button>
         </section>
       </div>

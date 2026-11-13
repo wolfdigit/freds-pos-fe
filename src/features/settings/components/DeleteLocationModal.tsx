@@ -214,6 +214,7 @@ export function DeleteLocationModal({
           <Button
             variant="danger"
             type="submit"
+            loading={isSubmitting}
             disabled={isSubmitting || blocked}
             className="bg-rose-600 font-bold text-white hover:bg-rose-500"
           >

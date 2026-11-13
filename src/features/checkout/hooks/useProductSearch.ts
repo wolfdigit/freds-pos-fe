@@ -6,7 +6,7 @@ export function useProductSearch() {
   const [keyword, setKeyword] = useState('');
   const [brand, setBrand] = useState<string | 'ALL'>('ALL');
   const [results, setResults] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
