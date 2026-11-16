@@ -7,6 +7,78 @@ import type {
 } from '@/types/checkout';
 import { httpClient } from './httpClient';
 
+/** Backend rejects pageSize above 100. Callers still receive every matching order. */
+const ORDER_HISTORY_PAGE_SIZE = 100;
+
+interface CheckoutOrderPage {
+  items: CheckoutOrder[];
+  total: number;
+}
+
+function setText(query: URLSearchParams, key: string, value: string | undefined): void {
+  if (value) query.set(key, value);
+}
+
+function setAmount(query: URLSearchParams, key: string, value: number | undefined): void {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    query.set(key, String(value));
+  }
+}
+
+function orderHistoryQuery(params?: OrderSearchParams | string): URLSearchParams {
+  const query = new URLSearchParams();
+  if (typeof params === 'string') {
+    setText(query, 'customerId', params);
+    return query;
+  }
+  if (!params) return query;
+
+  setText(query, 'customerId', params.customerId);
+  setText(query, 'orderNumber', params.orderNumber);
+  setText(query, 'productId', params.productId);
+  setText(query, 'keyword', params.keyword);
+  setText(query, 'productKeyword', params.productKeyword);
+  setText(query, 'startDate', params.startDate);
+  setText(query, 'endDate', params.endDate);
+  setAmount(query, 'minAmount', params.minAmount);
+  setAmount(query, 'maxAmount', params.maxAmount);
+  if (params.status && params.status !== 'all') query.set('status', params.status);
+  return query;
+}
+
+function readOrderPage(body: unknown): CheckoutOrderPage {
+  if (!body || typeof body !== 'object') {
+    throw new TypeError('訂單列表回應不是分頁物件');
+  }
+  const page = body as Partial<CheckoutOrderPage>;
+  if (!Array.isArray(page.items) || typeof page.total !== 'number' || !Number.isFinite(page.total)) {
+    throw new TypeError('訂單列表回應不是分頁物件');
+  }
+  return { items: page.items, total: page.total };
+}
+
+async function fetchAllOrderHistory(filters: URLSearchParams): Promise<CheckoutOrder[]> {
+  const items: CheckoutOrder[] = [];
+  let page = 1;
+  let reachedEnd = false;
+
+  while (!reachedEnd) {
+    const query = new URLSearchParams(filters);
+    query.set('page', String(page));
+    query.set('pageSize', String(ORDER_HISTORY_PAGE_SIZE));
+    const body = readOrderPage(await httpClient.get<unknown>(`/checkout/orders?${query.toString()}`));
+    if (body.items.length === 0) {
+      reachedEnd = true;
+      continue;
+    }
+    items.push(...body.items);
+    reachedEnd = items.length >= body.total;
+    page += 1;
+  }
+
+  return items;
+}
+
 export class HttpCheckoutService implements ICheckoutService {
   async createCheckoutOrder(payload: CreateOrderPayload, idempotencyKey?: string): Promise<CheckoutReceipt> {
     const headers: Record<string, string> = {};
@@ -17,26 +89,7 @@ export class HttpCheckoutService implements ICheckoutService {
   }
 
   async getOrderHistory(params?: OrderSearchParams | string): Promise<CheckoutOrder[]> {
-    if (typeof params === 'string') {
-      const query = params ? `?customerId=${encodeURIComponent(params)}` : '';
-      return httpClient.get<CheckoutOrder[]>(`/checkout/orders${query}`);
-    }
-
-    if (!params) {
-      return httpClient.get<CheckoutOrder[]>('/checkout/orders');
-    }
-
-    const queryParts: string[] = [];
-    if (params.customerId) queryParts.push(`customerId=${encodeURIComponent(params.customerId)}`);
-    if (params.orderNumber) queryParts.push(`orderNumber=${encodeURIComponent(params.orderNumber)}`);
-    if (params.productId) queryParts.push(`productId=${encodeURIComponent(params.productId)}`);
-    if (params.keyword) queryParts.push(`keyword=${encodeURIComponent(params.keyword)}`);
-    if (params.startDate) queryParts.push(`startDate=${encodeURIComponent(params.startDate)}`);
-    if (params.endDate) queryParts.push(`endDate=${encodeURIComponent(params.endDate)}`);
-    if (params.status && params.status !== 'all') queryParts.push(`status=${encodeURIComponent(params.status)}`);
-
-    const query = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
-    return httpClient.get<CheckoutOrder[]>(`/checkout/orders${query}`);
+    return fetchAllOrderHistory(orderHistoryQuery(params));
   }
 
   async getOrderById(orderId: string): Promise<CheckoutOrder | null> {
