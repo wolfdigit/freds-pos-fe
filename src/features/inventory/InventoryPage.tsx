@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useProductList } from './hooks/useProductList';
 import { ProductTable } from './components/ProductTable';
+import { LoadMoreFooter } from '@/components/common/LoadMoreFooter';
 import { StockTransferModal } from './components/StockTransferModal';
 import { CreateProductModal } from './components/CreateProductModal';
 import { StockAdjustmentConfirmModal } from './components/StockAdjustmentConfirmModal';
@@ -46,7 +47,22 @@ const STOCK_FILTER_OPTIONS: { value: StockFilterType; label: string }[] = [
 ];
 
 export function InventoryPage() {
-  const { keyword, setKeyword, brand, setBrand, products, isLoading, reload } = useProductList();
+  const [stockFilter, setStockFilter] = useState<StockFilterType>('ALL');
+  // 低庫存、缺貨等條件要看完整清單才判斷得出來，這時改回一次抓全部；「全部庫存狀況」才分頁。
+  const {
+    keyword,
+    setKeyword,
+    brand,
+    setBrand,
+    products,
+    total,
+    hasMore,
+    isLoading,
+    isLoadingMore,
+    loadMore,
+    reload,
+    pinProduct,
+  } = useProductList({ fullList: stockFilter !== 'ALL' });
   const { locations } = useLocations();
   const warehouseLocationId = locations.find((location) => location.name === '後方倉庫')?.id ?? '';
   const storeName = useSessionStore((state) => state.storeName);
@@ -57,8 +73,6 @@ export function InventoryPage() {
   }, [storeName]);
 
   const loginStore = storeName ? storeBindings.find((store) => store.name === storeName) ?? null : null;
-
-  const [stockFilter, setStockFilter] = useState<StockFilterType>('ALL');
 
   const [transferTarget, setTransferTarget] = useState<Product | null>(null);
   const [selectedDetailProduct, setSelectedDetailProduct] = useState<Product | null>(null);
@@ -230,6 +244,8 @@ export function InventoryPage() {
         [createdProduct.id]: initialDrafts,
       }));
     }
+    // 分頁時新商品不一定在已載入的頁面裡，先固定顯示在最前面。
+    pinProduct(createdProduct);
     reload();
   };
 
@@ -347,6 +363,15 @@ export function InventoryPage() {
         onTransfer={setTransferTarget}
         onSelectProduct={setSelectedDetailProduct}
       />
+      {stockFilter === 'ALL' && !isLoading && (
+        <LoadMoreFooter
+          shown={products.length}
+          total={Math.max(total, products.length)}
+          hasMore={hasMore}
+          isLoadingMore={isLoadingMore}
+          onLoadMore={() => void loadMore()}
+        />
+      )}
 
       {/* 跨據點單項調撥彈窗 (套用至編輯列表) */}
       <StockTransferModal

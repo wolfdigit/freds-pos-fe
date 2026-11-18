@@ -1,0 +1,123 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { productService } from '@/services';
+import { MAX_PRODUCT_PAGE_SIZE as MAX_PAGE_SIZE, PRODUCT_PAGE_SIZE, type Product, type ProductSearchParams } from '@/types/product';
+
+export interface PagedProductsOptions {
+  pageSize?: number;
+  /** true 時改用一次抓全部（舊行為），給需要在前端篩完整清單的畫面用。 */
+  fullList?: boolean;
+  /** 篩選條件以外、也要觸發重新查詢的值（例如目前門市）。 */
+  refreshKey?: unknown;
+}
+
+function mergeById(current: Product[], next: Product[]): Product[] {
+  const seen = new Set(current.map((product) => product.id));
+  return [...current, ...next.filter((product) => !seen.has(product.id))];
+}
+
+/**
+ * 商品分頁清單：條件改變時從第一頁重抓，loadMore() 接著抓下一頁並接在後面。
+ * 只有最後一次送出的查詢會更新畫面，較晚回來的舊回應直接丟掉。
+ */
+export function usePagedProducts(filters: ProductSearchParams, options: PagedProductsOptions = {}) {
+  const pageSize = options.pageSize ?? PRODUCT_PAGE_SIZE;
+  const fullList = options.fullList === true;
+  const { keyword, scale, brand, inInventoryOnly } = filters;
+
+  const [items, setItems] = useState<Product[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loadedPages, setLoadedPages] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const latest = useRef(0);
+  const loadedPagesRef = useRef(0);
+  const busyMore = useRef(false);
+
+  const params = useCallback(
+    (): ProductSearchParams => ({ keyword, scale, brand, inInventoryOnly }),
+    [keyword, scale, brand, inInventoryOnly]
+  );
+
+  /** 重抓前 pages 頁（至少 1 頁）。條件改變時 pages = 1；重新整理時保留已載入的頁數。 */
+  const fetchPages = useCallback(
+    async (pages: number) => {
+      latest.current += 1;
+      const requestId = latest.current;
+      busyMore.current = false;
+      setIsLoadingMore(false);
+      setIsLoading(true);
+      setError(null);
+      try {
+        if (fullList) {
+          const all = await productService.searchProducts(params());
+          if (requestId !== latest.current) return;
+          setItems(all);
+          setTotal(all.length);
+          loadedPagesRef.current = 1;
+          setLoadedPages(1);
+          return;
+        }
+        const count = Math.max(1, pages);
+        // 重新整理時把已載入的範圍併成較少的請求（每次最多 MAX_PAGE_SIZE 筆）。
+        const wanted = count * pageSize;
+        const chunk = Math.min(MAX_PAGE_SIZE, wanted);
+        const chunkPages = count === 1 ? 1 : Math.ceil(wanted / chunk);
+        const results = await Promise.all(
+          Array.from({ length: chunkPages }, (_, index) =>
+            productService.searchProductPage({
+              ...params(),
+              page: index + 1,
+              pageSize: count === 1 ? pageSize : chunk,
+            })
+          )
+        );
+        if (requestId !== latest.current) return;
+        setItems(results.reduce<Product[]>((acc, page) => mergeById(acc, page.items), []).slice(0, wanted));
+        setTotal(results[results.length - 1].total);
+        loadedPagesRef.current = count;
+        setLoadedPages(count);
+      } catch (err) {
+        if (requestId === latest.current) setError(err);
+        throw err;
+      } finally {
+        if (requestId === latest.current) setIsLoading(false);
+      }
+    },
+    [fullList, pageSize, params]
+  );
+
+  useEffect(() => {
+    void fetchPages(1).catch((err) => console.error('Failed to load products:', err));
+  }, [fetchPages, options.refreshKey]);
+
+  const hasMore = !fullList && items.length < total;
+
+  const loadMore = useCallback(async () => {
+    if (fullList || busyMore.current || isLoading || items.length >= total) return;
+    busyMore.current = true;
+    const requestId = latest.current;
+    const nextPage = loadedPagesRef.current + 1;
+    setIsLoadingMore(true);
+    try {
+      const page = await productService.searchProductPage({ ...params(), page: nextPage, pageSize });
+      if (requestId !== latest.current) return;
+      setItems((current) => mergeById(current, page.items));
+      setTotal(page.total);
+      loadedPagesRef.current = nextPage;
+      setLoadedPages(nextPage);
+    } catch (err) {
+      if (requestId === latest.current) console.error('Failed to load more products:', err);
+    } finally {
+      if (requestId === latest.current) {
+        busyMore.current = false;
+        setIsLoadingMore(false);
+      }
+    }
+  }, [fullList, isLoading, items.length, total, params, pageSize]);
+
+  /** 重新查詢目前已載入的頁數（儲存、調撥等寫入之後用），清單不會縮回第一頁。 */
+  const reload = useCallback(() => fetchPages(loadedPagesRef.current), [fetchPages]);
+
+  return { items, total, hasMore, loadedPages, isLoading, isLoadingMore, error, loadMore, reload };
+}

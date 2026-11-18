@@ -14,10 +14,9 @@ import { CreateLocationModal } from './components/CreateLocationModal';
 import { EditLocationModal } from './components/EditLocationModal';
 import { DeleteLocationModal } from './components/DeleteLocationModal';
 import { WhitelistAccountsPanel } from './components/WhitelistAccountsPanel';
-import type { InventoryLocationDto } from '@/types/inventory';
-import type { Product } from '@/types/product';
+import type { InventoryLocationDto, LocationStockSummary } from '@/types/inventory';
 import type { StoreDto } from '@/types/system';
-import { productService, systemService, isMockService } from '@/services';
+import { locationService, systemService, isMockService } from '@/services';
 import { errorMessage } from '@/auth/businessError';
 
 type SettingsSection = 'locations' | 'store_info' | 'security';
@@ -52,7 +51,7 @@ export function SettingsPage() {
   const canManageStores = hasPermission(userRole, 'store.manage');
   const { locations, isLoading, error: locationError, reloadLocations } = useLocations();
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [stockSummary, setStockSummary] = useState<LocationStockSummary[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsFailed, setProductsFailed] = useState(false);
   const [storePending, setStorePending] = useState<string | null>(null);
@@ -66,12 +65,12 @@ export function SettingsPage() {
   const [returnedLocationId, setReturnedLocationId] = useState('');
   const [editingStoreName, setEditingStoreName] = useState<string | null>(null);
 
+  // 各據點合計由後端一次算好（GET /inventory/locations/summary），不再抓全部商品。
   const loadProducts = useCallback(async () => {
     setProductsLoading(true);
     setProductsFailed(false);
     try {
-      const data = await productService.searchProducts({});
-      setProducts(data);
+      setStockSummary(await locationService.getStockSummary());
     } catch {
       setProductsFailed(true);
     } finally {
@@ -79,8 +78,8 @@ export function SettingsPage() {
     }
   }, []);
 
-  // useLocations 掛載時已經讀過庫存點，這裡只補讀商品庫存。
-  // 商品清單只用來算各據點合計，不擋住庫存點表格與門市清單的顯示。
+  // useLocations 掛載時已經讀過庫存點，這裡只補讀各據點的庫存合計。
+  // 合計不擋住庫存點表格與門市清單的顯示。
   useEffect(() => {
     void loadProducts();
   }, [loadProducts]);
@@ -96,20 +95,16 @@ export function SettingsPage() {
 
   // 各據點現有庫存統計
   const locationStockStats = useMemo(() => {
-    const map: Record<string, { totalQty: number; productCount: number }> = {};
-    products.forEach((p) => {
-      p.inventories?.forEach((row) => {
-        if (!map[row.location]) {
-          map[row.location] = { totalQty: 0, productCount: 0 };
-        }
-        map[row.location].totalQty += row.quantity;
-        if (row.quantity !== 0) {
-          map[row.location].productCount += 1;
-        }
-      });
+    const map: Record<string, { totalQty: number; productCount: number; hasNonZeroStock: boolean }> = {};
+    stockSummary.forEach((row) => {
+      map[row.locationId] = {
+        totalQty: row.totalQuantity,
+        productCount: row.productCount,
+        hasNonZeroStock: row.hasNonZeroStock,
+      };
     });
     return map;
-  }, [products]);
+  }, [stockSummary]);
 
   // 各據點依排序權重 (displayOrder) 遞增排序
   const sortedLocations = useMemo(() => {
@@ -357,10 +352,8 @@ export function SettingsPage() {
                     </thead>
                     <tbody className="divide-y divide-zinc-800/60 font-medium">
                       {sortedLocations.map((loc) => {
-                        const stats = locationStockStats[loc.id] || { totalQty: 0, productCount: 0 };
-                        const hasQuantity = stats.totalQty !== 0 || products.some((product) =>
-                          product.inventories.some((row) => row.location === loc.id && row.quantity !== 0)
-                        );
+                        const stats = locationStockStats[loc.id] || { totalQty: 0, productCount: 0, hasNonZeroStock: false };
+                        const hasQuantity = stats.totalQty !== 0 || stats.hasNonZeroStock;
 
                         return (
                           <tr

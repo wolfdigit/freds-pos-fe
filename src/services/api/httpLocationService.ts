@@ -5,8 +5,11 @@ import type {
   UpdateInventoryLocationRequest,
   DeleteInventoryLocationRequest,
   DeleteInventoryLocationResponse,
+  LocationStockSummary,
 } from '@/types/inventory';
-import { httpClient } from './httpClient';
+import type { Product } from '@/types/product';
+import { summarizeLocationStock } from '@/services/stockSummary';
+import { ApiError, httpClient } from './httpClient';
 import { invalidateStoreAndLocationCaches, locationList } from './sharedCaches';
 
 export { LOCATIONS_TTL_MS, invalidateLocations } from './sharedCaches';
@@ -20,6 +23,22 @@ export class HttpLocationService implements ILocationService {
       storeNames: [...location.storeNames],
       returnedStoreNames: [...location.returnedStoreNames],
     }));
+  }
+
+  async getStockSummary(): Promise<LocationStockSummary[]> {
+    try {
+      return await httpClient.get<LocationStockSummary[]>('/inventory/locations/summary', { silentToast: true });
+    } catch (err) {
+      // 後端還沒部署 summary API（舊版回 404/405）時，退回原本抓全部商品自己加總。
+      if (err instanceof ApiError && (err.status === 404 || err.status === 405)) {
+        const [locations, products] = await Promise.all([
+          this.getLocations(),
+          httpClient.get<Product[]>('/products'),
+        ]);
+        return summarizeLocationStock(locations, products || []);
+      }
+      throw err;
+    }
   }
 
   async createLocation(location: CreateInventoryLocationRequest): Promise<InventoryLocationDto> {

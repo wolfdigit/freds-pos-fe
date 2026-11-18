@@ -38,7 +38,7 @@ describe('delete location confirmation', () => {
       resolveLocations = resolve;
     });
     vi.spyOn(locationService, 'getLocations').mockReturnValue(pending);
-    vi.spyOn(productService, 'searchProducts').mockResolvedValue([]);
+    vi.spyOn(locationService, 'getStockSummary').mockResolvedValue([]);
     const deleteLocation = vi.spyOn(locationService, 'deleteLocation').mockResolvedValue({
       deletedLocation: stale.id,
       reboundStoreNames: [],
@@ -72,7 +72,7 @@ describe('delete location confirmation', () => {
       calls += 1;
       return calls === 1 ? [stale, other] : [bound, other];
     });
-    vi.spyOn(productService, 'searchProducts').mockResolvedValue([]);
+    vi.spyOn(locationService, 'getStockSummary').mockResolvedValue([]);
     const deleteLocation = vi.spyOn(locationService, 'deleteLocation');
 
     render(<DeleteLocationModal location={stale} onClose={vi.fn()} onSuccess={vi.fn()} />);
@@ -87,21 +87,12 @@ describe('delete location confirmation', () => {
 
   it('disables confirm when the refetched location still has quantity', async () => {
     vi.spyOn(locationService, 'getLocations').mockResolvedValue([stale, other]);
-    vi.spyOn(productService, 'searchProducts').mockResolvedValue([
-      {
-        id: 'prod-1',
-        sku: 'SKU',
-        normalizedSku: 'SKU',
-        barcode: '',
-        brand: '',
-        name: '車',
-        listPrice: 1,
-        inventories: [{ location: stale.id, locationName: stale.name, quantity: -2 }],
-        totalInventory: -2,
-        loginStoreQuantity: null,
-        loginStoreReturnedQuantity: null,
-      },
+    // 只剩已下架商品還有數量：合計是 0，但後端仍會以 LOCATION_NOT_EMPTY 擋下刪除。
+    vi.spyOn(locationService, 'getStockSummary').mockResolvedValue([
+      { locationId: stale.id, locationName: stale.name, totalQuantity: 0, productCount: 0, hasNonZeroStock: true },
+      { locationId: other.id, locationName: other.name, totalQuantity: 0, productCount: 0, hasNonZeroStock: false },
     ]);
+    const searchProducts = vi.spyOn(productService, 'searchProducts');
     const deleteLocation = vi.spyOn(locationService, 'deleteLocation');
 
     render(<DeleteLocationModal location={stale} onClose={vi.fn()} onSuccess={vi.fn()} />);
@@ -109,13 +100,14 @@ describe('delete location confirmation', () => {
     expect(await screen.findByText(/這個地點還有數量/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '確認刪除' })).toBeDisabled();
     expect(deleteLocation).not.toHaveBeenCalled();
+    expect(searchProducts).not.toHaveBeenCalled();
   });
 
   it('shows the backend 400 message and refreshes after delete is refused', async () => {
     const user = userEvent.setup();
     const refresh = vi.fn();
     vi.spyOn(locationService, 'getLocations').mockResolvedValue([stale, other]);
-    vi.spyOn(productService, 'searchProducts').mockResolvedValue([]);
+    vi.spyOn(locationService, 'getStockSummary').mockResolvedValue([]);
     vi.spyOn(locationService, 'deleteLocation').mockRejectedValue(
       new ApiError(
         'API 請求失敗 (400)：/inventory/locations/loc-new',

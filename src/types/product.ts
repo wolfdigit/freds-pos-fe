@@ -58,6 +58,25 @@ export interface ProductSearchParams {
   inInventoryOnly?: boolean;
 }
 
+/** 分頁查詢：page 從 1 開始。 */
+export interface ProductPageParams extends ProductSearchParams {
+  page: number;
+  pageSize: number;
+}
+
+/** GET /products 帶 page/pageSize 時的回應。total 是符合條件的總筆數。 */
+export interface ProductPage {
+  items: Product[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+/** 商品清單與搜尋每頁筆數。 */
+export const PRODUCT_PAGE_SIZE = 50;
+/** 後端 pageSize 上限。 */
+export const MAX_PRODUCT_PAGE_SIZE = 200;
+
 export interface CreateProductRequest {
   sku: string;
   barcode: string;

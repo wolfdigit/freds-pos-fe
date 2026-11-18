@@ -23,10 +23,12 @@ describe('settings page requests', () => {
     vi.restoreAllMocks();
   });
 
-  it('loads locations, store records and products once on open', async () => {
+  it('loads locations, store records and the stock summary once on open, without the product list', async () => {
     const getLocations = vi.spyOn(locationService, 'getLocations');
     const getStores = vi.spyOn(systemService, 'getStores');
-    const searchProducts = vi.spyOn(productService, 'searchProducts').mockResolvedValue([]);
+    const getStockSummary = vi.spyOn(locationService, 'getStockSummary').mockResolvedValue([]);
+    const searchProducts = vi.spyOn(productService, 'searchProducts');
+    const searchProductPage = vi.spyOn(productService, 'searchProductPage');
 
     render(<SettingsPage />);
     expect(await screen.findByText('後方倉庫')).toBeInTheDocument();
@@ -38,11 +40,30 @@ describe('settings page requests', () => {
 
     expect(getLocations).toHaveBeenCalledTimes(1);
     expect(getStores).toHaveBeenCalledTimes(1);
-    expect(searchProducts).toHaveBeenCalledTimes(1);
+    expect(getStockSummary).toHaveBeenCalledTimes(1);
+    expect(searchProducts).not.toHaveBeenCalled();
+    expect(searchProductPage).not.toHaveBeenCalled();
+  });
+
+  it('shows the per-location totals from the stock summary', async () => {
+    const locations = await locationService.getLocations();
+    const warehouse = locations.find((row) => row.name === '後方倉庫')!;
+    vi.spyOn(locationService, 'getStockSummary').mockResolvedValue(
+      locations.map((row) => ({
+        locationId: row.id,
+        locationName: row.name,
+        totalQuantity: row.id === warehouse.id ? 37 : 0,
+        productCount: row.id === warehouse.id ? 4 : 0,
+        hasNonZeroStock: row.id === warehouse.id,
+      }))
+    );
+    render(<SettingsPage />);
+    expect(await screen.findByText('37 台')).toBeInTheDocument();
+    expect(screen.getByText('4 項現貨商品')).toBeInTheDocument();
   });
 
   it('shows the location table before the product totals finish loading', async () => {
-    vi.spyOn(productService, 'searchProducts').mockReturnValue(new Promise(() => undefined));
+    vi.spyOn(locationService, 'getStockSummary').mockReturnValue(new Promise(() => undefined));
     render(<SettingsPage />);
     expect(await screen.findByText('後方倉庫')).toBeInTheDocument();
     expect(screen.getAllByText('讀取中').length).toBeGreaterThan(0);
@@ -50,7 +71,7 @@ describe('settings page requests', () => {
 
   it('refetches store records when the store list really changes', async () => {
     const getStores = vi.spyOn(systemService, 'getStores');
-    vi.spyOn(productService, 'searchProducts').mockResolvedValue([]);
+    vi.spyOn(locationService, 'getStockSummary').mockResolvedValue([]);
     render(<SettingsPage />);
     await waitFor(() => expect(getStores).toHaveBeenCalledTimes(1));
 
