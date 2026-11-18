@@ -10,7 +10,8 @@ export interface LocationDeleteSnapshot {
 /** Current server bindings and non-zero quantities for one location. */
 export async function loadLocationDeleteSnapshot(locationId: string): Promise<LocationDeleteSnapshot> {
   const [locations, products] = await Promise.all([
-    locationService.getLocations(),
+    // 刪除前一定讀最新綁定，不用共用結果。
+    locationService.getLocations({ fresh: true }),
     productService.searchProducts({}),
   ]);
   const location = locations.find((item) => item.id === locationId) ?? null;

@@ -144,7 +144,7 @@ export function SettingsPage() {
   const handleDataRefresh = () => {
     reloadLocations();
     loadProducts();
-    fetchStores();
+    fetchStores({ fresh: true });
     void refreshStoreRecords({ fresh: true });
   };
 

@@ -1,9 +1,12 @@
+import { invalidateStoreAndLocationCaches } from '@/services/api/sharedCaches';
+
 type LocationCatalogListener = () => void;
 
 const listeners = new Set<LocationCatalogListener>();
 
 /** Store binding changes share this signal so every mounted location list reloads. */
 export function invalidateLocationCatalog(): void {
+  invalidateStoreAndLocationCaches();
   listeners.forEach((listener) => listener());
 }
 

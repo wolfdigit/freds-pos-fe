@@ -11,7 +11,12 @@ import {
   writeAuthToken,
 } from '@/auth/runtimeConfig';
 import { authApi } from '@/services/api/httpAuthService';
-import { discardLoginStoresPrefetch, prefetchLoginStores } from '@/auth/storePrefetch';
+import {
+  adoptLoginStoresPrefetch,
+  discardLoginStoresPrefetch,
+  invalidateLoginStores,
+  prefetchLoginStores,
+} from '@/auth/storePrefetch';
 import { subscribeAuthFailure, type AuthFailureNotice } from '@/services/api/httpClient';
 import { hasPermission } from '@/auth/permissions';
 import { isMockService } from '@/services';
@@ -55,7 +60,7 @@ function clearExpiryTimer(): void {
 
 function endLocalSession(): void {
   generation += 1;
-  discardLoginStoresPrefetch();
+  invalidateLoginStores();
   clearExpiryTimer();
   clearAuthToken();
   bindCartToUser(null);
@@ -132,7 +137,7 @@ async function handleTokenStorage(event: StorageEvent): Promise<void> {
   if (isMockService) return;
   generation += 1;
   const gen = generation;
-  discardLoginStoresPrefetch();
+  invalidateLoginStores();
   clearExpiryTimer();
   bindCartToUser(null);
   if (!event.newValue) {
@@ -209,7 +214,7 @@ export function startAuthRuntime(): () => void {
 
 export function resetAuthForTests(): void {
   generation += 1;
-  discardLoginStoresPrefetch();
+  invalidateLoginStores();
   clearExpiryTimer();
   useAuthStore.setState({
     phase: isMockService ? 'mock' : 'loading',
@@ -273,6 +278,8 @@ export const useAuthStore = create<AuthStore>()(() => ({
     try {
       const me = await authApi.me();
       if (gen !== generation) return;
+      // /auth/me 已確認 session 有效，預讀的門市清單才變成共用結果。
+      adoptLoginStoresPrefetch();
       applyAuthState(me);
     } catch (err) {
       if (gen !== generation) return;
@@ -291,7 +298,7 @@ export const useAuthStore = create<AuthStore>()(() => ({
 
   loginWithCredential: async (credential) => {
     const gen = ++generation;
-    discardLoginStoresPrefetch();
+    invalidateLoginStores();
     const result = await authApi.login(credential);
     if (gen !== generation) return;
     if (!result?.token) {
