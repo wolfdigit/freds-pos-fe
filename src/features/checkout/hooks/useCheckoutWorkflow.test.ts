@@ -17,7 +17,11 @@ import { useCartStore } from '@/store/cartStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { CHECKOUT_IDEMPOTENCY_STORAGE_KEY, clearCheckoutKey } from '../checkoutIdempotency';
-import { CHECKOUT_UNCERTAIN_MESSAGE, useCheckoutWorkflow } from './useCheckoutWorkflow';
+import {
+  CHECKOUT_PRODUCT_NOT_FOUND_MESSAGE,
+  CHECKOUT_UNCERTAIN_MESSAGE,
+  useCheckoutWorkflow,
+} from './useCheckoutWorkflow';
 
 const cash: PaymentTender[] = [{ type: 'cash', name: '現金', amount: 100 }];
 
@@ -186,6 +190,35 @@ describe('useCheckoutWorkflow idempotency key', () => {
       await firstCall;
     });
     expect(createCheckoutOrder).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats PRODUCT_NOT_FOUND as a definite failure: no retry, clear message, fresh key next time', async () => {
+    const missing = new ApiError(
+      '找不到商品 (ID: prod-gone)',
+      404,
+      'Not Found',
+      '/checkout/orders',
+      { code: 'PRODUCT_NOT_FOUND', message: '找不到商品 (ID: prod-gone)' },
+      'PRODUCT_NOT_FOUND'
+    );
+    createCheckoutOrder.mockRejectedValueOnce(missing);
+    const onProductNotFound = vi.fn();
+    const { result } = renderHook(() => useCheckoutWorkflow({ onProductNotFound }));
+
+    await act(async () => {
+      expect(await result.current.submitCheckout(cash)).toBeNull();
+    });
+
+    expect(createCheckoutOrder).toHaveBeenCalledTimes(1);
+    expect(onProductNotFound).toHaveBeenCalledTimes(1);
+    const shown = toasts();
+    expect(shown).toHaveLength(1);
+    expect(shown[0]).toContain(CHECKOUT_PRODUCT_NOT_FOUND_MESSAGE);
+    expect(shown[0]).toContain('prod-gone');
+    expect(shown).not.toContain(CHECKOUT_UNCERTAIN_MESSAGE);
+    // 沒有建單，購物車留著讓收銀員移除商品；key 已清掉。
+    expect(useCartStore.getState().items).toHaveLength(1);
+    expect(sessionStorage.getItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY)).toBeNull();
   });
 });
 

@@ -19,10 +19,26 @@ export function isUncertainCheckoutError(err: unknown): boolean {
   return err instanceof ApiError && UNCERTAIN_STATUSES.has(err.status);
 }
 
+/** 後端明確回覆商品不存在或已下架。交易已整筆回滾，不重送。 */
+export function isProductNotFoundError(err: unknown): boolean {
+  return (
+    (err instanceof ApiError && err.code === 'PRODUCT_NOT_FOUND') ||
+    (err instanceof BusinessError && err.code === 'PRODUCT_NOT_FOUND')
+  );
+}
+
+export const CHECKOUT_PRODUCT_NOT_FOUND_MESSAGE =
+  '結帳失敗，沒有建立訂單：購物車裡有商品已不存在或已下架。請移除標示紅色的商品後再結帳。';
+
 export const CHECKOUT_UNCERTAIN_MESSAGE =
   '結帳結果未確認：連線逾時或中斷，訂單可能已經建立。請直接再按一次結帳，系統會用同一筆請求重送，不會重複建單；若仍失敗，請先到銷售紀錄確認。';
 
-export function useCheckoutWorkflow() {
+interface CheckoutWorkflowOptions {
+  /** 後端回 PRODUCT_NOT_FOUND 時呼叫，讓畫面重新檢查並標示購物車商品。 */
+  onProductNotFound?: () => void;
+}
+
+export function useCheckoutWorkflow({ onProductNotFound }: CheckoutWorkflowOptions = {}) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inFlight = useRef(false);
   const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null);
@@ -94,6 +110,12 @@ export function useCheckoutWorkflow() {
       if (isUncertainCheckoutError(err)) {
         // 保留 key，讓收銀員重按時仍是同一筆請求。
         showToast(CHECKOUT_UNCERTAIN_MESSAGE, 'warning', 10000);
+      } else if (isProductNotFoundError(err)) {
+        // 確定失敗、沒有建單。移除商品後是另一筆請求，用新 key。
+        clearCheckoutKey();
+        const detail = err instanceof Error && err.message ? `（${err.message}）` : '';
+        showToast(`${CHECKOUT_PRODUCT_NOT_FOUND_MESSAGE}${detail}`, 'error', 10000);
+        onProductNotFound?.();
       } else if (err instanceof BusinessError) {
         showToast(err.message, 'error');
       } else if (err instanceof ApiError) {
