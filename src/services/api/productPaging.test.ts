@@ -65,6 +65,24 @@ describe('paged product and stock summary requests', () => {
     expect(result.items.map((p) => p.id)).toEqual(['c', 'd']);
   });
 
+  it('sends stock filters and applies them itself when an older backend returns the whole array', async () => {
+    handler = () =>
+      json([
+        { ...row('a'), loginStoreQuantity: 0, totalInventory: 4 },
+        { ...row('b'), loginStoreQuantity: 3, totalInventory: 3 },
+        { ...row('c'), loginStoreQuantity: 2, totalInventory: 0 },
+        { ...row('d'), loginStoreQuantity: null, totalInventory: 0 },
+      ]);
+    const result = await new HttpProductService().searchProductPage({
+      loginStoreQuantityMax: 2,
+      page: 1,
+      pageSize: 50,
+    });
+    expect(calls).toEqual(['GET /api/v1/products?loginStoreQuantityMax=2&page=1&pageSize=50']);
+    expect(result.items.map((p) => p.id)).toEqual(['a', 'c']);
+    expect(result.total).toBe(2);
+  });
+
   it('merges identical page requests that are in flight together', async () => {
     handler = () => json({ items: [row('a')], page: 1, pageSize: 50, total: 1 });
     const service = new HttpProductService();

@@ -56,6 +56,52 @@ export interface ProductSearchParams {
   brand?: string | 'ALL';
   /** 只留 totalInventory > 0 的商品。 */
   inInventoryOnly?: boolean;
+  /** loginStoreQuantity（登入門市正常庫存點）下限／上限，含等號。沒有選定門市時一律不符合。 */
+  loginStoreQuantityMin?: number;
+  loginStoreQuantityMax?: number;
+  /** 搭配 locationQuantityMin/Max：指定庫存點的數量下限／上限，含等號。 */
+  locationId?: string;
+  locationQuantityMin?: number;
+  locationQuantityMax?: number;
+  /** totalInventory 下限／上限，含等號。 */
+  totalInventoryMin?: number;
+  totalInventoryMax?: number;
+}
+
+/** 數量篩選的參數名稱（送給後端時照這個順序）。 */
+export const STOCK_FILTER_KEYS = [
+  'loginStoreQuantityMin',
+  'loginStoreQuantityMax',
+  'locationId',
+  'locationQuantityMin',
+  'locationQuantityMax',
+  'totalInventoryMin',
+  'totalInventoryMax',
+] as const;
+
+function within(value: number, min?: number, max?: number): boolean {
+  return (min === undefined || value >= min) && (max === undefined || value <= max);
+}
+
+/**
+ * 在前端套用數量篩選，規則跟後端一樣（沒有庫存列算 0）。
+ * 只給 Mock 和「後端還不認得這些參數、回傳全部商品」時的備援用。
+ */
+export function matchesStockFilters(product: Product, params: ProductSearchParams): boolean {
+  if (params.inInventoryOnly && !(product.totalInventory > 0)) return false;
+  if (params.loginStoreQuantityMin !== undefined || params.loginStoreQuantityMax !== undefined) {
+    if (typeof product.loginStoreQuantity !== 'number') return false;
+    if (!within(product.loginStoreQuantity, params.loginStoreQuantityMin, params.loginStoreQuantityMax)) return false;
+  }
+  if (params.locationQuantityMin !== undefined || params.locationQuantityMax !== undefined) {
+    const quantity = product.inventories?.find((row) => row.location === params.locationId)?.quantity ?? 0;
+    if (!within(quantity, params.locationQuantityMin, params.locationQuantityMax)) return false;
+  }
+  return within(product.totalInventory ?? 0, params.totalInventoryMin, params.totalInventoryMax);
+}
+
+export function hasStockFilters(params: ProductSearchParams): boolean {
+  return STOCK_FILTER_KEYS.some((key) => params[key] !== undefined && key !== 'locationId');
 }
 
 /** 分頁查詢：page 從 1 開始。 */

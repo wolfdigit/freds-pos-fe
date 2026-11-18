@@ -1,5 +1,5 @@
 import type { IProductService } from '@/services/interfaces/IProductService';
-import { isDelistedProduct } from '@/types/product';
+import { STOCK_FILTER_KEYS, hasStockFilters, isDelistedProduct, matchesStockFilters } from '@/types/product';
 import type {
   CartProductAvailability,
   Product,
@@ -61,6 +61,10 @@ function filterQuery(params: ProductSearchParams): URLSearchParams {
   if (params.scale && params.scale !== 'ALL') query.set('scale', params.scale);
   if (params.brand && params.brand !== 'ALL') query.set('brand', params.brand);
   if (params.inInventoryOnly !== undefined) query.set('inInventoryOnly', String(params.inInventoryOnly));
+  for (const key of STOCK_FILTER_KEYS) {
+    const value = params[key];
+    if (value !== undefined && value !== '') query.set(key, String(value));
+  }
   return query;
 }
 
@@ -81,13 +85,15 @@ export class HttpProductService implements IProductService {
     query.set('pageSize', String(params.pageSize));
     const body = await sharedProductGet<ProductPage | Product[]>(productsEndpoint(query));
     if (Array.isArray(body)) {
-      // 後端還沒部署分頁版時會忽略 page/pageSize、回傳全部；在這裡切出同一頁。
+      // 後端還沒部署分頁版時會忽略 page/pageSize（和數量篩選）、回傳全部；在這裡篩選並切出同一頁。
+      const rows = body.map(mapProduct);
+      const matched = hasStockFilters(params) ? rows.filter((product) => matchesStockFilters(product, params)) : rows;
       const start = (params.page - 1) * params.pageSize;
       return {
-        items: body.slice(start, start + params.pageSize).map(mapProduct),
+        items: matched.slice(start, start + params.pageSize),
         page: params.page,
         pageSize: params.pageSize,
-        total: body.length,
+        total: matched.length,
       };
     }
     return {

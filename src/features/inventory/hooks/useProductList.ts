@@ -1,29 +1,40 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Product } from '@/types/product';
+import type { Product, ProductSearchParams } from '@/types/product';
 import { productService } from '@/services';
 import { useSessionStore } from '@/store/sessionStore';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { usePagedProducts } from '@/hooks/usePagedProducts';
 
-/**
- * 庫存頁商品清單。預設分頁載入；fullList 為 true 時（低庫存、缺貨等只能在前端判斷的篩選）一次抓全部。
- */
-export function useProductList(options: { fullList?: boolean } = {}) {
+export interface ProductListOptions {
+  /** 庫存狀況篩選（低庫存、缺貨、有現貨），由後端篩完再分頁。 */
+  stockFilters?: ProductSearchParams;
+  /** false 時不查詢（例如篩選需要的庫存點不存在）。 */
+  enabled?: boolean;
+  /**
+   * 不管目前篩選條件都要留在畫面上的商品（例如有未儲存庫存草稿的商品）。
+   * 不在已載入結果裡的會顯示在最前面。
+   */
+  keepVisible?: Product[];
+}
+
+/** 庫存頁商品清單：關鍵字、品牌與庫存狀況都在後端篩選，分頁載入。 */
+export function useProductList(options: ProductListOptions = {}) {
   const [keyword, setKeyword] = useState('');
   const [brand, setBrand] = useState<string | 'ALL'>('ALL');
   // 停止輸入 300ms 後才查詢；品牌切換立即生效。
   const searchKeyword = useDebouncedValue(keyword);
   const storeName = useSessionStore((state) => state.storeName);
+  const stockKey = JSON.stringify(options.stockFilters ?? {});
   const paged = usePagedProducts(
-    { keyword: searchKeyword, brand },
-    { fullList: options.fullList, refreshKey: storeName }
+    { keyword: searchKeyword, brand, ...(JSON.parse(stockKey) as ProductSearchParams) },
+    { enabled: options.enabled, refreshKey: storeName }
   );
 
   // 剛建立、還沒出現在已載入頁面裡的商品固定顯示在最前面，讓它的初始庫存草稿看得到、存得到。
   const [pinned, setPinned] = useState<Product[]>([]);
   useEffect(() => {
     setPinned([]);
-  }, [searchKeyword, brand, options.fullList]);
+  }, [searchKeyword, brand, stockKey]);
 
   const pinProduct = useCallback((product: Product) => {
     setPinned((current) => [product, ...current.filter((row) => row.id !== product.id)]);
@@ -41,10 +52,18 @@ export function useProductList(options: { fullList?: boolean } = {}) {
     }
   }, [pinned, reloadPages]);
 
+  const keepVisible = options.keepVisible;
   const products = useMemo(() => {
-    const loaded = new Set(paged.items.map((product) => product.id));
-    return [...pinned.filter((product) => !loaded.has(product.id)), ...paged.items];
-  }, [pinned, paged.items]);
+    const loaded = new Map(paged.items.map((product) => [product.id, product]));
+    const extra: Product[] = [];
+    const seen = new Set<string>();
+    for (const product of [...pinned, ...(keepVisible ?? [])]) {
+      if (loaded.has(product.id) || seen.has(product.id)) continue;
+      seen.add(product.id);
+      extra.push(product);
+    }
+    return [...extra, ...paged.items];
+  }, [pinned, keepVisible, paged.items]);
 
   return {
     keyword,

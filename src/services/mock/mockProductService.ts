@@ -8,7 +8,7 @@ import type {
   CreateProductRequest,
   UpdateProductRequest,
 } from '@/types/product';
-import { isDelistedProduct } from '@/types/product';
+import { isDelistedProduct, matchesStockFilters } from '@/types/product';
 import type {
   InventoryTransferRequest,
   InventoryAdjustRequest,
@@ -102,7 +102,7 @@ export class MockProductService implements IProductService {
       if (params.scale && params.scale !== 'ALL' && product.scale !== params.scale) return false;
       if (params.brand && params.brand !== 'ALL' && product.brand !== params.brand) return false;
       if (params.inInventoryOnly && product.totalInventory <= 0) return false;
-      return true;
+      return matchesStockFilters(product, params);
     });
   }
 
