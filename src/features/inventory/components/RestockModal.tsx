@@ -10,6 +10,7 @@ import { productService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { useLocations } from '../hooks/useLocations';
 import { SEARCH_DEBOUNCE_MS } from '@/hooks/useDebouncedValue';
+import { useBarcodeSiblings } from '@/hooks/useBarcodeSiblings';
 
 interface RestockModalProps {
   open: boolean;
@@ -35,7 +36,6 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
   const showToast = useToastStore((s) => s.showToast);
   const { locations: apiLocations } = useLocations();
 
-  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [barcodeInput, setBarcodeInput] = useState('');
   const [matchedProducts, setMatchedProducts] = useState<Product[]>([]);
   const [selectedGroupKey, setSelectedGroupKey] = useState<string>('');
@@ -45,6 +45,8 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
   const [quantity, setQuantity] = useState('1');
 
   const [restockBatch, setRestockBatch] = useState<RestockItem[]>([]);
+  // 待入庫清單比對同條碼其他貨號：只查清單裡出現的條碼，不再抓全部商品。
+  const siblingsByBarcode = useBarcodeSiblings(restockBatch.map((item) => item.product.barcode));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -135,12 +137,6 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
       setSelectedProductMap({});
       setRestockBatch([]);
       setTimeout(() => inputRef.current?.focus(), 100);
-
-      // 載入全域商品以供待入庫清單比對同條碼其他貨號
-      productService
-        .searchProducts({})
-        .then(setAllProducts)
-        .catch(() => {});
     }
   }, [open]);
 
@@ -569,7 +565,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
               {restockBatch.map((item, idx) => {
                 // 比對全域商品中具有相同條碼的兄弟 SKU
                 const siblingProducts = item.product.barcode
-                  ? allProducts.filter((p) => p.barcode === item.product.barcode)
+                  ? siblingsByBarcode[item.product.barcode] ?? []
                   : [];
                 const hasMultipleSkus = siblingProducts.length > 1;
 

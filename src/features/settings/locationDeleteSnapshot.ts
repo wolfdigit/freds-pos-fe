@@ -1,4 +1,4 @@
-import { locationService, productService } from '@/services';
+import { locationService } from '@/services';
 import type { InventoryLocationDto } from '@/types/inventory';
 
 export interface LocationDeleteSnapshot {
@@ -9,15 +9,14 @@ export interface LocationDeleteSnapshot {
 
 /** Current server bindings and non-zero quantities for one location. */
 export async function loadLocationDeleteSnapshot(locationId: string): Promise<LocationDeleteSnapshot> {
-  const [locations, products] = await Promise.all([
+  const [locations, summary] = await Promise.all([
     // 刪除前一定讀最新綁定，不用共用結果。
     locationService.getLocations({ fresh: true }),
-    productService.searchProducts({}),
+    // 後端算好的合計；hasNonZeroStock 含已下架商品，跟刪除時 LOCATION_NOT_EMPTY 的規則一致。
+    locationService.getStockSummary(),
   ]);
   const location = locations.find((item) => item.id === locationId) ?? null;
-  const hasQuantity = products.some((product) =>
-    product.inventories?.some((row) => row.location === locationId && row.quantity !== 0)
-  );
+  const hasQuantity = summary.some((row) => row.locationId === locationId && row.hasNonZeroStock);
   return {
     location,
     targets: locations.filter((item) => item.id !== locationId),

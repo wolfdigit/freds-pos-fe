@@ -2,6 +2,8 @@ import type { IProductService } from '@/services/interfaces/IProductService';
 import type {
   CartProductAvailability,
   Product,
+  ProductPage,
+  ProductPageParams,
   ProductSearchParams,
   CreateProductRequest,
   UpdateProductRequest,
@@ -102,6 +104,24 @@ export class MockProductService implements IProductService {
       if (params.inInventoryOnly && product.totalInventory <= 0) return false;
       return true;
     });
+  }
+
+  async searchProductPage(params: ProductPageParams): Promise<ProductPage> {
+    const all = (await this.searchProducts(params)).sort((a, b) => a.sku.localeCompare(b.sku));
+    const start = (params.page - 1) * params.pageSize;
+    return {
+      items: all.slice(start, start + params.pageSize),
+      page: params.page,
+      pageSize: params.pageSize,
+      total: all.length,
+    };
+  }
+
+  async getProductsByBarcode(barcode: string): Promise<Product[]> {
+    const code = barcode.trim();
+    if (!code) return [];
+    await simulateDelay();
+    return presentAll(getProducts().filter((product) => product.barcode === code));
   }
 
   async getProductById(id: string): Promise<Product | null> {

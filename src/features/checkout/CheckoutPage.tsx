@@ -14,6 +14,8 @@ import { ReceiptModal } from './components/ReceiptModal';
 import { ProductDetailModal } from './components/ProductDetailModal';
 import { ReturnOrderModal } from './components/ReturnOrderModal';
 import { OrderDetailModal } from './components/OrderDetailModal';
+import { useBarcodeSiblings } from '@/hooks/useBarcodeSiblings';
+import { LoadMoreFooter } from '@/components/common/LoadMoreFooter';
 import { useCartStore } from '@/store/cartStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { useUiStore } from '@/store/uiStore';
@@ -25,7 +27,8 @@ import type { CheckoutOrder } from '@/types/checkout';
 
 export function CheckoutPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const { keyword, setKeyword, brand, setBrand, results, isLoading } = useProductSearch();
+  const { keyword, setKeyword, brand, setBrand, results, total, hasMore, isLoading, isLoadingMore, loadMore } =
+    useProductSearch();
   const cart = useCartStore();
   const ui = useUiStore();
   const showToast = useToastStore((s) => s.showToast);
@@ -50,14 +53,9 @@ export function CheckoutPage() {
   const detailLock = useRef(false);
   const returnLock = useRef(false);
 
-  // 全域商品快取，用於同條碼貨號關聯
-  const [allCatalogProducts, setAllCatalogProducts] = useState<Product[]>([]);
-
-  useEffect(() => {
-    productService.searchProducts({}).then(setAllCatalogProducts).catch(console.error);
-  }, []);
-
   const salesItems = cart.items.filter((i) => i.quantity > 0);
+  // 同條碼的其他貨號：只查購物車裡出現的條碼，不再抓全部商品。
+  const siblingsByBarcode = useBarcodeSiblings(salesItems.map((item) => item.barcode));
   const returnItems = cart.items.filter((i) => i.quantity < 0);
 
   const salesSubtotal = salesItems.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
@@ -75,16 +73,24 @@ export function CheckoutPage() {
     focusBarcode();
   }, []);
 
-  const handleSearchSubmit = () => {
-    if (!keyword.trim()) return;
-    if (results.length > 0) {
-      const exact =
-        results.find(
-          (p) =>
-            p.barcode === keyword.trim() ||
-            p.sku.toLowerCase() === keyword.trim().toLowerCase() ||
-            p.normalizedSku.toLowerCase() === keyword.trim().toLowerCase()
-        ) || results[0];
+  const handleSearchSubmit = async () => {
+    const query = keyword.trim();
+    if (!query) return;
+    const matchesExactly = (p: Product) =>
+      p.barcode === query ||
+      p.sku.toLowerCase() === query.toLowerCase() ||
+      p.normalizedSku.toLowerCase() === query.toLowerCase();
+    let exactMatch = results.find(matchesExactly);
+    if (!exactMatch && hasMore) {
+      // 結果只載入了第一頁：條碼完全相符的商品可能在後面的頁，直接用條碼查一次。
+      try {
+        exactMatch = (await productService.getProductsByBarcode(query))[0];
+      } catch {
+        exactMatch = undefined;
+      }
+    }
+    if (results.length > 0 || exactMatch) {
+      const exact = exactMatch || results[0];
 
       handleAddProduct(exact);
       showToast(`已帶入【${exact.name}】(${exact.sku})`, 'success');
@@ -261,7 +267,7 @@ export function CheckoutPage() {
           onKeywordChange={setKeyword}
           brand={brand}
           onBrandChange={setBrand}
-          onEnter={handleSearchSubmit}
+          onEnter={() => void handleSearchSubmit()}
         />
 
         <div className="flex-1 min-h-0 flex flex-col">
@@ -278,6 +284,15 @@ export function CheckoutPage() {
               ui.setActiveTab('inventory');
             }}
           />
+          {!isLoading && (
+            <LoadMoreFooter
+              shown={results.length}
+              total={total}
+              hasMore={hasMore}
+              isLoadingMore={isLoadingMore}
+              onLoadMore={() => void loadMore()}
+            />
+          )}
         </div>
       </section>
 
@@ -310,9 +325,7 @@ export function CheckoutPage() {
             ) : (
               <div className="space-y-0.5">
                 {salesItems.map((item, idx) => {
-                  const siblingProducts = item.barcode
-                    ? allCatalogProducts.filter((p) => p.barcode === item.barcode)
-                    : [];
+                  const siblingProducts = item.barcode ? siblingsByBarcode[item.barcode] ?? [] : [];
 
                   return (
                     <UnavailableCartLine
@@ -545,7 +558,6 @@ export function CheckoutPage() {
       <ProductDetailModal
         open={Boolean(detailProduct)}
         product={detailProduct}
-        allProducts={allCatalogProducts}
         onClose={() => {
           setDetailProduct(null);
           focusBarcode();

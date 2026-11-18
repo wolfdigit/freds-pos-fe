@@ -50,11 +50,11 @@ export function ProductDetailModal({
         setSiblingProducts(siblings);
         setSiblingsLoading(false);
       } else {
-        // 若未傳入 allProducts，自 productService 查詢同條碼商品
+        // 若未傳入 allProducts，用條碼完全相符查詢同條碼商品
         let cancelled = false;
         setSiblingsLoading(true);
         productService
-          .searchProducts({ keyword: activeProduct.barcode })
+          .getProductsByBarcode(activeProduct.barcode)
           .then((res) => {
             if (cancelled) return;
             const siblings = res.filter((p) => p.barcode === activeProduct.barcode);

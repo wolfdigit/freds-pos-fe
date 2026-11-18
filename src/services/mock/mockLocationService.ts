@@ -6,7 +6,9 @@ import type {
   DeleteInventoryLocationRequest,
   DeleteInventoryLocationResponse,
   ReboundStore,
+  LocationStockSummary,
 } from '@/types/inventory';
+import { summarizeLocationStock } from '@/services/stockSummary';
 import { getProducts, getStoredStores, setProducts, setStoredStores, simulateDelay } from './storageHelper';
 import {
   LOCATIONS_STORAGE_KEY,
@@ -53,6 +55,11 @@ export class MockLocationService implements ILocationService {
   async getLocations(): Promise<InventoryLocationDto[]> {
     await simulateDelay(30, 80);
     return listed();
+  }
+
+  async getStockSummary(): Promise<LocationStockSummary[]> {
+    await simulateDelay(30, 80);
+    return summarizeLocationStock(listed(), getProducts());
   }
 
   async createLocation(location: CreateInventoryLocationRequest): Promise<InventoryLocationDto> {

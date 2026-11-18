@@ -52,6 +52,18 @@ export const LEGACY_LOCATION_IDS: Record<string, string> = Object.fromEntries(
 );
 
 /** 庫存地點。沒有啟用旗標；店家綁定決定它扮演正常貨或退貨。 */
+/** GET /inventory/locations/summary 的一列：各庫存點合計由後端 SQL 算好。 */
+export interface LocationStockSummary {
+  locationId: string;
+  locationName: string;
+  /** 未下架商品在這裡的有號數量合計。 */
+  totalQuantity: number;
+  /** 未下架、且這裡數量不是 0 的商品數（負數也算）。 */
+  productCount: number;
+  /** 這裡有任何一列不是 0（含已下架商品）。刪除庫存點會被 LOCATION_NOT_EMPTY 擋下。 */
+  hasNonZeroStock: boolean;
+}
+
 export interface InventoryLocationDto {
   id: string;
   name: string;
