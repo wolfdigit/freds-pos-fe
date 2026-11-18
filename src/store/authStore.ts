@@ -11,6 +11,7 @@ import {
   writeAuthToken,
 } from '@/auth/runtimeConfig';
 import { authApi } from '@/services/api/httpAuthService';
+import { discardLoginStoresPrefetch, prefetchLoginStores } from '@/auth/storePrefetch';
 import { subscribeAuthFailure, type AuthFailureNotice } from '@/services/api/httpClient';
 import { hasPermission } from '@/auth/permissions';
 import { isMockService } from '@/services';
@@ -54,6 +55,7 @@ function clearExpiryTimer(): void {
 
 function endLocalSession(): void {
   generation += 1;
+  discardLoginStoresPrefetch();
   clearExpiryTimer();
   clearAuthToken();
   bindCartToUser(null);
@@ -130,6 +132,7 @@ async function handleTokenStorage(event: StorageEvent): Promise<void> {
   if (isMockService) return;
   generation += 1;
   const gen = generation;
+  discardLoginStoresPrefetch();
   clearExpiryTimer();
   bindCartToUser(null);
   if (!event.newValue) {
@@ -206,6 +209,7 @@ export function startAuthRuntime(): () => void {
 
 export function resetAuthForTests(): void {
   generation += 1;
+  discardLoginStoresPrefetch();
   clearExpiryTimer();
   useAuthStore.setState({
     phase: isMockService ? 'mock' : 'loading',
@@ -263,12 +267,16 @@ export const useAuthStore = create<AuthStore>()(() => ({
     }
     bindCartToUser(null);
     useAuthStore.setState({ phase: 'loading', errorMessage: null });
+    // /auth/stores 和 /auth/me 同時送出。登入是否有效仍只由 /auth/me 決定；
+    // 門市清單要等 /auth/me 成功後才會被採用，失敗就丟掉。
+    prefetchLoginStores();
     try {
       const me = await authApi.me();
       if (gen !== generation) return;
       applyAuthState(me);
     } catch (err) {
       if (gen !== generation) return;
+      discardLoginStoresPrefetch();
       if (isSessionEndError(err)) {
         endLocalSession();
         return;
@@ -283,6 +291,7 @@ export const useAuthStore = create<AuthStore>()(() => ({
 
   loginWithCredential: async (credential) => {
     const gen = ++generation;
+    discardLoginStoresPrefetch();
     const result = await authApi.login(credential);
     if (gen !== generation) return;
     if (!result?.token) {

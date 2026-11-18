@@ -10,6 +10,8 @@ export interface ICheckoutService {
   createCheckoutOrder(payload: CreateOrderPayload, idempotencyKey?: string): Promise<CheckoutReceipt>;
   /** 查詢歷史結帳單（會員、單號、商品、關鍵字、金額、日期）。回傳訂單陣列；HTTP 會自行翻頁後接起來。 */
   getOrderHistory(params?: OrderSearchParams | string): Promise<CheckoutOrder[]>;
+  /** 最近的結帳單（新到舊，只抓一頁，最多 100 筆）。日報的「有紀錄」日期捷徑用，不必抓全部歷史。 */
+  getRecentOrders(limit: number): Promise<CheckoutOrder[]>;
   /** 依 ID 取得單一結帳單（補印收據 / 查看退貨狀態用） */
   getOrderById(orderId: string): Promise<CheckoutOrder | null>;
 }

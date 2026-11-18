@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Customer } from '@/types/customer';
 import { customerService } from '@/services';
 import { useUiStore } from '@/store/uiStore';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import { useLatestRequest } from '@/hooks/useLatestRequest';
 
 export function useCustomerSearch() {
   const [keyword, setKeywordState] = useState('');
@@ -12,6 +14,11 @@ export function useCustomerSearch() {
   const [isLoading, setIsLoading] = useState(true);
   const { selectedCustomerId, setSelectedCustomerId } = useUiStore();
   const [selectedId, setSelectedIdState] = useState<string | null>(selectedCustomerId);
+  // 停止輸入 300ms 後才查詢，舊的回應不會蓋掉新的結果。
+  const searchKeyword = useDebouncedValue(keyword);
+  const { begin, isLatest } = useLatestRequest();
+  const customersRef = useRef<Customer[]>([]);
+  const hasLoadedRef = useRef(false);
 
   const setKeyword = useCallback((val: string) => {
     setKeywordState(val);
@@ -28,9 +35,13 @@ export function useCustomerSearch() {
 
   const reload = useCallback(
     async (targetId?: string) => {
+      const requestId = begin();
       setIsLoading(true);
       try {
-        const res = await customerService.searchCustomers({ keyword, page, pageSize });
+        const res = await customerService.searchCustomers({ keyword: searchKeyword, page, pageSize });
+        if (!isLatest(requestId)) return;
+        customersRef.current = res.items;
+        hasLoadedRef.current = true;
         setCustomers(res.items);
         setTotal(res.total);
         const activeTarget = targetId ?? selectedCustomerId;
@@ -45,13 +56,17 @@ export function useCustomerSearch() {
           setSelectedIdState(fallbackId);
         }
       } catch (err) {
-        console.error(err);
+        if (isLatest(requestId)) console.error(err);
       } finally {
-        setIsLoading(false);
+        if (isLatest(requestId)) setIsLoading(false);
       }
     },
-    [keyword, page, pageSize, selectedId, selectedCustomerId]
+    [searchKeyword, page, pageSize, selectedId, selectedCustomerId, begin, isLatest]
   );
+
+  // 讓下面的 effect 用最新的 reload，又只在指定條件改變時觸發。
+  const reloadRef = useRef(reload);
+  reloadRef.current = reload;
 
   useEffect(() => {
     if (selectedCustomerId !== selectedId) {
@@ -60,8 +75,15 @@ export function useCustomerSearch() {
   }, [selectedCustomerId]);
 
   useEffect(() => {
-    reload();
-  }, [keyword, page, pageSize, selectedCustomerId]);
+    void reloadRef.current();
+  }, [searchKeyword, page, pageSize]);
+
+  // 點選列表裡已有的會員不必重抓整份列表；只有外部帶入（例如網址）不在目前列表的會員才重抓。
+  useEffect(() => {
+    if (!hasLoadedRef.current || !selectedCustomerId) return;
+    if (customersRef.current.some((c) => c.id === selectedCustomerId)) return;
+    void reloadRef.current();
+  }, [selectedCustomerId]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
@@ -80,4 +102,3 @@ export function useCustomerSearch() {
     reload,
   };
 }
-

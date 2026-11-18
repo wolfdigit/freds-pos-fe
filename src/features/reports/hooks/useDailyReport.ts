@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { checkoutService } from '@/services';
 import type { CheckoutOrder, PaymentMethodType } from '@/types/checkout';
 import type { DailyReportSummary, PaymentMethodStat } from '@/types/report';
@@ -6,29 +6,70 @@ import { PAYMENT_METHOD_OPTIONS } from '@/types/report';
 import { formatDate, nowIso } from '@/utils/date';
 import { safeAdd } from '@/utils/currency';
 
+/** 「有紀錄」日期捷徑只看最近這麼多筆訂單，不再抓全部歷史。 */
+const RECENT_ORDERS_FOR_DATE_CHIPS = 100;
+
+/**
+ * 把 YYYY-MM-DD（瀏覽器本地日期，與 formatDate 相同）轉成後端 startDate/endDate。
+ * 後端條件是 createdAt >= startDate 且 createdAt < endDate，所以 endDate 是隔天本地零點。
+ */
+export function dayRangeForDate(date: string): { startDate: string; endDate: string } | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]) - 1;
+  const day = Number(match[3]);
+  const start = new Date(year, month, day);
+  const end = new Date(year, month, day + 1);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  return { startDate: start.toISOString(), endDate: end.toISOString() };
+}
+
 export function useDailyReport() {
   const [selectedDate, setSelectedDate] = useState<string>(() => formatDate(nowIso()));
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodType | 'all'>('all');
   const [allOrders, setAllOrders] = useState<CheckoutOrder[]>([]);
+  const [recentOrders, setRecentOrders] = useState<CheckoutOrder[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const dayRequest = useRef(0);
 
-  const loadOrders = useCallback(async () => {
+  const loadDayOrders = useCallback(async () => {
+    const requestId = ++dayRequest.current;
     setIsLoading(true);
     try {
-      const orders = await checkoutService.getOrderHistory();
+      // 只向後端要選定日期的訂單，不再抓全部歷史回來在瀏覽器篩選。
+      const range = dayRangeForDate(selectedDate);
+      const orders = await checkoutService.getOrderHistory(range ?? undefined);
+      if (requestId !== dayRequest.current) return;
       // 依建立時間由新到舊排序
       orders.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
       setAllOrders(orders);
     } catch (err) {
-      console.error('Failed to load order history for reports:', err);
+      if (requestId === dayRequest.current) console.error('Failed to load order history for reports:', err);
     } finally {
-      setIsLoading(false);
+      if (requestId === dayRequest.current) setIsLoading(false);
+    }
+  }, [selectedDate]);
+
+  const loadRecentOrders = useCallback(async () => {
+    try {
+      setRecentOrders(await checkoutService.getRecentOrders(RECENT_ORDERS_FOR_DATE_CHIPS));
+    } catch (err) {
+      console.error('Failed to load recent orders for report date shortcuts:', err);
     }
   }, []);
 
   useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
+    void loadDayOrders();
+  }, [loadDayOrders]);
+
+  useEffect(() => {
+    void loadRecentOrders();
+  }, [loadRecentOrders]);
+
+  const reload = useCallback(async () => {
+    await Promise.all([loadDayOrders(), loadRecentOrders()]);
+  }, [loadDayOrders, loadRecentOrders]);
 
   // 計算當日報表統計資料
   const summary: DailyReportSummary = useMemo(() => {
@@ -155,11 +196,14 @@ export function useDailyReport() {
   // 取得目前有訂單記錄的日期清單（方便使用者快速探索示範資料）
   const availableDatesWithOrders = useMemo(() => {
     const dates = new Set<string>();
+    for (const order of recentOrders) {
+      dates.add(formatDate(order.createdAt));
+    }
     for (const order of allOrders) {
       dates.add(formatDate(order.createdAt));
     }
     return Array.from(dates).sort((a, b) => (a < b ? 1 : -1));
-  }, [allOrders]);
+  }, [allOrders, recentOrders]);
 
   return {
     selectedDate,
@@ -168,7 +212,7 @@ export function useDailyReport() {
     setSelectedPaymentMethod,
     summary,
     isLoading,
-    reload: loadOrders,
+    reload,
     setQuickDate,
     availableDatesWithOrders,
   };

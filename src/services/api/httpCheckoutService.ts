@@ -101,6 +101,13 @@ export class HttpCheckoutService implements ICheckoutService {
     return fetchAllOrderHistory(orderHistoryQuery(params));
   }
 
+  async getRecentOrders(limit: number): Promise<CheckoutOrder[]> {
+    const pageSize = Math.min(Math.max(1, Math.floor(limit)), ORDER_HISTORY_PAGE_SIZE);
+    const query = new URLSearchParams({ page: '1', pageSize: String(pageSize) });
+    // 後端依建立時間新到舊排序，第一頁就是最近的訂單。
+    return readOrderPage(await httpClient.get<unknown>(`/checkout/orders?${query.toString()}`)).items;
+  }
+
   async getOrderById(orderId: string): Promise<CheckoutOrder | null> {
     try {
       return await httpClient.get<CheckoutOrder>(`/checkout/orders/${orderId}`);
