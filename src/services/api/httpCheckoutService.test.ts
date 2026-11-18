@@ -168,3 +168,24 @@ describe('HttpCheckoutService.getOrderHistory', () => {
     expect(calls).toHaveLength(1);
   });
 });
+
+describe('HttpCheckoutService.createCheckoutOrder', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the idempotency key with a longer, toast-free checkout timeout', async () => {
+    const { httpClient } = await import('./httpClient');
+    const { CHECKOUT_TIMEOUT_MS } = await import('./httpCheckoutService');
+    const post = vi.spyOn(httpClient, 'post').mockResolvedValue({ order: {} });
+
+    await new HttpCheckoutService().createCheckoutOrder({ items: [], payments: [] } as never, 'key-1');
+
+    expect(post).toHaveBeenCalledWith('/checkout/orders', { items: [], payments: [] }, {
+      headers: { 'X-Idempotency-Key': 'key-1' },
+      timeoutMs: CHECKOUT_TIMEOUT_MS,
+      silentToast: true,
+    });
+    expect(CHECKOUT_TIMEOUT_MS).toBeGreaterThanOrEqual(45_000);
+  });
+});

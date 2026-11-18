@@ -3,8 +3,24 @@ import { checkoutService } from '@/services';
 import { useCartStore } from '@/store/cartStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { useToastStore } from '@/components/feedback/toastStore';
+import { getBoundCartUserId } from '@/auth/cartOwner';
+import { ApiError } from '@/services/api/httpClient';
 import { BusinessError } from '@/utils/errors';
 import type { CheckoutReceipt, CreateOrderPayload, PaymentTender } from '@/types/checkout';
+import { checkoutFingerprint, clearCheckoutKey, getOrCreateCheckoutKey } from '../checkoutIdempotency';
+
+/**
+ * 逾時、斷線、閘道錯誤時，後端可能已經建立訂單，只是回應沒回來。
+ * 這些情況用同一把 key 重送是安全的：後端會回傳原本那張單。
+ */
+const UNCERTAIN_STATUSES = new Set([0, 408, 502, 503, 504]);
+
+export function isUncertainCheckoutError(err: unknown): boolean {
+  return err instanceof ApiError && UNCERTAIN_STATUSES.has(err.status);
+}
+
+export const CHECKOUT_UNCERTAIN_MESSAGE =
+  '結帳結果未確認：連線逾時或中斷，訂單可能已經建立。請直接再按一次結帳，系統會用同一筆請求重送，不會重複建單；若仍失敗，請先到銷售紀錄確認。';
 
 export function useCheckoutWorkflow() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,7 +41,8 @@ export function useCheckoutWorkflow() {
       );
       return null;
     }
-    if (!useSessionStore.getState().storeName.trim()) {
+    const storeName = useSessionStore.getState().storeName.trim();
+    if (!storeName) {
       showToast('請先在上方選擇登入門市，才能結帳或辦理退貨。', 'warning');
       return null;
     }
@@ -54,15 +71,34 @@ export function useCheckoutWorkflow() {
         note: orderNote,
       };
 
-      const idempotencyKey = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
-      const result = await checkoutService.createCheckoutOrder(payload, idempotencyKey);
+      // 同一筆結帳（內容不變）不論重按幾次、重新整理幾次，都沿用同一把 key。
+      const idempotencyKey = getOrCreateCheckoutKey(
+        checkoutFingerprint(payload, { userId: getBoundCartUserId(), storeName })
+      );
+
+      let result: CheckoutReceipt;
+      try {
+        result = await checkoutService.createCheckoutOrder(payload, idempotencyKey);
+      } catch (err) {
+        if (!isUncertainCheckoutError(err)) throw err;
+        // 結果不明：用同一把 key 自動重送一次，後端若已建單會直接回傳原單。
+        result = await checkoutService.createCheckoutOrder(payload, idempotencyKey);
+      }
+
+      clearCheckoutKey();
       setReceipt(result);
       clearCart();
       showToast(`結帳完成！單號 ${result.order.orderNumber}`, 'success');
       return result;
     } catch (err) {
-      if (err instanceof BusinessError) {
+      if (isUncertainCheckoutError(err)) {
+        // 保留 key，讓收銀員重按時仍是同一筆請求。
+        showToast(CHECKOUT_UNCERTAIN_MESSAGE, 'warning', 10000);
+      } else if (err instanceof BusinessError) {
         showToast(err.message, 'error');
+      } else if (err instanceof ApiError) {
+        if (err.code === 'IDEMPOTENCY_CONFLICT') clearCheckoutKey();
+        showToast(err.message || '結帳失敗，請稍後再試', 'error');
       } else {
         showToast('結帳失敗，請稍後再試', 'error');
       }

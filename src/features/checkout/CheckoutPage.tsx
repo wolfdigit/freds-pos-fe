@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { useProductSearch } from './hooks/useProductSearch';
 import { useCheckoutWorkflow } from './hooks/useCheckoutWorkflow';
+import { clearCheckoutKey } from './checkoutIdempotency';
 import { ProductSearchBar } from './components/ProductSearchBar';
 import { ProductResultTable } from './components/ProductResultTable';
 import { CartItemRow, ReturnCartItemRow } from './components/CartItemRow';
@@ -411,7 +412,11 @@ export function CheckoutPage() {
           itemCount={cart.items.length}
           salesItemCount={cart.getSalesItemsCount()}
           returnItemCount={cart.getReturnItemsCount()}
-          onClear={cart.clearCart}
+          onClear={() => {
+            // 收銀員主動清空購物車，代表放棄這筆結帳，下一筆一定用新 key。
+            clearCheckoutKey();
+            cart.clearCart();
+          }}
           onCheckout={handleStartCheckout}
         />
       </section>

@@ -10,6 +10,9 @@ import { httpClient } from './httpClient';
 /** Backend rejects pageSize above 100. Callers still receive every matching order. */
 const ORDER_HISTORY_PAGE_SIZE = 100;
 
+/** POST /checkout/orders 專用逾時。 */
+export const CHECKOUT_TIMEOUT_MS = 60_000;
+
 interface CheckoutOrderPage {
   items: CheckoutOrder[];
   total: number;
@@ -85,7 +88,13 @@ export class HttpCheckoutService implements ICheckoutService {
     if (idempotencyKey) {
       headers['X-Idempotency-Key'] = idempotencyKey;
     }
-    return httpClient.post<CheckoutReceipt>('/checkout/orders', payload, { headers });
+    // 結帳在後端要鎖 session、扣庫存、寫多張表，冷啟動時可能超過預設 15 秒。
+    // 錯誤訊息由 useCheckoutWorkflow 統一顯示，避免逾時時先跳「請求逾時」又跳結果未確認。
+    return httpClient.post<CheckoutReceipt>('/checkout/orders', payload, {
+      headers,
+      timeoutMs: CHECKOUT_TIMEOUT_MS,
+      silentToast: true,
+    });
   }
 
   async getOrderHistory(params?: OrderSearchParams | string): Promise<CheckoutOrder[]> {
