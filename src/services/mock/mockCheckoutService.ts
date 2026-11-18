@@ -200,6 +200,14 @@ export class MockCheckoutService implements ICheckoutService {
     return { order: newOrder };
   }
 
+  async getRecentOrders(limit: number): Promise<CheckoutOrder[]> {
+    await simulateDelay();
+    return getOrders()
+      .slice()
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      .slice(0, Math.max(0, limit));
+  }
+
   async getOrderHistory(params?: OrderSearchParams | string): Promise<CheckoutOrder[]> {
     await simulateDelay();
     const orders = getOrders();

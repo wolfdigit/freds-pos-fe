@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import { errorMessage } from '@/auth/businessError';
 import { displayAccountName } from '@/auth/displayName';
 import { hasPermission } from '@/auth/permissions';
-import { authApi } from '@/services/api/httpAuthService';
+import { loadLoginStores } from '@/auth/storePrefetch';
 import { isMockService, systemService } from '@/services';
 import { INITIAL_STORES } from '@/services/mock/mockDataSeed';
 import type { AuthUser } from '@/types/auth';
@@ -87,7 +87,7 @@ export const useSessionStore = create<SessionStore>()(
             set({ storeListStatus: 'loading', storeListError: null });
           }
           try {
-            const storeDtos = isMockService ? await systemService.getStores() : await authApi.listStores();
+            const storeDtos = isMockService ? await systemService.getStores() : await loadLoginStores();
             const names = (storeDtos || []).map((store) => store.name).filter((name) => name.trim());
             if (!isMockService) {
               set({ stores: names, storeListStatus: 'ready', storeListError: null });

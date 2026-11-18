@@ -33,6 +33,8 @@ function mapProduct(product: Product): Product {
   };
 }
 
+const inFlightProductSearches = new Map<string, Promise<Product[]>>();
+
 export class HttpProductService implements IProductService {
   async searchProducts(params: ProductSearchParams): Promise<Product[]> {
     const query = new URLSearchParams();
@@ -42,8 +44,21 @@ export class HttpProductService implements IProductService {
     if (params.inInventoryOnly !== undefined) query.set('inInventoryOnly', String(params.inInventoryOnly));
 
     const qs = query.toString();
-    const rows = await httpClient.get<Product[]>(`/products${qs ? `?${qs}` : ''}`);
-    return (rows || []).map(mapProduct);
+    const endpoint = `/products${qs ? `?${qs}` : ''}`;
+    // 同一畫面同時送出的相同查詢（例如結帳頁的搜尋結果與同條碼比對）共用一次請求。
+    // 只合併進行中的請求，不快取結果，庫存數字永遠是最新回應。
+    const key = `${localStorage.getItem('AUTH_TOKEN') ?? ''}\n${endpoint}`;
+    let request = inFlightProductSearches.get(key);
+    if (!request) {
+      request = httpClient
+        .get<Product[]>(endpoint)
+        .then((rows) => (rows || []).map(mapProduct))
+        .finally(() => {
+          inFlightProductSearches.delete(key);
+        });
+      inFlightProductSearches.set(key, request);
+    }
+    return (await request).slice();
   }
 
   async getProductById(id: string): Promise<Product | null> {

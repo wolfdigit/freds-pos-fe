@@ -3,7 +3,7 @@ import { hasPermission } from '@/auth/permissions';
 import { errorMessage } from '@/auth/businessError';
 import { storeSwitchNotice } from '@/auth/storeSwitch';
 import { readPersistedCart } from '@/auth/cartPersistence';
-import { authApi } from '@/services/api/httpAuthService';
+import { loadLoginStores } from '@/auth/storePrefetch';
 import { locationService, systemService } from '@/services';
 import type { InventoryLocationDto } from '@/types/inventory';
 import { Button } from '@/components/common/Button';
@@ -38,8 +38,8 @@ export function StoreSelectScreen() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    authApi
-      .listStores()
+    // 重新開啟頁面時，/auth/stores 已和 /auth/me 同時送出，這裡直接沿用那次結果。
+    loadLoginStores()
       .then((rows) => {
         if (!cancelled) setStores(rows);
       })

@@ -9,8 +9,11 @@ import type {
 } from '@/types/system';
 
 export interface ISystemService {
-  /** 取得所有門市分店清單 (對應 GET /system/stores) */
-  getStores(): Promise<StoreDto[]>;
+  /**
+   * 取得所有門市分店清單 (對應 GET /system/stores)。
+   * HTTP 版會短暫共用最近一次結果；fresh: true 會略過共用結果直接重新查詢。
+   */
+  getStores(options?: { fresh?: boolean }): Promise<StoreDto[]>;
 
   /** 新增門市。正常貨與退貨地點都必填，可以是同一個地點。 */
   createStore(request: CreateStoreRequest): Promise<StoreDto>;

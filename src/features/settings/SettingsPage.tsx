@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { hasPermission } from '@/auth/permissions';
 import { storeSwitchNotice } from '@/auth/storeSwitch';
 import { useSessionStore } from '@/store/sessionStore';
@@ -79,10 +79,11 @@ export function SettingsPage() {
     }
   }, []);
 
+  // useLocations 掛載時已經讀過庫存點，這裡只補讀商品庫存。
+  // 商品清單只用來算各據點合計，不擋住庫存點表格與門市清單的顯示。
   useEffect(() => {
-    reloadLocations();
-    loadProducts();
-  }, [reloadLocations, loadProducts]);
+    void loadProducts();
+  }, [loadProducts]);
 
   useEffect(() => {
     if (
@@ -115,17 +116,23 @@ export function SettingsPage() {
     return [...locations].sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999));
   }, [locations]);
 
-  const refreshStoreRecords = useCallback(async () => {
+  const refreshStoreRecords = useCallback(async (options?: { fresh?: boolean }) => {
     try {
-      setStoreRecords(await systemService.getStores());
+      setStoreRecords(await systemService.getStores(options));
     } catch {
       setStoreRecords([]);
     }
   }, []);
 
+  // 只有門市名單內容真的改變才重抓；同一份名單換了陣列參照不算。
+  // 第一次載入（含名單從空變成有值）可以共用庫存頁剛抓過的結果；之後名單變動就直接重新查詢。
+  const storeListKey = stores.join('\n');
+  const previousStoreListKey = useRef<string | null>(null);
   useEffect(() => {
-    void refreshStoreRecords();
-  }, [refreshStoreRecords, stores]);
+    const previous = previousStoreListKey.current;
+    previousStoreListKey.current = storeListKey;
+    void refreshStoreRecords({ fresh: Boolean(previous) });
+  }, [refreshStoreRecords, storeListKey]);
 
   useEffect(() => {
     if (locations.length === 0) return;
@@ -138,7 +145,7 @@ export function SettingsPage() {
     reloadLocations();
     loadProducts();
     fetchStores();
-    void refreshStoreRecords();
+    void refreshStoreRecords({ fresh: true });
   };
 
   const refreshLocationView = useCallback(() => {
