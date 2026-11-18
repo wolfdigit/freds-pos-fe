@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import type { CheckoutOrder } from '@/types/checkout';
-import { formatCurrency } from '@/utils/currency';
+import { formatCurrency, formatSignedCurrency } from '@/utils/currency';
 import { formatReceiptDateTime } from '@/utils/date';
 import { RECEIPT_PRINT_SHEET_ID } from '../printReceipt';
 import '../receipt-print.css';
@@ -87,12 +87,6 @@ function moneyRows(item: CheckoutOrder['items'][number]): ReceiptMoneyRow[] {
   ];
 }
 
-function formatSignedCurrency(amount: number): string {
-  const label = formatCurrency(Math.abs(amount));
-  if (amount > 0) return `+${label}`;
-  if (amount < 0) return `-${label}`;
-  return label;
-}
 
 function buildReceiptModel(order: CheckoutOrder): ReceiptModel {
   const items = order.items ?? [];

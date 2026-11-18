@@ -1,11 +1,12 @@
-import { formatCurrency } from '@/utils/currency';
+import { formatCurrency, formatSignedCurrency } from '@/utils/currency';
 import { Button } from '@/components/common/Button';
 
 interface CartSummaryProps {
   subtotal: number;
   salesSubtotal?: number;
   returnSubtotal?: number;
-  discount: number;
+  /** 價格調整合計（成交單價 - 原價）× 數量；減價為負、加價為正。已含在商品小計內，只是說明。 */
+  priceAdjustment: number;
   shippingFee: number;
   onShippingFeeChange: (fee: number) => void;
   totalAmount: number;
@@ -26,7 +27,7 @@ export function CartSummary({
   subtotal,
   salesSubtotal,
   returnSubtotal,
-  discount,
+  priceAdjustment,
   shippingFee,
   onShippingFeeChange,
   totalAmount,
@@ -60,10 +61,10 @@ export function CartSummary({
           </div>
         )}
 
-        {discount !== 0 && (
+        {Math.round(priceAdjustment) !== 0 && (
           <div className="flex justify-between items-center text-amber-400 text-xs">
-            <span>改價折讓</span>
-            <span className="font-semibold text-sm">-{formatCurrency(discount)}</span>
+            <span>含價格調整</span>
+            <span className="font-semibold text-sm">{formatSignedCurrency(priceAdjustment)}</span>
           </div>
         )}
 

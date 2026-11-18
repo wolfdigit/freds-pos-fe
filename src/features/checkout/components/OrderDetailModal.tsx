@@ -5,7 +5,7 @@ import type { CheckoutOrder } from '@/types/checkout';
 import { paymentMethodLabel } from '@/types/report';
 import type { CartItem } from '@/store/cartStore';
 import { useUiStore } from '@/store/uiStore';
-import { formatCurrency } from '@/utils/currency';
+import { formatCurrency, formatSignedCurrency } from '@/utils/currency';
 import { formatDateTime } from '@/utils/date';
 
 interface OrderDetailModalProps {
@@ -229,7 +229,7 @@ export function OrderDetailModal({
           </div>
         </div>
 
-        {/* 金流、折讓與發票明細 */}
+        {/* 金流、價格調整與發票明細 */}
         <div className="grid grid-cols-2 gap-3 pt-1">
           {/* 左欄：發票與支付方式明細 */}
           <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-3.5 space-y-2 text-xs font-mono">
@@ -263,7 +263,7 @@ export function OrderDetailModal({
             <p className="text-zinc-400 font-bold border-b border-zinc-800/80 pb-1">金額結算彙整</p>
             <div className="space-y-1.5 text-zinc-300">
               <div className="flex justify-between">
-                <span className="text-zinc-400">商品原價小計</span>
+                <span className="text-zinc-400">商品小計</span>
                 <span>{formatCurrency(order.itemsSubtotal)}</span>
               </div>
               {order.shippingFee > 0 && (
@@ -274,8 +274,9 @@ export function OrderDetailModal({
               )}
               {order.discountAmount !== 0 && (
                 <div className="flex justify-between text-rose-400">
-                  <span>現場優惠折讓</span>
-                  <span>-{formatCurrency(order.discountAmount)}</span>
+                  <span>含價格調整</span>
+                  {/* discountAmount 是（原價 - 成交單價）× 數量，減價為正；顯示時反號成減價為負、加價為正。 */}
+                  <span>{formatSignedCurrency(-order.discountAmount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm font-bold text-cyan-300 pt-2 border-t border-zinc-800">
