@@ -29,7 +29,8 @@ interface SessionStore {
   oauthUser: OAuthUser;
 
   setStoreName: (name: string) => void;
-  fetchStores: () => Promise<string[]>;
+  /** 讀登入門市清單。短時間內共用同一次結果；fresh: true 直接重新查詢（重試／重新整理用）。 */
+  fetchStores: (options?: { fresh?: boolean }) => Promise<string[]>;
   addStore: (request: CreateStoreRequest) => Promise<boolean>;
   removeStore: (name: string) => Promise<boolean>;
 
@@ -75,8 +76,9 @@ export const useSessionStore = create<SessionStore>()(
 
       setStoreName: (name) => set({ storeName: name }),
 
-      fetchStores: () => {
-        if (storeListRequest) return storeListRequest;
+      fetchStores: (options) => {
+        const fresh = options?.fresh === true;
+        if (storeListRequest && !fresh) return storeListRequest;
         let resolveRequest: (names: string[]) => void = () => undefined;
         const request = new Promise<string[]>((resolve) => {
           resolveRequest = resolve;
@@ -87,7 +89,7 @@ export const useSessionStore = create<SessionStore>()(
             set({ storeListStatus: 'loading', storeListError: null });
           }
           try {
-            const storeDtos = isMockService ? await systemService.getStores() : await loadLoginStores();
+            const storeDtos = isMockService ? await systemService.getStores() : await loadLoginStores({ fresh });
             const names = (storeDtos || []).map((store) => store.name).filter((name) => name.trim());
             if (!isMockService) {
               set({ stores: names, storeListStatus: 'ready', storeListError: null });

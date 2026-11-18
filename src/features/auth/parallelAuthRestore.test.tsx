@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useEffect } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 
 vi.mock('@/auth/googleIdentity', () => ({
@@ -83,6 +84,82 @@ describe('session restore fetches /auth/me and /auth/stores in parallel', () => 
     expect(await screen.findByText('業務櫃檯')).toBeInTheDocument();
     await waitFor(() => expect(useSessionStore.getState().stores).toEqual(['奇可門市', '線上網購']));
     expect(calls.filter((path) => path.endsWith('/auth/stores'))).toHaveLength(1);
+    vi.unstubAllGlobals();
+  });
+
+  it('reuses the early /auth/stores result when the app shell mounts after restore', async () => {
+    localStorage.setItem('AUTH_TOKEN', 'pos-session');
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        calls.push(new URL(url).pathname);
+        if (url.endsWith('/auth/me')) {
+          // /auth/me 比 /auth/stores 慢，預讀在進入業務畫面前就已完成。
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          return json({
+            expiresAt: '2099-01-01T00:00:00.000Z',
+            storeSelected: true,
+            storeName: '奇可門市',
+            user: staff,
+          });
+        }
+        if (url.endsWith('/auth/stores')) return json([{ name: '奇可門市' }]);
+        return json({ code: 'NOT_FOUND', message: '未預期的請求' }, 404);
+      })
+    );
+    const { AuthGate } = await import('@/features/auth/AuthGate');
+    const { useSessionStore } = await import('@/store/sessionStore');
+
+    // App 與 Header 掛載時都會呼叫 fetchStores。
+    function Shell() {
+      const fetchStores = useSessionStore((state) => state.fetchStores);
+      useEffect(() => {
+        void fetchStores();
+      }, [fetchStores]);
+      useEffect(() => {
+        const timer = setTimeout(() => void fetchStores(), 30);
+        return () => clearTimeout(timer);
+      }, [fetchStores]);
+      return <div>業務櫃檯</div>;
+    }
+
+    render(
+      <AuthGate>
+        <Shell />
+      </AuthGate>
+    );
+
+    expect(await screen.findByText('業務櫃檯')).toBeInTheDocument();
+    await new Promise((resolve) => setTimeout(resolve, 60));
+    expect(useSessionStore.getState().stores).toEqual(['奇可門市']);
+    expect(calls.filter((path) => path.endsWith('/auth/stores'))).toHaveLength(1);
+
+    // 重試按鈕一律重新查詢。
+    await useSessionStore.getState().fetchStores({ fresh: true });
+    expect(calls.filter((path) => path.endsWith('/auth/stores'))).toHaveLength(2);
+    vi.unstubAllGlobals();
+  });
+
+  it('does not adopt a prefetch when the token changed before /auth/me succeeded', async () => {
+    localStorage.setItem('AUTH_TOKEN', 'token-a');
+    const calls: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        calls.push(new URL(String(input)).pathname);
+        return json([{ name: '奇可門市' }]);
+      })
+    );
+    const { prefetchLoginStores, adoptLoginStoresPrefetch, loadLoginStores } = await import(
+      '@/auth/storePrefetch'
+    );
+    prefetchLoginStores();
+    localStorage.setItem('AUTH_TOKEN', 'token-b');
+    adoptLoginStoresPrefetch();
+    await loadLoginStores();
+    expect(calls).toHaveLength(2);
     vi.unstubAllGlobals();
   });
 

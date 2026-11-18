@@ -180,7 +180,7 @@ export function Header() {
               onClick={() => {
                 if (retryingStores) return;
                 setRetryingStores(true);
-                void fetchStores().finally(() => setRetryingStores(false));
+                void fetchStores({ fresh: true }).finally(() => setRetryingStores(false));
               }}
               className="inline-flex items-center gap-1 rounded border border-rose-800 px-2 py-0.5 text-xs text-rose-300 disabled:cursor-wait disabled:opacity-60"
             >
