@@ -9,6 +9,7 @@ import { errorMessage } from '@/auth/businessError';
 import { productService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { useLocations } from '../hooks/useLocations';
+import { SEARCH_DEBOUNCE_MS } from '@/hooks/useDebouncedValue';
 
 interface RestockModalProps {
   open: boolean;
@@ -50,6 +51,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
 
   const inputRef = useRef<HTMLInputElement>(null);
   const searchReqIdRef = useRef(0);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const addingRef = useRef(false);
   const confirmingRef = useRef(false);
 
@@ -121,6 +123,12 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
 
   useEffect(() => {
     if (open) {
+      if (searchTimerRef.current !== null) {
+        clearTimeout(searchTimerRef.current);
+        searchTimerRef.current = null;
+      }
+      searchReqIdRef.current += 1;
+      setIsSearching(false);
       setBarcodeInput('');
       setMatchedProducts([]);
       setSelectedGroupKey('');
@@ -147,18 +155,41 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
   }, [dynamicLocationOptions, targetLocation]);
 
   // 搜尋條碼或關鍵字匹配之商品
-  const handleBarcodeSearch = async (val: string) => {
+  const cancelPendingSearch = () => {
+    if (searchTimerRef.current !== null) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
+    searchReqIdRef.current += 1;
+  };
+
+  useEffect(
+    () => () => {
+      if (searchTimerRef.current !== null) clearTimeout(searchTimerRef.current);
+    },
+    []
+  );
+
+  // 停止輸入 300ms 後才查詢；序號讓較舊的回應不會蓋掉最新結果。
+  const handleBarcodeSearch = (val: string) => {
     setBarcodeInput(val);
     const query = val.trim();
+    cancelPendingSearch();
     if (!query) {
-      searchReqIdRef.current += 1;
       setMatchedProducts([]);
       setIsSearching(false);
       return;
     }
 
-    const reqId = ++searchReqIdRef.current;
+    const reqId = searchReqIdRef.current;
     setIsSearching(true);
+    searchTimerRef.current = setTimeout(() => {
+      searchTimerRef.current = null;
+      void runBarcodeSearch(query, reqId);
+    }, SEARCH_DEBOUNCE_MS);
+  };
+
+  const runBarcodeSearch = async (query: string, reqId: number) => {
     try {
       const results = await productService.searchProducts({ keyword: query });
       if (reqId === searchReqIdRef.current) {
@@ -191,6 +222,9 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
     try {
       // 若尚未匹配到商品（例如條碼槍瞬間送出 Enter），立即執行即時搜尋
       if (!targetProduct && query) {
+        // 條碼槍直接送出 Enter：取消還在等待的打字查詢，改用這次的即時查詢結果。
+        cancelPendingSearch();
+        setIsSearching(false);
         try {
           const results = await productService.searchProducts({ keyword: query });
           if (results.length === 0) {
