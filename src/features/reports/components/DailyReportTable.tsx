@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { CheckoutOrder } from '@/types/checkout';
 import type { DailyReportSummary } from '@/types/report';
+import { paymentMethodLabel } from '@/types/report';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { formatCurrency } from '@/utils/currency';
@@ -53,7 +54,7 @@ export function DailyReportTable({
 
           return (
             <Badge key={idx} color={badgeColor} className="text-xs font-mono">
-              <span>{p.name || p.type}</span>
+              <span>{paymentMethodLabel(p.type, p.name)}</span>
               <span className="ml-1 font-bold">{formatCurrency(p.amount)}</span>
             </Badge>
           );
@@ -75,6 +76,8 @@ export function DailyReportTable({
           報表日期：<span className="text-zinc-200 font-semibold">{selectedDate}</span>
         </div>
       </div>
+
+      <ReportSummaryStrip summary={summary} filtered={selectedPaymentMethod !== 'all'} />
 
       {orders.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center py-12 text-center px-4">
@@ -249,7 +252,7 @@ export function DailyReportTable({
             </tbody>
 
             {/* 表格最末行總計 (Footer Summary Rows) */}
-            <tfoot className="sticky bottom-0 z-10 border-t-2 border-zinc-700 bg-zinc-950 font-sans shadow-lg">
+            <tfoot className="sticky bottom-0 z-10 bg-zinc-900 font-sans shadow-[0_-6px_12px_rgba(0,0,0,0.45)]">
               {/* 1. 各付款方式獨立加總列 */}
               {summary.paymentStats.map((stat) => {
                 let badgeColor: 'emerald' | 'purple' | 'cyan' | 'amber' | 'zinc' = 'zinc';
@@ -259,7 +262,7 @@ export function DailyReportTable({
                 else if (stat.type === 'line_pay') badgeColor = 'amber';
 
                 return (
-                  <tr key={stat.type} className="border-b border-zinc-800/60 bg-zinc-900/60 hover:bg-zinc-900/90 transition-colors">
+                  <tr key={stat.type} className="bg-zinc-900 [&>td]:border-b [&>td]:border-zinc-800 [&>td]:bg-zinc-900">
                     {/* 付款方式說明 (跨 4 欄) */}
                     <td colSpan={4} className="py-2.5 px-3">
                       <div className="flex items-center gap-2">
@@ -268,6 +271,9 @@ export function DailyReportTable({
                         </span>
                         <span className="rounded bg-zinc-800/90 px-2 py-0.5 text-xs font-mono text-zinc-400 border border-zinc-700">
                           共 {stat.count} 筆交易
+                        </span>
+                        <span className="rounded bg-zinc-800/90 px-2 py-0.5 text-xs font-mono text-cyan-300 border border-zinc-700">
+                          佔 {stat.percentage.toFixed(1)}%
                         </span>
                         {stat.type === 'cash' && (summary.cashInflow > 0 || summary.cashOutflow > 0) && (
                           <span className="text-xs font-mono text-zinc-400">
@@ -313,7 +319,7 @@ export function DailyReportTable({
               })}
 
               {/* 2. 當日結算總計列 (Grand Total) */}
-              <tr className="border-t border-zinc-700 bg-zinc-950 font-bold">
+              <tr className="bg-zinc-950 font-bold [&>td]:border-t [&>td]:border-zinc-700 [&>td]:bg-zinc-950">
                 {/* 總計標籤與訂單筆數說明 (跨 4 欄) */}
                 <td colSpan={4} className="py-3 px-3">
                   <div className="flex items-center gap-2.5">
@@ -374,6 +380,50 @@ export function DailyReportTable({
         open={selectedOrder !== null}
         order={selectedOrder}
         onClose={() => setSelectedOrder(null)}
+      />
+    </div>
+  );
+}
+
+interface ReportSummaryStripProps {
+  summary: DailyReportSummary;
+  /** 有選付款方式時，退貨與現金仍是全天數字，要標示出來。 */
+  filtered: boolean;
+}
+
+function SummaryCell({ label, value, sub, valueClassName }: { label: string; value: string; sub?: string; valueClassName?: string }) {
+  return (
+    <div className="min-w-0 px-3 py-1.5">
+      <div className="text-[11px] text-zinc-400 whitespace-nowrap">{label}</div>
+      <div className={`font-mono text-sm font-bold whitespace-nowrap ${valueClassName ?? 'text-zinc-100'}`}>{value}</div>
+      {sub && <div className="font-mono text-[11px] text-zinc-500 whitespace-nowrap">{sub}</div>}
+    </div>
+  );
+}
+
+function ReportSummaryStrip({ summary, filtered }: ReportSummaryStripProps) {
+  const wholeDay = filtered ? '（全天）' : '';
+  return (
+    <div className="grid shrink-0 grid-cols-3 divide-x divide-zinc-800 border-b border-zinc-800 bg-zinc-950/60 md:grid-cols-6">
+      <SummaryCell label="營業額" value={formatCurrency(summary.totalRevenue)} valueClassName="text-cyan-300" />
+      <SummaryCell label="訂單數" value={`${summary.totalOrdersCount} 筆`} />
+      <SummaryCell label="銷售件數" value={`${summary.totalSoldQuantity} 件`} />
+      <SummaryCell
+        label="折扣總額"
+        value={summary.totalDiscountAmount > 0 ? `-${formatCurrency(summary.totalDiscountAmount)}` : formatCurrency(0)}
+        valueClassName={summary.totalDiscountAmount > 0 ? 'text-amber-300' : 'text-zinc-100'}
+      />
+      <SummaryCell
+        label={`退貨${wholeDay}`}
+        value={`${summary.totalReturnedQuantity} 件 / ${summary.totalReturnOrdersCount} 單`}
+        sub={`退款 ${formatCurrency(summary.totalRefundAmount)}`}
+        valueClassName={summary.totalReturnedQuantity > 0 ? 'text-rose-300' : 'text-zinc-100'}
+      />
+      <SummaryCell
+        label={`現金淨額${wholeDay}`}
+        value={formatCurrency(summary.totalCashAmount)}
+        sub={`流入 +${formatCurrency(summary.cashInflow)} / 流出 -${formatCurrency(summary.cashOutflow)}`}
+        valueClassName="text-emerald-300"
       />
     </div>
   );

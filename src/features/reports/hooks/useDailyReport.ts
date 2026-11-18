@@ -135,7 +135,8 @@ export function useDailyReport() {
     // 6. 各付款方式金額加總與佔比統計 (依目前篩選的訂單列表計算)
     const targetOrders = filteredOrders;
     const paymentMap = new Map<PaymentMethodType, { count: number; totalAmount: number }>();
-    let allPaymentsSum = 0;
+    // 佔比分母只算正數收款，退款（負數）不會讓各方式佔比加總超過 100%。
+    let positivePaymentsSum = 0;
 
     for (const order of targetOrders) {
       for (const p of order.payments) {
@@ -146,7 +147,7 @@ export function useDailyReport() {
         current.count += 1;
         current.totalAmount = safeAdd(current.totalAmount, p.amount);
         paymentMap.set(p.type, current);
-        allPaymentsSum = safeAdd(allPaymentsSum, p.amount);
+        if (p.amount > 0) positivePaymentsSum = safeAdd(positivePaymentsSum, p.amount);
       }
     }
 
@@ -154,7 +155,8 @@ export function useDailyReport() {
       .filter((opt) => opt.type !== 'all')
       .map((opt) => {
         const stat = paymentMap.get(opt.type as PaymentMethodType) || { count: 0, totalAmount: 0 };
-        const percentage = allPaymentsSum > 0 ? (Math.max(0, stat.totalAmount) / allPaymentsSum) * 100 : 0;
+        const percentage =
+          positivePaymentsSum > 0 ? (Math.max(0, stat.totalAmount) / positivePaymentsSum) * 100 : 0;
         return {
           type: opt.type as PaymentMethodType,
           label: opt.label,
