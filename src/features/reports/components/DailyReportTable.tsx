@@ -251,7 +251,10 @@ export function DailyReportTable({
               })}
             </tbody>
 
-            {/* 表格最末行總計 (Footer Summary Rows) */}
+            {/* 表格最末行總計 (Footer Summary Rows)
+                border-collapse 表格的格線由表格本身繪製、不會跟著 sticky 的 tfoot 移動，
+                捲動時格線位置會露出後方訂單文字。所以 tfoot 內一律不用 border，
+                分隔線改用畫在儲存格底色內的 inset 陰影。 */}
             <tfoot className="sticky bottom-0 z-10 bg-zinc-900 font-sans shadow-[0_-6px_12px_rgba(0,0,0,0.45)]">
               {/* 1. 各付款方式獨立加總列 */}
               {summary.paymentStats.map((stat) => {
@@ -262,7 +265,7 @@ export function DailyReportTable({
                 else if (stat.type === 'line_pay') badgeColor = 'amber';
 
                 return (
-                  <tr key={stat.type} className="bg-zinc-900 [&>td]:border-b [&>td]:border-zinc-800 [&>td]:bg-zinc-900">
+                  <tr key={stat.type} className="bg-zinc-900 [&>td]:bg-zinc-900 [&>td]:shadow-[inset_0_-1px_0_theme(colors.zinc.800)]">
                     {/* 付款方式說明 (跨 4 欄) */}
                     <td colSpan={4} className="py-2.5 px-3">
                       <div className="flex items-center gap-2">
@@ -319,7 +322,7 @@ export function DailyReportTable({
               })}
 
               {/* 2. 當日結算總計列 (Grand Total) */}
-              <tr className="bg-zinc-950 font-bold [&>td]:border-t [&>td]:border-zinc-700 [&>td]:bg-zinc-950">
+              <tr className="bg-zinc-950 font-bold [&>td]:bg-zinc-950 [&>td]:shadow-[inset_0_1px_0_theme(colors.zinc.700)]">
                 {/* 總計標籤與訂單筆數說明 (跨 4 欄) */}
                 <td colSpan={4} className="py-3 px-3">
                   <div className="flex items-center gap-2.5">
