@@ -9,12 +9,9 @@ import { StockAdjustmentReceiptModal } from './components/StockAdjustmentReceipt
 import { RestockModal } from './components/RestockModal';
 import { ProductDetailModal } from '@/features/checkout/components/ProductDetailModal';
 import { ProductEditModal } from './components/ProductEditModal';
-import type { Product, StockLocation } from '@/types/product';
+import type { Product, ProductSearchParams, StockLocation } from '@/types/product';
 import type { InventoryItemAdjustment, InventoryLocationChange } from '@/types/inventory';
 import { useLocations } from './hooks/useLocations';
-import { useSessionStore } from '@/store/sessionStore';
-import { systemService } from '@/services';
-import type { StoreDto } from '@/types/system';
 import { Button } from '@/components/common/Button';
 import { useUiStore } from '@/store/uiStore';
 
@@ -46,9 +43,48 @@ const STOCK_FILTER_OPTIONS: { value: StockFilterType; label: string }[] = [
   { value: 'HAS_STOCK', label: '任一據點有現貨 (> 0 台)' },
 ];
 
+/** 庫存狀況篩選對應的後端參數（上下限含等號，沒有庫存列算 0）。 */
+export function stockFilterParams(filter: StockFilterType, warehouseLocationId: string): ProductSearchParams {
+  switch (filter) {
+    case 'STORE_LOW':
+      return { loginStoreQuantityMax: 2 };
+    case 'WAREHOUSE_LOW':
+      return { locationId: warehouseLocationId, locationQuantityMax: 2 };
+    case 'STORE_OUT':
+      return { loginStoreQuantityMin: 0, loginStoreQuantityMax: 0 };
+    case 'TOTAL_OUT':
+      return { totalInventoryMin: 0, totalInventoryMax: 0 };
+    case 'HAS_STOCK':
+      return { inInventoryOnly: true };
+    default:
+      return {};
+  }
+}
+
 export function InventoryPage() {
   const [stockFilter, setStockFilter] = useState<StockFilterType>('ALL');
-  // 低庫存、缺貨等條件要看完整清單才判斷得出來，這時改回一次抓全部；「全部庫存狀況」才分頁。
+  const { locations, isLoading: locationsLoading } = useLocations();
+  const warehouseLocationId = locations.find((location) => location.name === '後方倉庫')?.id ?? '';
+
+  // 暫存各地點數量: productId -> location -> newQuantity
+  const [draftStocks, setDraftStocks] = useState<Record<string, Record<StockLocation, number>>>({});
+  // 有草稿的商品快照：換了搜尋或篩選條件、商品不在目前結果裡時，草稿仍看得到、存得到。
+  const [draftProducts, setDraftProducts] = useState<Record<string, Product>>({});
+  const draftedProducts = useMemo(
+    () =>
+      Object.keys(draftStocks)
+        .map((id) => draftProducts[id])
+        .filter((product): product is Product => Boolean(product)),
+    [draftStocks, draftProducts]
+  );
+
+  // 庫存狀況篩選交給後端（以已儲存的數量判斷）並分頁；有草稿的商品不論條件都留在畫面上，儲存後重新查詢。
+  const stockFilters = useMemo(
+    () => stockFilterParams(stockFilter, warehouseLocationId),
+    [stockFilter, warehouseLocationId]
+  );
+  // 「後方倉庫低庫存」要等庫存點讀完；沒有後方倉庫時沒有商品符合（跟以前一樣）。
+  const filterReady = stockFilter !== 'WAREHOUSE_LOW' || (!locationsLoading && Boolean(warehouseLocationId));
   const {
     keyword,
     setKeyword,
@@ -62,17 +98,7 @@ export function InventoryPage() {
     loadMore,
     reload,
     pinProduct,
-  } = useProductList({ fullList: stockFilter !== 'ALL' });
-  const { locations } = useLocations();
-  const warehouseLocationId = locations.find((location) => location.name === '後方倉庫')?.id ?? '';
-  const storeName = useSessionStore((state) => state.storeName);
-  const [storeBindings, setStoreBindings] = useState<StoreDto[]>([]);
-
-  useEffect(() => {
-    systemService.getStores().then(setStoreBindings).catch(() => setStoreBindings([]));
-  }, [storeName]);
-
-  const loginStore = storeName ? storeBindings.find((store) => store.name === storeName) ?? null : null;
+  } = useProductList({ stockFilters, enabled: filterReady, keepVisible: draftedProducts });
 
   const [transferTarget, setTransferTarget] = useState<Product | null>(null);
   const [selectedDetailProduct, setSelectedDetailProduct] = useState<Product | null>(null);
@@ -97,11 +123,10 @@ export function InventoryPage() {
   const [receiptAdjustments, setReceiptAdjustments] = useState<InventoryItemAdjustment[]>([]);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
 
-  // 暫存各地點數量: productId -> location -> newQuantity
-  const [draftStocks, setDraftStocks] = useState<Record<string, Record<StockLocation, number>>>({});
-
   // 處理表格欄位數字輸入變更
   const handleStockChange = (productId: string, location: StockLocation, newQty: number) => {
+    const product = products.find((row) => row.id === productId);
+    if (product) setDraftProducts((prev) => ({ ...prev, [productId]: product }));
     setDraftStocks((prev) => ({
       ...prev,
       [productId]: {
@@ -114,47 +139,18 @@ export function InventoryPage() {
   // 重置未儲存的修改
   const handleResetDrafts = () => {
     setDraftStocks({});
+    setDraftProducts({});
   };
-
-  // 根據庫存狀況過濾商品 (動態彙整據點總量)
-  const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const getQty = (loc: string) =>
-        draftStocks[p.id]?.[loc] !== undefined
-          ? draftStocks[p.id][loc]
-          : p.inventories.find((s) => s.location === loc)?.quantity ?? 0;
-
-      const storeQty = loginStore ? getQty(loginStore.inventoryLocationId) : p.loginStoreQuantity;
-      const warehouseQty = warehouseLocationId ? getQty(warehouseLocationId) : Number.POSITIVE_INFINITY;
-      const allLocKeys = Array.from(new Set([...p.inventories.map((s) => s.location), ...Object.keys(draftStocks[p.id] || {})]));
-      const totalQty = allLocKeys.reduce((sum, loc) => sum + getQty(loc), 0);
-
-      if (stockFilter === 'STORE_LOW') {
-        return typeof storeQty === 'number' && storeQty <= 2;
-      }
-      if (stockFilter === 'WAREHOUSE_LOW') {
-        return warehouseQty <= 2;
-      }
-      if (stockFilter === 'STORE_OUT') {
-        return typeof storeQty === 'number' && storeQty === 0;
-      }
-      if (stockFilter === 'TOTAL_OUT') {
-        return totalQty === 0;
-      }
-      if (stockFilter === 'HAS_STOCK') {
-        return totalQty > 0;
-      }
-      return true;
-    });
-  }, [products, stockFilter, draftStocks, loginStore, warehouseLocationId]);
 
   // 計算並整理已修改的商品與動態分析明細 (支援 DB 動態據點)
   const pendingAdjustments = useMemo<InventoryItemAdjustment[]>(() => {
     const list: InventoryItemAdjustment[] = [];
 
-    for (const p of products) {
-      const pDraft = draftStocks[p.id];
-      if (!pDraft) continue;
+    // 以目前清單裡的最新資料為準；不在目前結果裡的用編輯當下的快照。
+    const current = new Map(products.map((product) => [product.id, product]));
+    for (const [productId, pDraft] of Object.entries(draftStocks)) {
+      const p = current.get(productId) ?? draftProducts[productId];
+      if (!p) continue;
 
       const changes: InventoryLocationChange[] = [];
       let totalDiff = 0;
@@ -217,7 +213,7 @@ export function InventoryPage() {
     }
 
     return list;
-  }, [products, draftStocks]);
+  }, [products, draftStocks, draftProducts]);
 
   const modifiedCount = pendingAdjustments.length;
 
@@ -225,6 +221,8 @@ export function InventoryPage() {
     setReceiptAdjustments(adjustments);
     setIsReceiptModalOpen(true);
     setDraftStocks({});
+    setDraftProducts({});
+    // 儲存後重新查詢：數量改了的商品可能不再符合目前的庫存狀況篩選。
     reload();
   };
 
@@ -243,6 +241,7 @@ export function InventoryPage() {
         ...prev,
         [createdProduct.id]: initialDrafts,
       }));
+      setDraftProducts((prev) => ({ ...prev, [createdProduct.id]: createdProduct }));
     }
     // 分頁時新商品不一定在已載入的頁面裡，先固定顯示在最前面。
     pinProduct(createdProduct);
@@ -356,14 +355,14 @@ export function InventoryPage() {
 
       {/* 庫存列表表格 (支援各地點數量直編、顯示條碼與特大數字) */}
       <ProductTable
-        products={filteredProducts}
+        products={products}
         isLoading={isLoading}
         draftStocks={draftStocks}
         onStockChange={handleStockChange}
         onTransfer={setTransferTarget}
         onSelectProduct={setSelectedDetailProduct}
       />
-      {stockFilter === 'ALL' && !isLoading && (
+      {!isLoading && (
         <LoadMoreFooter
           shown={products.length}
           total={Math.max(total, products.length)}
