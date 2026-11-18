@@ -5,8 +5,10 @@ interface CartSummaryProps {
   subtotal: number;
   salesSubtotal?: number;
   returnSubtotal?: number;
-  /** 價格調整合計（成交單價 - 原價）× 數量；減價為負、加價為正。已含在商品小計內，只是說明。 */
-  priceAdjustment: number;
+  /** 銷售列價格調整合計（成交單價 - 原價）× 數量；減價為負、加價為正。 */
+  salesPriceAdjustment?: number;
+  /** 退貨列價格調整合計，算法同上（數量為負）。 */
+  returnPriceAdjustment?: number;
   shippingFee: number;
   onShippingFeeChange: (fee: number) => void;
   totalAmount: number;
@@ -27,7 +29,8 @@ export function CartSummary({
   subtotal,
   salesSubtotal,
   returnSubtotal,
-  priceAdjustment,
+  salesPriceAdjustment = 0,
+  returnPriceAdjustment = 0,
   shippingFee,
   onShippingFeeChange,
   totalAmount,
@@ -38,6 +41,8 @@ export function CartSummary({
   onCheckout,
 }: CartSummaryProps) {
   const hasReturns = returnSubtotal !== undefined && returnSubtotal < 0;
+  // 上面幾列顯示原價金額，再加一列「價格調整」，相加等於應收總計（扣掉運費前）。
+  const priceAdjustment = salesPriceAdjustment + returnPriceAdjustment;
 
   return (
     <div className="mt-2.5 space-y-2.5 border-t border-zinc-800 pt-2.5">
@@ -46,24 +51,24 @@ export function CartSummary({
         {hasReturns ? (
           <>
             <div className="flex justify-between items-center text-xs">
-              <span className="text-zinc-400">待結銷售小計</span>
-              <span className="font-semibold text-zinc-200">{formatCurrency(salesSubtotal ?? 0)}</span>
+              <span className="text-zinc-400">待結銷售原價</span>
+              <span className="font-semibold text-zinc-200">{formatCurrency((salesSubtotal ?? 0) - salesPriceAdjustment)}</span>
             </div>
             <div className="flex justify-between items-center text-xs text-rose-400">
-              <span>↩️ 瑕疵退貨折抵</span>
-              <span className="font-bold">{formatCurrency(returnSubtotal)}</span>
+              <span>↩️ 瑕疵退貨折抵（原價）</span>
+              <span className="font-bold">{formatCurrency(returnSubtotal - returnPriceAdjustment)}</span>
             </div>
           </>
         ) : (
           <div className="flex justify-between items-center">
-            <span className="text-zinc-400 text-xs">商品小計</span>
-            <span className="font-semibold text-zinc-200 text-base">{formatCurrency(subtotal)}</span>
+            <span className="text-zinc-400 text-xs">商品原價</span>
+            <span className="font-semibold text-zinc-200 text-base">{formatCurrency(subtotal - priceAdjustment)}</span>
           </div>
         )}
 
         {Math.round(priceAdjustment) !== 0 && (
           <div className="flex justify-between items-center text-amber-400 text-xs">
-            <span>含價格調整</span>
+            <span>價格調整</span>
             <span className="font-semibold text-sm">{formatSignedCurrency(priceAdjustment)}</span>
           </div>
         )}

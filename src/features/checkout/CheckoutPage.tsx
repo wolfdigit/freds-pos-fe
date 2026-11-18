@@ -22,6 +22,7 @@ import { useUiStore } from '@/store/uiStore';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { productService, checkoutService } from '@/services';
 import { formatCurrency } from '@/utils/currency';
+import { priceAdjustmentOf } from '@/utils/priceAdjustment';
 import { exceedsLoginStoreQuantity, formatLoginStoreQuantity, type Product } from '@/types/product';
 import type { CheckoutOrder } from '@/types/checkout';
 
@@ -62,8 +63,9 @@ export function CheckoutPage() {
   const returnSubtotal = returnItems.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
 
   const subtotal = cart.getSubtotal();
-  // 價格調整 = (成交單價 - 原價) × 數量；減價為負、加價為正，與收據相同。商品小計已含此調整。
-  const priceAdjustment = cart.items.reduce((sum, i) => sum + (i.unitPrice - i.originalPrice) * i.quantity, 0);
+  // 價格調整 = (成交單價 - 原價) × 數量；減價為負、加價為正，與收據相同。
+  const salesPriceAdjustment = priceAdjustmentOf(salesItems);
+  const returnPriceAdjustment = priceAdjustmentOf(returnItems);
   const totalAmount = cart.getTotalAmount();
 
   const focusBarcode = () => {
@@ -456,7 +458,8 @@ export function CheckoutPage() {
           subtotal={subtotal}
           salesSubtotal={salesSubtotal}
           returnSubtotal={returnSubtotal}
-          priceAdjustment={priceAdjustment}
+          salesPriceAdjustment={salesPriceAdjustment}
+          returnPriceAdjustment={returnPriceAdjustment}
           shippingFee={cart.shippingFee}
           onShippingFeeChange={cart.setShippingFee}
           totalAmount={totalAmount}

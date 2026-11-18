@@ -6,6 +6,7 @@ import { paymentMethodLabel } from '@/types/report';
 import type { CartItem } from '@/store/cartStore';
 import { useUiStore } from '@/store/uiStore';
 import { formatCurrency, formatSignedCurrency } from '@/utils/currency';
+import { priceAdjustmentOf } from '@/utils/priceAdjustment';
 import { formatDateTime } from '@/utils/date';
 
 interface OrderDetailModalProps {
@@ -30,6 +31,8 @@ export function OrderDetailModal({
   if (!order) return null;
 
   const totalQty = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  // 與收據相同：商品原價 + 價格調整（+ 運費）= 實收總金額。退貨列數量為負，加起來就是退款額。
+  const priceAdjustment = priceAdjustmentOf(order.items);
 
   const renderStatusBadge = (status: CheckoutOrder['status']) => {
     switch (status) {
@@ -263,8 +266,8 @@ export function OrderDetailModal({
             <p className="text-zinc-400 font-bold border-b border-zinc-800/80 pb-1">金額結算彙整</p>
             <div className="space-y-1.5 text-zinc-300">
               <div className="flex justify-between">
-                <span className="text-zinc-400">商品小計</span>
-                <span>{formatCurrency(order.itemsSubtotal)}</span>
+                <span className="text-zinc-400">商品原價</span>
+                <span>{formatCurrency(order.itemsSubtotal - priceAdjustment)}</span>
               </div>
               {order.shippingFee > 0 && (
                 <div className="flex justify-between text-cyan-300">
@@ -272,11 +275,10 @@ export function OrderDetailModal({
                   <span>+{formatCurrency(order.shippingFee)}</span>
                 </div>
               )}
-              {order.discountAmount !== 0 && (
+              {priceAdjustment !== 0 && (
                 <div className="flex justify-between text-rose-400">
-                  <span>含價格調整</span>
-                  {/* discountAmount 是（原價 - 成交單價）× 數量，減價為正；顯示時反號成減價為負、加價為正。 */}
-                  <span>{formatSignedCurrency(-order.discountAmount)}</span>
+                  <span>價格調整</span>
+                  <span>{formatSignedCurrency(priceAdjustment)}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm font-bold text-cyan-300 pt-2 border-t border-zinc-800">
