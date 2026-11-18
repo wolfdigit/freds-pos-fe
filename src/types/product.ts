@@ -28,10 +28,26 @@ export interface Product {
   /** 登入門市退貨地點的數量。沒有選定門市時是 null，不是 0。 */
   loginStoreReturnedQuantity: number | null;
   note?: string;
+  /** 後端回傳的商品狀態。已下架的商品只能退貨，不能再賣。 */
+  status?: string;
+  deleted?: boolean;
   createdAt?: string;
   createdBy?: string;
   updatedAt?: string;
   updatedBy?: string;
+}
+
+/**
+ * 購物車商品在後端的狀態。
+ * - available：可以結帳
+ * - missing：後端回 PRODUCT_NOT_FOUND，商品已不存在
+ * - delisted：商品已下架，只能退貨不能賣
+ * - unknown：查不到結果（斷線、逾時等），不阻擋結帳，交給後端判斷
+ */
+export type CartProductAvailability = 'available' | 'missing' | 'delisted' | 'unknown';
+
+export function isDelistedProduct(product: Pick<Product, 'status' | 'deleted'>): boolean {
+  return product.deleted === true || product.status === 'deleted';
 }
 
 export interface ProductSearchParams {

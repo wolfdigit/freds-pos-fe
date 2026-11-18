@@ -1,4 +1,5 @@
 import type {
+  CartProductAvailability,
   Product,
   ProductSearchParams,
   CreateProductRequest,
@@ -21,6 +22,8 @@ import type {
 export interface IProductService {
   searchProducts(params: ProductSearchParams): Promise<Product[]>;
   getProductById(id: string): Promise<Product | null>;
+  /** 結帳前重新確認購物車商品還在。不跳 Toast；查不到結果時回 unknown。 */
+  checkProductAvailability(id: string): Promise<CartProductAvailability>;
   createProduct(product: CreateProductRequest): Promise<Product>;
   updateProduct(id: string, product: UpdateProductRequest): Promise<Product>;
   /** 單一商品調撥。來源不夠時丟 INSUFFICIENT_INVENTORY，兩邊數量都不改。 */

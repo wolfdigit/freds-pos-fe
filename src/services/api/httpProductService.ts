@@ -1,5 +1,7 @@
 import type { IProductService } from '@/services/interfaces/IProductService';
+import { isDelistedProduct } from '@/types/product';
 import type {
+  CartProductAvailability,
   Product,
   ProductSearchParams,
   CreateProductRequest,
@@ -18,7 +20,7 @@ import type {
   InventoryMovementPage,
   InventoryMovementQuery,
 } from '@/types/inventory';
-import { httpClient } from './httpClient';
+import { ApiError, httpClient } from './httpClient';
 
 function asLoginQuantity(value: number | null | undefined): number | null {
   return typeof value === 'number' ? value : null;
@@ -51,6 +53,20 @@ export class HttpProductService implements IProductService {
       return mapProduct(await httpClient.get<Product>(`/products/${id}`));
     } catch {
       return null;
+    }
+  }
+
+  async checkProductAvailability(id: string): Promise<CartProductAvailability> {
+    try {
+      const product = await httpClient.get<Product>(`/products/${encodeURIComponent(id)}`, {
+        silentToast: true,
+      });
+      return isDelistedProduct(product) ? 'delisted' : 'available';
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404 && err.code === 'PRODUCT_NOT_FOUND') {
+        return 'missing';
+      }
+      return 'unknown';
     }
   }
 

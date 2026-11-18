@@ -1,5 +1,12 @@
 import type { IProductService } from '@/services/interfaces/IProductService';
-import type { Product, ProductSearchParams, CreateProductRequest, UpdateProductRequest } from '@/types/product';
+import type {
+  CartProductAvailability,
+  Product,
+  ProductSearchParams,
+  CreateProductRequest,
+  UpdateProductRequest,
+} from '@/types/product';
+import { isDelistedProduct } from '@/types/product';
 import type {
   InventoryTransferRequest,
   InventoryAdjustRequest,
@@ -102,6 +109,12 @@ export class MockProductService implements IProductService {
     const found = getProducts().find((product) => product.id === id);
     if (!found) return null;
     return (await presentAll([found]))[0];
+  }
+
+  async checkProductAvailability(id: string): Promise<CartProductAvailability> {
+    const product = await this.getProductById(id);
+    if (!product) return 'missing';
+    return isDelistedProduct(product) ? 'delisted' : 'available';
   }
 
   async createProduct(product: CreateProductRequest): Promise<Product> {

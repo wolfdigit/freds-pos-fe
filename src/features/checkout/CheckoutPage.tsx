@@ -1,6 +1,8 @@
 import { useRef, useState, useEffect } from 'react';
 import { useProductSearch } from './hooks/useProductSearch';
 import { useCheckoutWorkflow } from './hooks/useCheckoutWorkflow';
+import { blockingCartItems, unavailableReason, useCartProductCheck } from './hooks/useCartProductCheck';
+import { UnavailableCartLine } from './components/UnavailableCartLine';
 import { clearCheckoutKey } from './checkoutIdempotency';
 import { ProductSearchBar } from './components/ProductSearchBar';
 import { ProductResultTable } from './components/ProductResultTable';
@@ -27,7 +29,14 @@ export function CheckoutPage() {
   const cart = useCartStore();
   const ui = useUiStore();
   const showToast = useToastStore((s) => s.showToast);
-  const { isSubmitting, receipt, setReceipt, submitCheckout } = useCheckoutWorkflow();
+  const { unavailable, revalidate: revalidateCartProducts } = useCartProductCheck(cart.items);
+  const { isSubmitting, receipt, setReceipt, submitCheckout } = useCheckoutWorkflow({
+    onProductNotFound: () => {
+      setIsPaymentOpen(false);
+      void revalidateCartProducts();
+    },
+  });
+  const [isCheckingCart, setIsCheckingCart] = useState(false);
   const [detailProduct, setDetailProduct] = useState<Product | null>(null);
   const [detailSource, setDetailSource] = useState<'catalog' | 'cart' | 'overstock'>('catalog');
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
@@ -131,9 +140,27 @@ export function CheckoutPage() {
   };
 
 
-  const handleStartCheckout = () => {
+  const handleStartCheckout = async () => {
     if (!useSessionStore.getState().storeName.trim()) {
       showToast('請先在上方選擇登入門市，才能結帳或辦理退貨。', 'warning');
+      return;
+    }
+    if (isCheckingCart) return;
+    // 送出前再向後端確認一次購物車商品，已不存在或已下架的商品要先移除。
+    setIsCheckingCart(true);
+    let latestUnavailable = unavailable;
+    try {
+      latestUnavailable = await revalidateCartProducts();
+    } finally {
+      setIsCheckingCart(false);
+    }
+    const blocked = blockingCartItems(useCartStore.getState().items, latestUnavailable);
+    if (blocked.length > 0) {
+      showToast(
+        `購物車有 ${blocked.length} 項商品已不存在或已下架（例如「${blocked[0].name}」），請移除標示紅色的商品後再結帳。`,
+        'error',
+        10000
+      );
       return;
     }
     // 檢查退貨數量是否超過原單上限
@@ -288,21 +315,26 @@ export function CheckoutPage() {
                     : [];
 
                   return (
-                    <CartItemRow
+                    <UnavailableCartLine
                       key={`sales-${item.productId}-${idx}`}
-                      item={item}
-                      index={idx + 1}
-                      siblingProducts={siblingProducts}
-                      onSwitchSku={(newP) => cart.switchItemSku(item.productId, newP)}
-                      onUpdateQuantity={(q) => handleUpdateQuantity(item, q)}
-                      onUpdatePrice={(p) => cart.updateItemPrice(item.productId, p, '現場改價')}
+                      reason={unavailableReason(item, unavailable)}
                       onRemove={() => cart.removeItem(item.productId)}
-                      busy={detailBusyId === item.productId}
-                      onViewDetail={() => {
-                        setDetailSource('cart');
-                        void handleViewCartItemDetail(item.productId);
-                      }}
-                    />
+                    >
+                      <CartItemRow
+                        item={item}
+                        index={idx + 1}
+                        siblingProducts={siblingProducts}
+                        onSwitchSku={(newP) => cart.switchItemSku(item.productId, newP)}
+                        onUpdateQuantity={(q) => handleUpdateQuantity(item, q)}
+                        onUpdatePrice={(p) => cart.updateItemPrice(item.productId, p, '現場改價')}
+                        onRemove={() => cart.removeItem(item.productId)}
+                        busy={detailBusyId === item.productId}
+                        onViewDetail={() => {
+                          setDetailSource('cart');
+                          void handleViewCartItemDetail(item.productId);
+                        }}
+                      />
+                    </UnavailableCartLine>
                   );
                 })}
               </div>
@@ -378,18 +410,23 @@ export function CheckoutPage() {
             {returnItems.length > 0 ? (
               <div className="space-y-1">
                 {returnItems.map((item, idx) => (
-                  <ReturnCartItemRow
+                  <UnavailableCartLine
                     key={`return-${item.productId}-${item.originalOrderId ?? 'return'}-${idx}`}
-                    item={item}
-                    index={idx + 1}
-                    onUpdateQuantity={(q) => handleUpdateQuantity(item, q)}
-                    onUpdatePrice={(p) => cart.updateItemPrice(item.productId, p, '瑕疵退貨改價')}
+                    reason={unavailableReason(item, unavailable)}
                     onRemove={() => cart.removeItem(item.productId)}
-                    busy={returnBusyKey === `${item.productId}:${item.originalOrderId ?? 'none'}`}
-                    onViewDetail={() => {
-                      void handleViewReturnOriginalOrder(item);
-                    }}
-                  />
+                  >
+                    <ReturnCartItemRow
+                      item={item}
+                      index={idx + 1}
+                      onUpdateQuantity={(q) => handleUpdateQuantity(item, q)}
+                      onUpdatePrice={(p) => cart.updateItemPrice(item.productId, p, '瑕疵退貨改價')}
+                      onRemove={() => cart.removeItem(item.productId)}
+                      busy={returnBusyKey === `${item.productId}:${item.originalOrderId ?? 'none'}`}
+                      onViewDetail={() => {
+                        void handleViewReturnOriginalOrder(item);
+                      }}
+                    />
+                  </UnavailableCartLine>
                 ))}
               </div>
             ) : (
@@ -417,7 +454,9 @@ export function CheckoutPage() {
             clearCheckoutKey();
             cart.clearCart();
           }}
-          onCheckout={handleStartCheckout}
+          onCheckout={() => {
+            void handleStartCheckout();
+          }}
         />
       </section>
 
