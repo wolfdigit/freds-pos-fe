@@ -4,8 +4,8 @@ import { MAX_PRODUCT_PAGE_SIZE as MAX_PAGE_SIZE, PRODUCT_PAGE_SIZE, type Product
 
 export interface PagedProductsOptions {
   pageSize?: number;
-  /** true 時改用一次抓全部（舊行為），給需要在前端篩完整清單的畫面用。 */
-  fullList?: boolean;
+  /** false 時不送請求、清單為空（例如篩選需要的庫存點還沒讀到或不存在）。預設 true。 */
+  enabled?: boolean;
   /** 篩選條件以外、也要觸發重新查詢的值（例如目前門市）。 */
   refreshKey?: unknown;
 }
@@ -21,8 +21,9 @@ function mergeById(current: Product[], next: Product[]): Product[] {
  */
 export function usePagedProducts(filters: ProductSearchParams, options: PagedProductsOptions = {}) {
   const pageSize = options.pageSize ?? PRODUCT_PAGE_SIZE;
-  const fullList = options.fullList === true;
-  const { keyword, scale, brand, inInventoryOnly } = filters;
+  const enabled = options.enabled !== false;
+  // 條件以內容比較：每次 render 傳進新的物件不會重查，內容改變才重查。
+  const filterKey = JSON.stringify(filters);
 
   const [items, setItems] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
@@ -34,10 +35,7 @@ export function usePagedProducts(filters: ProductSearchParams, options: PagedPro
   const loadedPagesRef = useRef(0);
   const busyMore = useRef(false);
 
-  const params = useCallback(
-    (): ProductSearchParams => ({ keyword, scale, brand, inInventoryOnly }),
-    [keyword, scale, brand, inInventoryOnly]
-  );
+  const params = useCallback((): ProductSearchParams => JSON.parse(filterKey) as ProductSearchParams, [filterKey]);
 
   /** 重抓前 pages 頁（至少 1 頁）。條件改變時 pages = 1；重新整理時保留已載入的頁數。 */
   const fetchPages = useCallback(
@@ -49,13 +47,11 @@ export function usePagedProducts(filters: ProductSearchParams, options: PagedPro
       setIsLoading(true);
       setError(null);
       try {
-        if (fullList) {
-          const all = await productService.searchProducts(params());
-          if (requestId !== latest.current) return;
-          setItems(all);
-          setTotal(all.length);
-          loadedPagesRef.current = 1;
-          setLoadedPages(1);
+        if (!enabled) {
+          setItems([]);
+          setTotal(0);
+          loadedPagesRef.current = 0;
+          setLoadedPages(0);
           return;
         }
         const count = Math.max(1, pages);
@@ -84,17 +80,17 @@ export function usePagedProducts(filters: ProductSearchParams, options: PagedPro
         if (requestId === latest.current) setIsLoading(false);
       }
     },
-    [fullList, pageSize, params]
+    [enabled, pageSize, params]
   );
 
   useEffect(() => {
     void fetchPages(1).catch((err) => console.error('Failed to load products:', err));
   }, [fetchPages, options.refreshKey]);
 
-  const hasMore = !fullList && items.length < total;
+  const hasMore = enabled && items.length < total;
 
   const loadMore = useCallback(async () => {
-    if (fullList || busyMore.current || isLoading || items.length >= total) return;
+    if (!enabled || busyMore.current || isLoading || items.length >= total) return;
     busyMore.current = true;
     const requestId = latest.current;
     const nextPage = loadedPagesRef.current + 1;
@@ -114,7 +110,7 @@ export function usePagedProducts(filters: ProductSearchParams, options: PagedPro
         setIsLoadingMore(false);
       }
     }
-  }, [fullList, isLoading, items.length, total, params, pageSize]);
+  }, [enabled, isLoading, items.length, total, params, pageSize]);
 
   /** 重新查詢目前已載入的頁數（儲存、調撥等寫入之後用），清單不會縮回第一頁。 */
   const reload = useCallback(() => fetchPages(loadedPagesRef.current), [fetchPages]);

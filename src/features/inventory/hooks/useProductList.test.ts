@@ -55,15 +55,49 @@ describe('useProductList', () => {
     expect(result.current.hasMore).toBe(true);
   });
 
-  it('uses the full list when a stock filter needs every product', async () => {
-    const full = vi.spyOn(productService, 'searchProducts').mockResolvedValue(catalog);
-    const paged = vi.spyOn(productService, 'searchProductPage');
-    const { result } = renderHook(() => useProductList({ fullList: true }));
+  it('sends stock filters to the backend and still pages', async () => {
+    const paged = vi.spyOn(productService, 'searchProductPage').mockImplementation(async (params) => pageOf(params));
+    const full = vi.spyOn(productService, 'searchProducts');
+    const { result, rerender } = renderHook(({ stockFilters }) => useProductList({ stockFilters }), {
+      initialProps: { stockFilters: { loginStoreQuantityMax: 2 } as Record<string, unknown> },
+    });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.products).toHaveLength(120);
-    expect(result.current.hasMore).toBe(false);
-    expect(full).toHaveBeenCalledTimes(1);
+    expect(paged).toHaveBeenLastCalledWith(
+      expect.objectContaining({ loginStoreQuantityMax: 2, page: 1, pageSize: 50 })
+    );
+    expect(result.current.hasMore).toBe(true);
+
+    // 同樣內容的新物件不重查；內容改變才重查。
+    paged.mockClear();
+    rerender({ stockFilters: { loginStoreQuantityMax: 2 } });
+    await act(async () => {});
     expect(paged).not.toHaveBeenCalled();
+    rerender({ stockFilters: { inInventoryOnly: true } });
+    await waitFor(() =>
+      expect(paged).toHaveBeenLastCalledWith(expect.objectContaining({ inInventoryOnly: true, page: 1 }))
+    );
+    expect(paged.mock.calls.at(-1)?.[0]).not.toHaveProperty('loginStoreQuantityMax');
+    expect(full).not.toHaveBeenCalled();
+  });
+
+  it('does not query while disabled', async () => {
+    const paged = vi.spyOn(productService, 'searchProductPage');
+    const { result } = renderHook(() => useProductList({ enabled: false }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.products).toEqual([]);
+    expect(result.current.hasMore).toBe(false);
+    expect(paged).not.toHaveBeenCalled();
+  });
+
+  it('keeps products with unsaved drafts visible when they are not in the filtered results', async () => {
+    vi.spyOn(productService, 'searchProductPage').mockImplementation(async (params) => pageOf(params));
+    const drafted = product('zz-drafted');
+    const onPage = catalog[0];
+    const { result } = renderHook(() => useProductList({ keepVisible: [drafted, onPage] }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.products[0].id).toBe('zz-drafted');
+    expect(result.current.products.filter((row) => row.id === onPage.id)).toHaveLength(1);
+    expect(result.current.products).toHaveLength(51);
   });
 
   it('keeps a newly created product visible even when it is not on a loaded page', async () => {
