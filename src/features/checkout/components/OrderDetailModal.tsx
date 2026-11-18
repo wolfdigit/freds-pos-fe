@@ -2,6 +2,7 @@ import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Badge } from '@/components/common/Badge';
 import type { CheckoutOrder } from '@/types/checkout';
+import { paymentMethodLabel } from '@/types/report';
 import type { CartItem } from '@/store/cartStore';
 import { useUiStore } from '@/store/uiStore';
 import { formatCurrency } from '@/utils/currency';
@@ -48,21 +49,17 @@ export function OrderDetailModal({
     const p = payments[0];
     switch (p.type) {
       case 'cash':
-        return <Badge color="emerald">現金</Badge>;
+        return <Badge color="emerald">{paymentMethodLabel(p.type)}</Badge>;
       case 'bank_transfer_ctbc':
-        return <Badge color="purple">轉帳(中信)</Badge>;
       case 'bank_transfer_ubot':
-        return <Badge color="purple">轉帳(聯邦)</Badge>;
+        return <Badge color="purple">{paymentMethodLabel(p.type)}</Badge>;
       case 'credit_card_physical':
-        return <Badge color="cyan">信用卡(實體)</Badge>;
       case 'credit_card_online':
-        return <Badge color="cyan">信用卡(網路)</Badge>;
+        return <Badge color="cyan">{paymentMethodLabel(p.type)}</Badge>;
       case 'line_pay':
-        return <Badge color="amber">LINE Pay</Badge>;
-      case 'cod':
-        return <Badge color="zinc">貨到付款</Badge>;
+        return <Badge color="amber">{paymentMethodLabel(p.type)}</Badge>;
       default:
-        return <Badge color="zinc">{p.name || p.type}</Badge>;
+        return <Badge color="zinc">{paymentMethodLabel(p.type, p.name)}</Badge>;
     }
   };
 
@@ -240,7 +237,7 @@ export function OrderDetailModal({
             <div className="space-y-1 text-zinc-300">
               {order.payments.map((p, i) => (
                 <div key={i} className="flex justify-between items-center">
-                  <span>{p.name || p.type}：</span>
+                  <span>{paymentMethodLabel(p.type, p.name)}：</span>
                   <span className="font-bold text-zinc-100">{formatCurrency(p.amount)}</span>
                 </div>
               ))}

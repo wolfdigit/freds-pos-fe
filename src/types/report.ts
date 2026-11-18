@@ -7,15 +7,28 @@ export interface PaymentMethodOption {
   label: string;
 }
 
+/** 付款方式顯示名稱的唯一來源。報表、篩選與單據明細都用這份，不用後端或舊資料帶來的 name。 */
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
+  cash: '現金',
+  bank_transfer_ctbc: '轉帳(中信)',
+  bank_transfer_ubot: '轉帳(聯邦)',
+  credit_card_physical: '信用卡(實體)',
+  credit_card_online: '信用卡(網路)',
+  line_pay: 'LINE Pay',
+  cod: '貨到付款',
+};
+
+/** 依付款類型取顯示名稱；不認得的類型才退回原始 name 或 type。 */
+export function paymentMethodLabel(type: string, fallbackName?: string): string {
+  return (PAYMENT_METHOD_LABELS as Record<string, string>)[type] ?? (fallbackName || type);
+}
+
 export const PAYMENT_METHOD_OPTIONS: PaymentMethodOption[] = [
   { type: 'all', label: '全部付款方式' },
-  { type: 'cash', label: '現金' },
-  { type: 'bank_transfer_ctbc', label: '轉帳(中信)' },
-  { type: 'bank_transfer_ubot', label: '轉帳(聯邦)' },
-  { type: 'credit_card_physical', label: '信用卡(實體)' },
-  { type: 'credit_card_online', label: '信用卡(網路)' },
-  { type: 'line_pay', label: 'LINE Pay' },
-  { type: 'cod', label: '貨到付款' },
+  ...(Object.keys(PAYMENT_METHOD_LABELS) as PaymentMethodType[]).map((type) => ({
+    type,
+    label: PAYMENT_METHOD_LABELS[type],
+  })),
 ];
 
 export interface PaymentMethodStat {

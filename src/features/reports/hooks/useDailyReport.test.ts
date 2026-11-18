@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { checkoutService } from '@/services';
 import { formatDate } from '@/utils/date';
 import { dayRangeForDate, useDailyReport } from './useDailyReport';
+import { PAYMENT_METHOD_LABELS, PAYMENT_METHOD_OPTIONS, paymentMethodLabel } from '@/types/report';
 
 function localDay(offsetDays: number): string {
   const d = new Date();
@@ -61,5 +62,60 @@ describe('useDailyReport', () => {
     await waitFor(() =>
       expect(result.current.availableDatesWithOrders).toEqual(['2026-11-17', '2026-11-16'])
     );
+  });
+
+  it('sums discounts, returns, cash flow and per-method shares for the selected day', async () => {
+    const at = (h: number) => new Date(2026, 7, 23, h).toISOString();
+    vi.spyOn(checkoutService, 'getRecentOrders').mockResolvedValue([]);
+    vi.spyOn(checkoutService, 'getOrderHistory').mockResolvedValue([
+      {
+        id: 'o1', orderNumber: 'SO-1', createdAt: at(10), totalAmount: 900, discountAmount: 100,
+        items: [{ quantity: 2, subtotal: 900 }],
+        payments: [{ type: 'cash', name: '現金', amount: 600 }, { type: 'line_pay', name: 'LinePay', amount: 300 }],
+      },
+      {
+        id: 'o2', orderNumber: 'SO-2', createdAt: at(12), totalAmount: -200, discountAmount: 0,
+        items: [{ quantity: -1, subtotal: -200 }],
+        payments: [{ type: 'cash', name: '現金', amount: -200 }],
+      },
+      {
+        id: 'o3', orderNumber: 'SO-3', createdAt: at(15), totalAmount: 100, discountAmount: 0,
+        items: [{ quantity: 1, subtotal: 100 }],
+        payments: [{ type: 'credit_card_online', name: '信用卡(線上)', amount: 100 }],
+      },
+    ] as never);
+    const { result } = renderHook(() => useDailyReport());
+    act(() => result.current.setSelectedDate('2026-08-23'));
+    await waitFor(() => expect(result.current.summary.totalOrdersCount).toBe(3));
+
+    const s = result.current.summary;
+    expect(s.totalRevenue).toBe(800);
+    expect(s.totalSoldQuantity).toBe(3);
+    expect(s.totalDiscountAmount).toBe(100);
+    expect([s.totalReturnedQuantity, s.totalReturnOrdersCount, s.totalRefundAmount]).toEqual([1, 1, 200]);
+    expect([s.cashInflow, s.cashOutflow, s.totalCashAmount]).toEqual([600, 200, 400]);
+
+    const byType = Object.fromEntries(s.paymentStats.map((p) => [p.type, p]));
+    expect(byType.cash.totalAmount).toBe(400);
+    expect(byType.line_pay.label).toBe('LINE Pay');
+    expect(byType.credit_card_online.label).toBe('信用卡(網路)');
+    // 佔比分母只算正數收款（600+300+100），退款不會讓加總超過 100%。
+    expect(byType.cash.percentage).toBeCloseTo(40);
+    expect(byType.line_pay.percentage).toBeCloseTo(30);
+    expect(byType.credit_card_online.percentage).toBeCloseTo(10);
+  });
+});
+
+describe('payment method labels', () => {
+  it('uses one label per type for options, stats and order rows', () => {
+    for (const option of PAYMENT_METHOD_OPTIONS) {
+      if (option.type === 'all') continue;
+      expect(option.label).toBe(PAYMENT_METHOD_LABELS[option.type]);
+    }
+    // 舊資料或後端帶的 name 不同時，仍顯示統一名稱。
+    expect(paymentMethodLabel('line_pay', 'LinePay')).toBe('LINE Pay');
+    expect(paymentMethodLabel('credit_card_online', '信用卡(線上)')).toBe('信用卡(網路)');
+    expect(paymentMethodLabel('gift_card', '禮券')).toBe('禮券');
+    expect(paymentMethodLabel('gift_card')).toBe('gift_card');
   });
 });
