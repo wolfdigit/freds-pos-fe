@@ -128,8 +128,20 @@ describe('mock order history filters', () => {
     const exactZero = await service.getOrderHistory({ minAmount: 0, maxAmount: 0, productKeyword: '鋼彈' });
     expect(exactZero.map((row) => row.id)).toEqual(['zero']);
 
-    const listed = await service.getOrderHistory();
+    const listed = await service.getOrderHistory({ productKeyword: '鋼彈' });
     expect(Array.isArray(listed)).toBe(true);
     expect(() => listed.sort((a, b) => a.totalAmount - b.totalAmount)).not.toThrow();
+  });
+
+  it('refuses an unfiltered history but still pages every order through searchOrderPage', async () => {
+    const service = new MockCheckoutService();
+    await expect(service.getOrderHistory()).rejects.toThrow('至少需要一個篩選條件');
+    await expect(service.getOrderHistory({ status: 'all' })).rejects.toThrow('至少需要一個篩選條件');
+
+    const first = await service.searchOrderPage({ page: 1, pageSize: 2 });
+    const second = await service.searchOrderPage({ page: 2, pageSize: 2 });
+    expect(first.total).toBe(3);
+    expect(first.items).toHaveLength(2);
+    expect(second.items).toHaveLength(1);
   });
 });

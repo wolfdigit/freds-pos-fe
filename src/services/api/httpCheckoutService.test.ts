@@ -72,12 +72,12 @@ describe('HttpCheckoutService.getOrderHistory', () => {
       throw new Error(`unexpected page ${pageNumber}`);
     });
 
-    const results = await new HttpCheckoutService().getOrderHistory();
+    const results = await new HttpCheckoutService().getOrderHistory({ startDate: '2026-11-14T00:00:00.000Z' });
 
     expect(calls).toEqual([
-      '/api/v1/checkout/orders?page=1&pageSize=100',
-      '/api/v1/checkout/orders?page=2&pageSize=100',
-      '/api/v1/checkout/orders?page=3&pageSize=100',
+      '/api/v1/checkout/orders?startDate=2026-11-14T00%3A00%3A00.000Z&page=1&pageSize=100',
+      '/api/v1/checkout/orders?startDate=2026-11-14T00%3A00%3A00.000Z&page=2&pageSize=100',
+      '/api/v1/checkout/orders?startDate=2026-11-14T00%3A00%3A00.000Z&page=3&pageSize=100',
     ]);
     expect(results.map((row) => row.id)).toEqual([...first, ...second, ...third].map((row) => row.id));
     expect(() => [...results].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))).not.toThrow();
@@ -90,7 +90,7 @@ describe('HttpCheckoutService.getOrderHistory', () => {
       return page([], 50, pageNumber);
     });
 
-    const results = await new HttpCheckoutService().getOrderHistory();
+    const results = await new HttpCheckoutService().getOrderHistory({ customerId: 'member-1' });
 
     expect(results.map((row) => row.id)).toEqual(['only']);
     expect(calls).toHaveLength(2);
@@ -161,10 +161,20 @@ describe('HttpCheckoutService.getOrderHistory', () => {
     expect(byCustomer.map((row) => row.id)).toEqual(['m']);
   });
 
+  it('refuses to page through every order when no narrowing filter is given', async () => {
+    stubPages(() => page([], 0, 1));
+    const service = new HttpCheckoutService();
+
+    await expect(service.getOrderHistory()).rejects.toThrow('至少需要一個篩選條件');
+    await expect(service.getOrderHistory('')).rejects.toThrow('至少需要一個篩選條件');
+    await expect(service.getOrderHistory({ status: 'completed', orderNumber: '  ' })).rejects.toThrow('至少需要一個篩選條件');
+    expect(calls).toEqual([]);
+  });
+
   it('rejects a bare order array instead of handing that object to callers', async () => {
     stubPages(() => [order('raw', '2026-11-16T00:00:00.000Z')]);
 
-    await expect(new HttpCheckoutService().getOrderHistory()).rejects.toThrow('訂單列表回應不是分頁物件');
+    await expect(new HttpCheckoutService().getOrderHistory({ customerId: 'member-1' })).rejects.toThrow('訂單列表回應不是分頁物件');
     expect(calls).toHaveLength(1);
   });
 });
@@ -187,5 +197,61 @@ describe('HttpCheckoutService.createCheckoutOrder', () => {
       silentToast: true,
     });
     expect(CHECKOUT_TIMEOUT_MS).toBeGreaterThanOrEqual(45_000);
+  });
+});
+
+describe('HttpCheckoutService.searchOrderPage', () => {
+  const calls: string[] = [];
+
+  beforeEach(() => {
+    calls.length = 0;
+    localStorage.clear();
+    window.__APP_CONFIG__ = {
+      USE_MOCK: false,
+      API_BASE_URL: 'http://pos.test/api/v1',
+      GOOGLE_CLIENT_ID: 'test-client',
+    };
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('requests exactly one page with the filters and returns its total', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        calls.push(`${url.pathname}${url.search}`);
+        return json({ items: [order('a', '2026-11-18T10:47:41.000Z')], page: 2, pageSize: 20, total: 41 });
+      })
+    );
+
+    const result = await new HttpCheckoutService().searchOrderPage({
+      orderNumber: '20261118-184741-0001',
+      productKeyword: '4710000000017',
+      page: 2,
+      pageSize: 20,
+    });
+
+    expect(calls).toEqual([
+      '/api/v1/checkout/orders?orderNumber=20261118-184741-0001&productKeyword=4710000000017&page=2&pageSize=20',
+    ]);
+    expect(result).toEqual({ items: [expect.objectContaining({ id: 'a' })], page: 2, pageSize: 20, total: 41 });
+  });
+
+  it('caps pageSize at the backend limit', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        calls.push(`${url.pathname}${url.search}`);
+        return json({ items: [], page: 1, pageSize: 100, total: 0 });
+      })
+    );
+
+    await new HttpCheckoutService().searchOrderPage({ page: 1, pageSize: 500 });
+
+    expect(calls).toEqual(['/api/v1/checkout/orders?page=1&pageSize=100']);
   });
 });

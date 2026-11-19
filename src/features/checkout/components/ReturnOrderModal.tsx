@@ -4,13 +4,60 @@ import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Badge } from '@/components/common/Badge';
 import { Spinner } from '@/components/feedback/Spinner';
+import { LoadMoreFooter } from '@/components/common/LoadMoreFooter';
 import { checkoutService } from '@/services';
 import { useCartStore } from '@/store/cartStore';
 import { useSessionStore } from '@/store/sessionStore';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { formatCurrency } from '@/utils/currency';
 import { formatDateTime } from '@/utils/date';
-import type { CheckoutOrder, CheckoutOrderItem } from '@/types/checkout';
+import type { CheckoutOrder, CheckoutOrderItem, OrderSearchParams } from '@/types/checkout';
+
+/** 每次查詢只抓一頁；更多結果用「載入更多」。 */
+export const RETURN_ORDER_PAGE_SIZE = 20;
+
+interface ReturnOrderFilterInput {
+  productKeyword: string;
+  startDateTime: string;
+  endDateTime: string;
+  amountInput: string;
+  orderNumber: string;
+  customerKeyword: string;
+  productId?: string;
+}
+
+/** datetime-local 只到分鐘；後端 endDate 不含端點，所以結束時間加一分鐘，讓那一分鐘內的訂單也算進來。 */
+function endOfMinuteIso(value: string): string | undefined {
+  const time = new Date(value).getTime();
+  if (Number.isNaN(time)) return undefined;
+  return new Date(time + 60_000).toISOString();
+}
+
+function startIso(value: string): string | undefined {
+  const time = new Date(value).getTime();
+  return Number.isNaN(time) ? undefined : new Date(time).toISOString();
+}
+
+export function buildReturnOrderFilters(input: ReturnOrderFilterInput): OrderSearchParams {
+  const parsedAmount = Number(input.amountInput);
+  const amount = input.amountInput.trim() !== '' && Number.isFinite(parsedAmount) && parsedAmount > 0 ? parsedAmount : undefined;
+  return {
+    productKeyword: input.productKeyword.trim() || undefined,
+    productId: input.productId || undefined,
+    startDate: input.startDateTime ? startIso(input.startDateTime) : undefined,
+    endDate: input.endDateTime ? endOfMinuteIso(input.endDateTime) : undefined,
+    orderNumber: input.orderNumber.trim() || undefined,
+    keyword: input.customerKeyword.trim() || undefined,
+    minAmount: amount,
+    maxAmount: amount,
+  };
+}
+
+function appendUnique(current: CheckoutOrder[], next: CheckoutOrder[]): CheckoutOrder[] {
+  // 翻頁期間若有新訂單成立，offset 會位移，同一張單可能出現在兩頁。
+  const seen = new Set(current.map((order) => order.id));
+  return [...current, ...next.filter((order) => !seen.has(order.id))];
+}
 
 interface ReturnOrderModalProps {
   open: boolean;
@@ -42,9 +89,14 @@ export function ReturnOrderModal({
   const [customerKeyword, setCustomerKeyword] = useState('');
 
   const [orders, setOrders] = useState<CheckoutOrder[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loadedPage, setLoadedPage] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [trackedOpen, setTrackedOpen] = useState(open);
   const requestIdRef = useRef(0);
+  /** 目前清單用的篩選條件；「載入更多」沿用它，避免使用者改了欄位但還沒按查詢時混到不同條件。 */
+  const appliedFiltersRef = useRef<OrderSearchParams>({});
 
   // 複選品項狀態：key 為 `${order.id}_${item.productId || (item as any).id}_${item.sku}`
   const [selectedItems, setSelectedItems] = useState<Record<string, SelectedReturnItemEntry>>({});
@@ -65,38 +117,68 @@ export function ReturnOrderModal({
     }
   }
 
-  const fetchOrders = async () => {
+  /** 從第一頁重新查詢。篩選全部交給後端，前端只拿一頁。 */
+  const runSearch = async (filters: OrderSearchParams) => {
     const requestId = ++requestIdRef.current;
+    appliedFiltersRef.current = filters;
     setIsLoading(true);
+    setIsLoadingMore(false);
     try {
-      const parsedAmount = Number(amountInput);
-      const minAmount = !isNaN(parsedAmount) && parsedAmount > 0 ? parsedAmount : undefined;
-      const maxAmount = !isNaN(parsedAmount) && parsedAmount > 0 ? parsedAmount : undefined;
-
-      const results = await checkoutService.getOrderHistory({
-        productKeyword: productKeyword.trim() || undefined,
-        productId: prefillProductId || undefined,
-        startDate: startDateTime ? new Date(startDateTime).toISOString() : undefined,
-        endDate: endDateTime ? new Date(endDateTime).toISOString() : undefined,
-        orderNumber: orderNumber.trim() || undefined,
-        keyword: customerKeyword.trim() || undefined,
-        minAmount,
-        maxAmount,
+      const result = await checkoutService.searchOrderPage({
+        ...filters,
+        page: 1,
+        pageSize: RETURN_ORDER_PAGE_SIZE,
       });
-
       if (requestId !== requestIdRef.current) return;
-      // 依時間倒序
-      setOrders(
-        results.sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        )
-      );
+      setOrders(result.items);
+      setTotal(result.total);
+      setLoadedPage(1);
     } catch (err) {
       if (requestId !== requestIdRef.current) return;
       console.error(err);
+      setOrders([]);
+      setTotal(0);
+      setLoadedPage(0);
       showToast('查詢歷史訂單失敗', 'error');
     } finally {
       if (requestId === requestIdRef.current) setIsLoading(false);
+    }
+  };
+
+  const fetchOrders = () =>
+    runSearch(
+      buildReturnOrderFilters({
+        productKeyword,
+        startDateTime,
+        endDateTime,
+        amountInput,
+        orderNumber,
+        customerKeyword,
+        productId: prefillProductId,
+      })
+    );
+
+  const loadMore = async () => {
+    if (isLoading || isLoadingMore) return;
+    const requestId = requestIdRef.current;
+    const nextPage = loadedPage + 1;
+    setIsLoadingMore(true);
+    try {
+      const result = await checkoutService.searchOrderPage({
+        ...appliedFiltersRef.current,
+        page: nextPage,
+        pageSize: RETURN_ORDER_PAGE_SIZE,
+      });
+      if (requestId !== requestIdRef.current) return;
+      setOrders((current) => appendUnique(current, result.items));
+      setTotal(result.total);
+      setLoadedPage(nextPage);
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return;
+      console.error(err);
+      showToast('載入更多歷史訂單失敗', 'error');
+    } finally {
+      if (requestId === requestIdRef.current) setIsLoadingMore(false);
     }
   };
 
@@ -104,8 +186,21 @@ export function ReturnOrderModal({
     if (open) {
       setProductKeyword(prefillKeyword || '');
       setSelectedItems({});
-      fetchOrders();
+      // 打開時只看最近一頁（或帶入的商品），不再把全部歷史訂單抓回來。
+      runSearch(
+        buildReturnOrderFilters({
+          productKeyword: prefillKeyword || '',
+          startDateTime,
+          endDateTime,
+          amountInput,
+          orderNumber,
+          customerKeyword,
+          productId: prefillProductId,
+        })
+      );
     }
+    // 只在打開或帶入條件改變時查詢；欄位變動要等使用者按查詢。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, prefillProductId, prefillKeyword]);
 
   // 單獨品項勾選 / 取消勾選 (支援複選)
@@ -230,6 +325,18 @@ export function ReturnOrderModal({
     setAmountInput('');
     setOrderNumber('');
     setCustomerKeyword('');
+    // 清空後回到最近訂單第一頁（帶入的商品條件保留）。
+    runSearch(
+      buildReturnOrderFilters({
+        productKeyword: '',
+        startDateTime: '',
+        endDateTime: '',
+        amountInput: '',
+        orderNumber: '',
+        customerKeyword: '',
+        productId: prefillProductId,
+      })
+    );
   };
 
   const selectedEntries = Object.entries(selectedItems);
@@ -472,6 +579,16 @@ export function ReturnOrderModal({
                 </div>
               );
             })
+          )}
+          {!isLoading && (
+            <LoadMoreFooter
+              shown={orders.length}
+              total={total}
+              hasMore={orders.length < total}
+              isLoadingMore={isLoadingMore}
+              onLoadMore={loadMore}
+              unit="張單據"
+            />
           )}
         </div>
 
