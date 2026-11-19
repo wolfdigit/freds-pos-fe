@@ -52,6 +52,19 @@ describe('useDailyReport', () => {
     expect(recent).toHaveBeenCalledTimes(1);
   });
 
+  it('shows no orders instead of fetching all history when the date cannot be parsed', async () => {
+    const history = vi.spyOn(checkoutService, 'getOrderHistory').mockResolvedValue([]);
+    vi.spyOn(checkoutService, 'getRecentOrders').mockResolvedValue([]);
+    const { result } = renderHook(() => useDailyReport());
+    await waitFor(() => expect(history).toHaveBeenCalledTimes(1));
+
+    act(() => result.current.setSelectedDate('not-a-date'));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(history).toHaveBeenCalledTimes(1);
+    expect(history).not.toHaveBeenCalledWith(undefined);
+    expect(result.current.summary.totalOrdersCount).toBe(0);
+  });
+
   it('builds the date shortcuts from the recent orders page', async () => {
     vi.spyOn(checkoutService, 'getOrderHistory').mockResolvedValue([]);
     vi.spyOn(checkoutService, 'getRecentOrders').mockResolvedValue([

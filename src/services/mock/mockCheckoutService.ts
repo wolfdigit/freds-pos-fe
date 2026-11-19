@@ -9,6 +9,7 @@ import type {
   OrderSearchParams,
   OrderStatus,
 } from '@/types/checkout';
+import { hasOrderHistoryFilter, ORDER_HISTORY_FILTER_REQUIRED } from '@/types/checkout';
 import { getProducts, setProducts, getOrders, setOrders, getStoredStores, simulateDelay } from './storageHelper';
 import { addQuantity, defaultLocationRows, LOCATIONS_STORAGE_KEY, loginStoreFrom, readPersistedStoreName } from './inventoryCatalog';
 import { safeAdd } from '@/utils/currency';
@@ -212,7 +213,8 @@ export class MockCheckoutService implements ICheckoutService {
 
   async searchOrderPage(params: OrderPageParams): Promise<CheckoutOrderPage> {
     const { page, pageSize, ...filters } = params;
-    const matched = (await this.getOrderHistory(filters))
+    await simulateDelay();
+    const matched = this.filterOrders(filters)
       .slice()
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
     const start = (Math.max(1, page) - 1) * pageSize;
@@ -221,6 +223,14 @@ export class MockCheckoutService implements ICheckoutService {
 
   async getOrderHistory(params?: OrderSearchParams | string): Promise<CheckoutOrder[]> {
     await simulateDelay();
+    // 與 HTTP 版相同：沒有限縮條件就拒絕，避免畫面在 mock 下正常、上線後抓全部歷史。
+    if (!hasOrderHistoryFilter(typeof params === 'string' ? { customerId: params } : params)) {
+      throw new Error(ORDER_HISTORY_FILTER_REQUIRED);
+    }
+    return this.filterOrders(params);
+  }
+
+  private filterOrders(params?: OrderSearchParams | string): CheckoutOrder[] {
     const orders = getOrders();
 
     if (typeof params === 'string') {

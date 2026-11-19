@@ -100,6 +100,29 @@ export interface OrderSearchParams {
   status?: OrderStatus | 'all';
 }
 
+/**
+ * 會限縮結果的條件：status 不算（幾乎每張單都是 completed）。
+ * 一次抓完所有頁的 getOrderHistory 至少要有其中一個，避免不小心把全部歷史訂單抓回來。
+ */
+export function hasOrderHistoryFilter(params: OrderSearchParams | undefined): boolean {
+  if (!params) return false;
+  const text = [
+    params.customerId,
+    params.orderNumber,
+    params.productId,
+    params.keyword,
+    params.productKeyword,
+    params.startDate,
+    params.endDate,
+  ].some((value) => typeof value === 'string' && value.trim() !== '');
+  const amount = [params.minAmount, params.maxAmount].some(
+    (value) => typeof value === 'number' && Number.isFinite(value)
+  );
+  return text || amount;
+}
+
+export const ORDER_HISTORY_FILTER_REQUIRED = '查詢歷史訂單至少需要一個篩選條件（會員、日期、單號、商品或金額），不能一次抓全部訂單';
+
 /** 分頁查詢歷史結帳單：page 從 1 開始，後端 pageSize 上限 100。 */
 export interface OrderPageParams extends OrderSearchParams {
   page: number;

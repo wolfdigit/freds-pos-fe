@@ -72,12 +72,12 @@ describe('HttpCheckoutService.getOrderHistory', () => {
       throw new Error(`unexpected page ${pageNumber}`);
     });
 
-    const results = await new HttpCheckoutService().getOrderHistory();
+    const results = await new HttpCheckoutService().getOrderHistory({ startDate: '2026-11-14T00:00:00.000Z' });
 
     expect(calls).toEqual([
-      '/api/v1/checkout/orders?page=1&pageSize=100',
-      '/api/v1/checkout/orders?page=2&pageSize=100',
-      '/api/v1/checkout/orders?page=3&pageSize=100',
+      '/api/v1/checkout/orders?startDate=2026-11-14T00%3A00%3A00.000Z&page=1&pageSize=100',
+      '/api/v1/checkout/orders?startDate=2026-11-14T00%3A00%3A00.000Z&page=2&pageSize=100',
+      '/api/v1/checkout/orders?startDate=2026-11-14T00%3A00%3A00.000Z&page=3&pageSize=100',
     ]);
     expect(results.map((row) => row.id)).toEqual([...first, ...second, ...third].map((row) => row.id));
     expect(() => [...results].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))).not.toThrow();
@@ -90,7 +90,7 @@ describe('HttpCheckoutService.getOrderHistory', () => {
       return page([], 50, pageNumber);
     });
 
-    const results = await new HttpCheckoutService().getOrderHistory();
+    const results = await new HttpCheckoutService().getOrderHistory({ customerId: 'member-1' });
 
     expect(results.map((row) => row.id)).toEqual(['only']);
     expect(calls).toHaveLength(2);
@@ -161,10 +161,20 @@ describe('HttpCheckoutService.getOrderHistory', () => {
     expect(byCustomer.map((row) => row.id)).toEqual(['m']);
   });
 
+  it('refuses to page through every order when no narrowing filter is given', async () => {
+    stubPages(() => page([], 0, 1));
+    const service = new HttpCheckoutService();
+
+    await expect(service.getOrderHistory()).rejects.toThrow('至少需要一個篩選條件');
+    await expect(service.getOrderHistory('')).rejects.toThrow('至少需要一個篩選條件');
+    await expect(service.getOrderHistory({ status: 'completed', orderNumber: '  ' })).rejects.toThrow('至少需要一個篩選條件');
+    expect(calls).toEqual([]);
+  });
+
   it('rejects a bare order array instead of handing that object to callers', async () => {
     stubPages(() => [order('raw', '2026-11-16T00:00:00.000Z')]);
 
-    await expect(new HttpCheckoutService().getOrderHistory()).rejects.toThrow('訂單列表回應不是分頁物件');
+    await expect(new HttpCheckoutService().getOrderHistory({ customerId: 'member-1' })).rejects.toThrow('訂單列表回應不是分頁物件');
     expect(calls).toHaveLength(1);
   });
 });

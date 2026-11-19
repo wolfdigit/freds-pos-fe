@@ -7,6 +7,7 @@ import type {
   OrderPageParams,
   OrderSearchParams,
 } from '@/types/checkout';
+import { hasOrderHistoryFilter, ORDER_HISTORY_FILTER_REQUIRED } from '@/types/checkout';
 import { httpClient } from './httpClient';
 
 /** Backend rejects pageSize above 100. Callers still receive every matching order. */
@@ -100,6 +101,9 @@ export class HttpCheckoutService implements ICheckoutService {
   }
 
   async getOrderHistory(params?: OrderSearchParams | string): Promise<CheckoutOrder[]> {
+    const filters = typeof params === 'string' ? { customerId: params } : params;
+    // 沒有條件就會把全部歷史訂單一頁頁抓完，直接拒絕；清單畫面請用 searchOrderPage。
+    if (!hasOrderHistoryFilter(filters)) throw new Error(ORDER_HISTORY_FILTER_REQUIRED);
     return fetchAllOrderHistory(orderHistoryQuery(params));
   }
 
