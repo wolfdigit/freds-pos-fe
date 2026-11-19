@@ -1,8 +1,10 @@
 import type { ICheckoutService } from '@/services/interfaces/ICheckoutService';
 import type {
   CheckoutOrder,
+  CheckoutOrderPage,
   CreateOrderPayload,
   CheckoutReceipt,
+  OrderPageParams,
   OrderSearchParams,
 } from '@/types/checkout';
 import { httpClient } from './httpClient';
@@ -12,11 +14,6 @@ const ORDER_HISTORY_PAGE_SIZE = 100;
 
 /** POST /checkout/orders 專用逾時。 */
 export const CHECKOUT_TIMEOUT_MS = 60_000;
-
-interface CheckoutOrderPage {
-  items: CheckoutOrder[];
-  total: number;
-}
 
 function setText(query: URLSearchParams, key: string, value: string | undefined): void {
   if (value) query.set(key, value);
@@ -57,7 +54,12 @@ function readOrderPage(body: unknown): CheckoutOrderPage {
   if (!Array.isArray(page.items) || typeof page.total !== 'number' || !Number.isFinite(page.total)) {
     throw new TypeError('訂單列表回應不是分頁物件');
   }
-  return { items: page.items, total: page.total };
+  return {
+    items: page.items,
+    total: page.total,
+    page: typeof page.page === 'number' ? page.page : 1,
+    pageSize: typeof page.pageSize === 'number' ? page.pageSize : page.items.length,
+  };
 }
 
 async function fetchAllOrderHistory(filters: URLSearchParams): Promise<CheckoutOrder[]> {
@@ -99,6 +101,14 @@ export class HttpCheckoutService implements ICheckoutService {
 
   async getOrderHistory(params?: OrderSearchParams | string): Promise<CheckoutOrder[]> {
     return fetchAllOrderHistory(orderHistoryQuery(params));
+  }
+
+  async searchOrderPage(params: OrderPageParams): Promise<CheckoutOrderPage> {
+    const { page, pageSize, ...filters } = params;
+    const query = orderHistoryQuery(filters);
+    query.set('page', String(Math.max(1, Math.floor(page))));
+    query.set('pageSize', String(Math.min(Math.max(1, Math.floor(pageSize)), ORDER_HISTORY_PAGE_SIZE)));
+    return readOrderPage(await httpClient.get<unknown>(`/checkout/orders?${query.toString()}`));
   }
 
   async getRecentOrders(limit: number): Promise<CheckoutOrder[]> {

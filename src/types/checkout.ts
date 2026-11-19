@@ -100,6 +100,20 @@ export interface OrderSearchParams {
   status?: OrderStatus | 'all';
 }
 
+/** 分頁查詢歷史結帳單：page 從 1 開始，後端 pageSize 上限 100。 */
+export interface OrderPageParams extends OrderSearchParams {
+  page: number;
+  pageSize: number;
+}
+
+/** GET /checkout/orders 的分頁回應，依建立時間新到舊。total 是符合條件的總筆數。 */
+export interface CheckoutOrderPage {
+  items: CheckoutOrder[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
 
 /** Recorded order. The client formats the slip from these fields. */
 export interface CheckoutReceipt {

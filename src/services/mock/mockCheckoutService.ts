@@ -2,8 +2,10 @@ import type { ICheckoutService } from '@/services/interfaces/ICheckoutService';
 import type {
   CheckoutOrder,
   CheckoutOrderItem,
+  CheckoutOrderPage,
   CreateOrderPayload,
   CheckoutReceipt,
+  OrderPageParams,
   OrderSearchParams,
   OrderStatus,
 } from '@/types/checkout';
@@ -206,6 +208,15 @@ export class MockCheckoutService implements ICheckoutService {
       .slice()
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
       .slice(0, Math.max(0, limit));
+  }
+
+  async searchOrderPage(params: OrderPageParams): Promise<CheckoutOrderPage> {
+    const { page, pageSize, ...filters } = params;
+    const matched = (await this.getOrderHistory(filters))
+      .slice()
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    const start = (Math.max(1, page) - 1) * pageSize;
+    return { items: matched.slice(start, start + pageSize), page, pageSize, total: matched.length };
   }
 
   async getOrderHistory(params?: OrderSearchParams | string): Promise<CheckoutOrder[]> {

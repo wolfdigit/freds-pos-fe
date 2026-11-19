@@ -189,3 +189,59 @@ describe('HttpCheckoutService.createCheckoutOrder', () => {
     expect(CHECKOUT_TIMEOUT_MS).toBeGreaterThanOrEqual(45_000);
   });
 });
+
+describe('HttpCheckoutService.searchOrderPage', () => {
+  const calls: string[] = [];
+
+  beforeEach(() => {
+    calls.length = 0;
+    localStorage.clear();
+    window.__APP_CONFIG__ = {
+      USE_MOCK: false,
+      API_BASE_URL: 'http://pos.test/api/v1',
+      GOOGLE_CLIENT_ID: 'test-client',
+    };
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('requests exactly one page with the filters and returns its total', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        calls.push(`${url.pathname}${url.search}`);
+        return json({ items: [order('a', '2026-11-18T10:47:41.000Z')], page: 2, pageSize: 20, total: 41 });
+      })
+    );
+
+    const result = await new HttpCheckoutService().searchOrderPage({
+      orderNumber: '20261118-184741-0001',
+      productKeyword: '4710000000017',
+      page: 2,
+      pageSize: 20,
+    });
+
+    expect(calls).toEqual([
+      '/api/v1/checkout/orders?orderNumber=20261118-184741-0001&productKeyword=4710000000017&page=2&pageSize=20',
+    ]);
+    expect(result).toEqual({ items: [expect.objectContaining({ id: 'a' })], page: 2, pageSize: 20, total: 41 });
+  });
+
+  it('caps pageSize at the backend limit', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        calls.push(`${url.pathname}${url.search}`);
+        return json({ items: [], page: 1, pageSize: 100, total: 0 });
+      })
+    );
+
+    await new HttpCheckoutService().searchOrderPage({ page: 1, pageSize: 500 });
+
+    expect(calls).toEqual(['/api/v1/checkout/orders?page=1&pageSize=100']);
+  });
+});
