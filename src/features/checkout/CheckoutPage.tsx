@@ -62,7 +62,13 @@ export function CheckoutPage() {
   const returnSubtotal = returnItems.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
 
   const subtotal = cart.getSubtotal();
-  const discount = cart.items.reduce((sum, i) => sum + (i.originalPrice - i.unitPrice) * i.quantity, 0);
+  // 折讓與點數折抵分開：點數列的差額只算點數折抵（與後端相同）。
+  const discount = cart.items
+    .filter((i) => !i.pointsDiscountApplied)
+    .reduce((sum, i) => sum + (i.originalPrice - i.unitPrice) * i.quantity, 0);
+  const pointsDiscount = cart.items
+    .filter((i) => i.pointsDiscountApplied)
+    .reduce((sum, i) => sum + (i.originalPrice - i.unitPrice) * i.quantity, 0);
   const totalAmount = cart.getTotalAmount();
 
   const focusBarcode = () => {
@@ -326,12 +332,23 @@ export function CheckoutPage() {
               <div className="space-y-0.5">
                 {salesItems.map((item, idx) => {
                   const siblingProducts = item.barcode ? siblingsByBarcode[item.barcode] ?? [] : [];
+                  const isPointsLine = Boolean(item.pointsDiscountApplied);
+                  const productRedeemed = salesItems.some(
+                    (other) => other.productId === item.productId && other.pointsDiscountApplied
+                  );
+                  const pointsDisabledReason = isPointsLine
+                    ? undefined
+                    : !cart.attachedCustomer
+                    ? '需綁定會員'
+                    : productRedeemed
+                    ? '此商品已折抵'
+                    : undefined;
 
                   return (
                     <UnavailableCartLine
-                      key={`sales-${item.productId}-${idx}`}
+                      key={`sales-${item.productId}-${isPointsLine ? 'points' : 'plain'}-${idx}`}
                       reason={unavailableReason(item, unavailable)}
-                      onRemove={() => cart.removeItem(item.productId)}
+                      onRemove={() => cart.removeItem(item.productId, isPointsLine)}
                     >
                       <CartItemRow
                         item={item}
@@ -340,7 +357,15 @@ export function CheckoutPage() {
                         onSwitchSku={(newP) => cart.switchItemSku(item.productId, newP)}
                         onUpdateQuantity={(q) => handleUpdateQuantity(item, q)}
                         onUpdatePrice={(p) => cart.updateItemPrice(item.productId, p, '現場改價')}
-                        onRemove={() => cart.removeItem(item.productId)}
+                        onRemove={() => cart.removeItem(item.productId, isPointsLine)}
+                        pointsDiscount={{
+                          applied: isPointsLine,
+                          disabledReason: pointsDisabledReason,
+                          onToggle: (applied) => {
+                            cart.setPointsDiscount(item.productId, applied);
+                            focusBarcode();
+                          },
+                        }}
                         busy={detailBusyId === item.productId}
                         onViewDetail={() => {
                           setDetailSource('cart');
@@ -456,6 +481,7 @@ export function CheckoutPage() {
           salesSubtotal={salesSubtotal}
           returnSubtotal={returnSubtotal}
           discount={discount}
+          pointsDiscount={pointsDiscount}
           shippingFee={cart.shippingFee}
           onShippingFeeChange={cart.setShippingFee}
           totalAmount={totalAmount}

@@ -77,6 +77,8 @@ export function useCheckoutWorkflow({ onProductNotFound }: CheckoutWorkflowOptio
           unitPrice: i.unitPrice,
           isManualPrice: i.isManualPrice,
           priceDiffReason: i.priceChangeReason,
+          // 點數折抵列：unitPrice 已是扣過 360 的價格，後端照收並記錄這一列由點數折抵。
+          ...(i.pointsDiscountApplied ? { pointsDiscountApplied: true } : {}),
           originalOrderId: (i as any).originalOrderId,
           originalOrderItemId: (i as any).originalOrderItemId,
           restock: (i as any).restock ?? true,

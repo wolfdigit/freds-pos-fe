@@ -1798,6 +1798,10 @@ components:
           description: Positive for purchase, negative for return/exchange
         subtotal:
           type: integer
+        pointsDiscountApplied:
+          type: boolean
+          default: false
+          description: 這一列用會員點數折抵（1 件，單價最多扣 NT$360、最低 0）。unitPrice 已是扣過後的單價。只存旗標；退貨列沿用原列旗標。
         note:
           type: string
           description: 項目備註
@@ -1865,6 +1869,10 @@ components:
           type: integer
         discountAmount:
           type: integer
+          description: 折讓 = 手動改價且沒有點數旗標的列 Σ(originalPrice − unitPrice) × quantity。
+        pointsDiscountAmount:
+          type: integer
+          description: 點數折抵 = 有點數旗標的列 Σ(originalPrice − unitPrice) × quantity（整個差額，即使也手動改價）。由明細計算。
         shippingFee:
           type: integer
         totalAmount:
@@ -1911,6 +1919,10 @@ components:
           default: false
         priceDiffReason:
           type: string
+        pointsDiscountApplied:
+          type: boolean
+          default: false
+          description: 這個商品用會員點數折抵 NT$360。需要 customerId 與 unitPrice（已扣過、不可為負）；同一 productId 一張單只能一次；退貨列不可用。
         originalOrderId:
           type: string
           description: Required when quantity < 0 (links return to original sales order)
