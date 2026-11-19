@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CheckoutOrder, CheckoutOrderItem, CheckoutReceipt } from '@/types/checkout';
 import { checkoutService } from '@/services';
 import { useCartStore } from '@/store/cartStore';
@@ -12,6 +12,16 @@ import { Modal } from '@/components/common/Modal';
 import { Badge } from '@/components/common/Badge';
 import { Button } from '@/components/common/Button';
 import { Spinner } from '@/components/feedback/Spinner';
+import { LoadMoreFooter } from '@/components/common/LoadMoreFooter';
+
+/** 會員消費紀錄每次只抓一頁，更多用「載入更多」。 */
+export const CUSTOMER_HISTORY_PAGE_SIZE = 20;
+
+function appendUnique(current: CheckoutOrder[], next: CheckoutOrder[]): CheckoutOrder[] {
+  // 翻頁期間若有新訂單成立，offset 會位移，同一張單可能出現在兩頁。
+  const seen = new Set(current.map((order) => order.id));
+  return [...current, ...next.filter((order) => !seen.has(order.id))];
+}
 
 interface CustomerHistoryTabProps {
   customerId: string;
@@ -21,6 +31,10 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
   const [orders, setOrders] = useState<CheckoutOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [loadedPage, setLoadedPage] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const requestIdRef = useRef(0);
   const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null);
 
   // 退換貨彈窗選取狀態
@@ -34,24 +48,67 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
   const setActiveTab = useUiStore((s) => s.setActiveTab);
   const showToast = useToastStore((s) => s.showToast);
 
-  const fetchHistory = () => {
-    setLoading(true);
+  const fetchHistory = async () => {
+    const requestId = ++requestIdRef.current;
     setLoadError(null);
-    checkoutService
-      .getOrderHistory(customerId)
-      .then((rows) => {
-        setOrders(rows);
-      })
-      .catch((err) => {
-        console.error(err);
-        setOrders([]);
-        setLoadError('無法載入結帳歷史');
-      })
-      .finally(() => setLoading(false));
+    setIsLoadingMore(false);
+    // 沒有會員 id 就不查，避免不帶 customerId 變成查全部訂單。
+    if (!customerId.trim()) {
+      setOrders([]);
+      setTotal(0);
+      setLoadedPage(0);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await checkoutService.searchOrderPage({
+        customerId,
+        page: 1,
+        pageSize: CUSTOMER_HISTORY_PAGE_SIZE,
+      });
+      if (requestId !== requestIdRef.current) return;
+      setOrders(result.items);
+      setTotal(result.total);
+      setLoadedPage(1);
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return;
+      console.error(err);
+      setOrders([]);
+      setTotal(0);
+      setLoadedPage(0);
+      setLoadError('無法載入結帳歷史');
+    } finally {
+      if (requestId === requestIdRef.current) setLoading(false);
+    }
+  };
+
+  const loadMore = async () => {
+    if (loading || isLoadingMore || !customerId.trim()) return;
+    const requestId = requestIdRef.current;
+    const nextPage = loadedPage + 1;
+    setIsLoadingMore(true);
+    try {
+      const result = await checkoutService.searchOrderPage({
+        customerId,
+        page: nextPage,
+        pageSize: CUSTOMER_HISTORY_PAGE_SIZE,
+      });
+      if (requestId !== requestIdRef.current) return;
+      setOrders((current) => appendUnique(current, result.items));
+      setTotal(result.total);
+      setLoadedPage(nextPage);
+    } catch (err) {
+      if (requestId !== requestIdRef.current) return;
+      console.error(err);
+      showToast('載入更多結帳歷史失敗', 'error');
+    } finally {
+      if (requestId === requestIdRef.current) setIsLoadingMore(false);
+    }
   };
 
   useEffect(() => {
-    fetchHistory();
+    void fetchHistory();
   }, [customerId]);
 
   const handleReprint = (order: CheckoutOrder) => {
@@ -287,6 +344,15 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
           </div>
         );
       })}
+
+      <LoadMoreFooter
+        shown={orders.length}
+        total={total}
+        hasMore={orders.length < total}
+        isLoadingMore={isLoadingMore}
+        onLoadMore={loadMore}
+        unit="筆"
+      />
 
       {/* 辦理退換貨 Modal */}
       {returnOrder && (

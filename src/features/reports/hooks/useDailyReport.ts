@@ -39,7 +39,8 @@ export function useDailyReport() {
     try {
       // 只向後端要選定日期的訂單，不再抓全部歷史回來在瀏覽器篩選。
       const range = dayRangeForDate(selectedDate);
-      const orders = await checkoutService.getOrderHistory(range ?? undefined);
+      // 日期無法解析時直接當作沒有訂單，不能退回成「不帶條件」去抓全部歷史。
+      const orders = range ? await checkoutService.getOrderHistory(range) : [];
       if (requestId !== dayRequest.current) return;
       // 依建立時間由新到舊排序
       orders.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
