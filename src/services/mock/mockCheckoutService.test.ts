@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { CheckoutOrder } from '@/types/checkout';
 import type { Product } from '@/types/product';
 import { MockCheckoutService } from './mockCheckoutService';
-import { getProducts, setOrders, setProducts, setStoredStores } from './storageHelper';
+import { getProducts, setCustomers, setOrders, setProducts, setStoredStores } from './storageHelper';
 import { defaultLocationRows, LOCATIONS_STORAGE_KEY } from './inventoryCatalog';
 
 const NORMAL = 'e1a10001-0000-4000-8000-000000000001';
@@ -133,3 +133,69 @@ describe('mock order history filters', () => {
     expect(() => listed.sort((a, b) => a.totalAmount - b.totalAmount)).not.toThrow();
   });
 });
+
+describe('points discount (點數折抵)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem(LOCATIONS_STORAGE_KEY, JSON.stringify(defaultLocationRows()));
+    localStorage.setItem('FREDS_POS_SESSION', JSON.stringify({ state: { storeName: '奇可門市' }, version: 4 }));
+    setStoredStores([
+      {
+        name: '奇可門市',
+        inventoryLocationId: NORMAL,
+        inventoryLocationName: '門市現貨',
+        returnedInventoryLocationId: RETURNED,
+        returnedInventoryLocationName: '退貨品',
+      },
+    ]);
+    setProducts([{ ...product(3, 0), listPrice: 500 }]);
+    setOrders([]);
+    setCustomers([
+      {
+        id: 'cust-1', name: '王小明', phone: '0900000000', email: null, vipTier: 'Retail',
+        vipTierName: '零售客戶 (Retail)', totalSpent: 0, createdAt: '2026-11-01T00:00:00Z', updatedAt: '2026-11-01T00:00:00Z',
+      },
+    ]);
+  });
+
+  const cash = (amount: number) => [{ type: 'cash' as const, name: '現金', amount }];
+
+  it('keeps the sent unit price and records the flag and amount', async () => {
+    const { order } = await new MockCheckoutService().createCheckoutOrder({
+      customerId: 'cust-1',
+      items: [
+        { productId: 'prod-1', quantity: 2, unitPrice: 500, isManualPrice: false },
+        { productId: 'prod-1', quantity: 1, unitPrice: 140, isManualPrice: false, pointsDiscountApplied: true },
+      ],
+      shippingFee: 0,
+      payments: cash(1140),
+    });
+    expect(order.items[1]).toMatchObject({ unitPrice: 140, subtotal: 140, pointsDiscountApplied: true, pointsDiscountAmount: 360 });
+    expect(order.items[0]).toMatchObject({ pointsDiscountApplied: false, pointsDiscountAmount: 0 });
+    expect(order.pointsDiscountAmount).toBe(360);
+    expect(order.totalAmount).toBe(1140);
+  });
+
+  it('rejects walk-in customers and a second redemption of the same product', async () => {
+    const service = new MockCheckoutService();
+    await expect(
+      service.createCheckoutOrder({
+        items: [{ productId: 'prod-1', quantity: 1, unitPrice: 140, pointsDiscountApplied: true }],
+        shippingFee: 0,
+        payments: cash(140),
+      })
+    ).rejects.toThrow('散客不能使用點數折抵');
+    await expect(
+      service.createCheckoutOrder({
+        customerId: 'cust-1',
+        items: [
+          { productId: 'prod-1', quantity: 1, unitPrice: 140, pointsDiscountApplied: true },
+          { productId: 'prod-1', quantity: 1, unitPrice: 140, pointsDiscountApplied: true },
+        ],
+        shippingFee: 0,
+        payments: cash(280),
+      })
+    ).rejects.toThrow('同一商品只能折抵一次');
+  });
+});
+

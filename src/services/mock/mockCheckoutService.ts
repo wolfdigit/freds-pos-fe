@@ -10,6 +10,7 @@ import type {
 import { getProducts, setProducts, getOrders, setOrders, getStoredStores, simulateDelay } from './storageHelper';
 import { addQuantity, defaultLocationRows, LOCATIONS_STORAGE_KEY, loginStoreFrom, readPersistedStoreName } from './inventoryCatalog';
 import { safeAdd } from '@/utils/currency';
+import { POINTS_DISCOUNT_AMOUNT } from '@/types/checkout';
 import { nowIso, formatDate } from '@/utils/date';
 import { BusinessError } from '@/utils/errors';
 import { MockCustomerService } from './mockCustomerService';
@@ -42,6 +43,8 @@ export class MockCheckoutService implements ICheckoutService {
     const calculatedItems: CheckoutOrderItem[] = [];
     let itemsSubtotal = 0;
     let discountAmount = 0;
+    let pointsDiscountAmount = 0;
+    const redeemedProducts = new Set<string>();
 
     for (const item of payload.items) {
       const product = productMap.get(item.productId);
@@ -53,7 +56,24 @@ export class MockCheckoutService implements ICheckoutService {
       const originalPrice = product.listPrice;
       let unitPrice = item.unitPrice ?? product.listPrice;
 
-      if (!item.isManualPrice) {
+      // 與後端相同的點數折抵規則：需會員、需單價、同商品一次、退貨列不可用。
+      const pointsApplied = Boolean(item.pointsDiscountApplied);
+      if (pointsApplied) {
+        if (item.quantity < 0) {
+          throw new BusinessError('INVALID_PAYMENT', '退貨品項不能使用點數折抵');
+        }
+        if (!payload.customerId) {
+          throw new BusinessError('INVALID_PAYMENT', '散客不能使用點數折抵');
+        }
+        if (redeemedProducts.has(item.productId)) {
+          throw new BusinessError('INVALID_PAYMENT', '同一商品只能折抵一次');
+        }
+        if (item.unitPrice === undefined || item.unitPrice === null) {
+          throw new BusinessError('INVALID_PAYMENT', '點數折抵必須提供單價');
+        }
+        redeemedProducts.add(item.productId);
+        unitPrice = item.unitPrice;
+      } else if (!item.isManualPrice) {
         unitPrice = product.listPrice;
       }
 
@@ -86,6 +106,8 @@ export class MockCheckoutService implements ICheckoutService {
       }
 
       const lineSubtotal = safeAdd(unitPrice * item.quantity);
+      const linePointsAmount = pointsApplied ? POINTS_DISCOUNT_AMOUNT : 0;
+      pointsDiscountAmount = safeAdd(pointsDiscountAmount, linePointsAmount);
       itemsSubtotal = safeAdd(itemsSubtotal, lineSubtotal);
       discountAmount = safeAdd(discountAmount, (originalPrice - unitPrice) * item.quantity);
 
@@ -100,6 +122,8 @@ export class MockCheckoutService implements ICheckoutService {
         priceDiffReason: item.priceDiffReason,
         quantity: item.quantity,
         subtotal: lineSubtotal,
+        pointsDiscountApplied: pointsApplied,
+        pointsDiscountAmount: linePointsAmount,
         note: item.note,
         returnedQuantity: 0,
         originalOrderId: item.originalOrderId,
@@ -180,6 +204,7 @@ export class MockCheckoutService implements ICheckoutService {
       items: calculatedItems,
       itemsSubtotal,
       discountAmount,
+      pointsDiscountAmount,
       shippingFee,
       totalAmount,
       payments: payload.payments,

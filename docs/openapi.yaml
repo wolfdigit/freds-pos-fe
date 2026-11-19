@@ -1798,6 +1798,14 @@ components:
           description: Positive for purchase, negative for return/exchange
         subtotal:
           type: integer
+        pointsDiscountApplied:
+          type: boolean
+          default: false
+          description: 這一列用會員點數折抵 NT$360。unitPrice 已是扣過後的單價。
+        pointsDiscountAmount:
+          type: integer
+          default: 0
+          description: 點數折抵金額，有折抵時為 360。
         note:
           type: string
           description: 項目備註
@@ -1865,6 +1873,9 @@ components:
           type: integer
         discountAmount:
           type: integer
+        pointsDiscountAmount:
+          type: integer
+          description: 各列 pointsDiscountAmount 合計。
         shippingFee:
           type: integer
         totalAmount:
@@ -1911,6 +1922,10 @@ components:
           default: false
         priceDiffReason:
           type: string
+        pointsDiscountApplied:
+          type: boolean
+          default: false
+          description: 這個商品用會員點數折抵 NT$360。需要 customerId 與 unitPrice（已扣過、不可為負）；同一 productId 一張單只能一次；退貨列不可用。
         originalOrderId:
           type: string
           description: Required when quantity < 0 (links return to original sales order)

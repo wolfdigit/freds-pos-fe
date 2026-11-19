@@ -19,6 +19,9 @@ export interface PaymentTender {
   transactionRef?: string;
 }
 
+/** 會員點數折抵：每個商品一張單只能折一次，固定 NT$360（與後端 POINTS_DISCOUNT_TWD 相同）。 */
+export const POINTS_DISCOUNT_AMOUNT = 360;
+
 export interface CheckoutOrderItem {
   productId: string;
   sku: string;
@@ -30,6 +33,10 @@ export interface CheckoutOrderItem {
   priceDiffReason?: string;
   quantity: number;
   subtotal: number;
+  /** 這一列用了會員點數折抵 NT$360（單價已扣過，不會另外再從總額扣）。 */
+  pointsDiscountApplied?: boolean;
+  /** 點數折抵的金額，有折抵時是 360，沒有是 0。 */
+  pointsDiscountAmount?: number;
   note?: string;
   returnedQuantity?: number;
   originalOrderId?: string;
@@ -55,6 +62,8 @@ export interface CheckoutOrder {
   items: CheckoutOrderItem[];
   itemsSubtotal: number;
   discountAmount: number;
+  /** 各列 pointsDiscountAmount 的合計。 */
+  pointsDiscountAmount?: number;
   shippingFee: number;
   totalAmount: number;
   payments: PaymentTender[];
@@ -71,6 +80,8 @@ export interface CreateOrderItemPayload {
   unitPrice?: number;
   isManualPrice?: boolean;
   priceDiffReason?: string;
+  /** 這個商品用會員點數折抵 NT$360。需要綁定會員、帶 unitPrice；同一商品一張單只能一次；退貨列不可用。 */
+  pointsDiscountApplied?: boolean;
   originalOrderId?: string;
   originalOrderItemId?: string;
   /** 省略或 true：加回登入門市正常貨。false：加到登入門市退貨庫存點。都會改數量。 */

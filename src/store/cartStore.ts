@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { getBoundCartUserId } from '@/auth/cartOwner';
 import type { Product, ModelScale } from '@/types/product';
 import type { Customer } from '@/types/customer';
-import type { CheckoutOrder, CheckoutOrderItem } from '@/types/checkout';
+import { POINTS_DISCOUNT_AMOUNT, type CheckoutOrder, type CheckoutOrderItem } from '@/types/checkout';
 import { safeAdd } from '@/utils/currency';
 
 export interface CartItem {
@@ -29,6 +29,54 @@ export interface CartItem {
   maxReturnableQty?: number;
   restock?: boolean;
   returnReason?: string;
+  /** 這一列用了會員點數折抵（固定 1 件，單價已扣 POINTS_DISCOUNT_AMOUNT）。 */
+  pointsDiscountApplied?: boolean;
+  /** 勾選點數折抵前的單價；取消勾選時還原成這個價格。 */
+  pointsBasePrice?: number;
+}
+
+export { POINTS_DISCOUNT_AMOUNT };
+
+export function pointsDiscountedPrice(basePrice: number): number {
+  return Math.max(0, basePrice - POINTS_DISCOUNT_AMOUNT);
+}
+
+/** 一般銷售列（不是退貨、不是點數折抵列）。 */
+function isPlainSaleLine(item: CartItem): boolean {
+  return item.quantity > 0 && !item.originalOrderId && !item.pointsDiscountApplied;
+}
+
+/**
+ * 依商品與是否為點數折抵列找列。原本以 productId 操作的動作預設只動非點數列，
+ * 點數列（同商品另一列、固定 1 件）要明確指定 points=true。
+ */
+function matchesLine(item: CartItem, productId: string, points: boolean): boolean {
+  return item.productId === productId && Boolean(item.pointsDiscountApplied) === points;
+}
+
+/** 取消點數折抵：併回同商品的一般銷售列；沒有就把這一列還原成原價。 */
+function withoutPointsLine(items: CartItem[], pointsLine: CartItem): CartItem[] {
+  const plain = items.find((i) => i.productId === pointsLine.productId && isPlainSaleLine(i));
+  if (plain) {
+    return items
+      .filter((i) => i !== pointsLine)
+      .map((i) => (i === plain ? { ...i, quantity: i.quantity + pointsLine.quantity } : i));
+  }
+  const restored: CartItem = {
+    ...pointsLine,
+    unitPrice: pointsLine.pointsBasePrice ?? pointsLine.originalPrice,
+  };
+  delete restored.pointsDiscountApplied;
+  delete restored.pointsBasePrice;
+  return items.map((i) => (i === pointsLine ? restored : i));
+}
+
+function withoutAllPointsLines(items: CartItem[]): CartItem[] {
+  let next = items;
+  for (const line of items.filter((i) => i.pointsDiscountApplied)) {
+    next = withoutPointsLine(next, line);
+  }
+  return next;
 }
 
 interface CartStore {
@@ -49,9 +97,14 @@ interface CartStore {
     reason?: string,
     restock?: boolean
   ) => void;
-  updateItemQuantity: (productId: string, newQty: number) => void;
+  updateItemQuantity: (productId: string, newQty: number, points?: boolean) => void;
   updateItemPrice: (productId: string, newPrice: number, reason?: string) => void;
-  removeItem: (productId: string) => void;
+  removeItem: (productId: string, points?: boolean) => void;
+  /**
+   * 勾選或取消某商品的點數折抵。勾選時從一般銷售列拆出 1 件成獨立的點數列，
+   * 單價 = max(0, 原單價 − 360)；取消時併回。需要已綁定會員，同商品只能一列。
+   */
+  setPointsDiscount: (productId: string, applied: boolean) => void;
   attachCustomer: (customer: Customer | null) => void;
   setShippingFee: (fee: number) => void;
   setOrderNote: (note: string) => void;
@@ -85,6 +138,7 @@ export const useCartStore = create<CartStore>()((set, get) => ({
           (i) =>
             i.productId === product.id &&
             !i.originalOrderId &&
+            !i.pointsDiscountApplied &&
             (isTargetReturn ? i.quantity < 0 : i.quantity > 0)
         );
         if (existing) {
@@ -120,7 +174,7 @@ export const useCartStore = create<CartStore>()((set, get) => ({
         if (!canOperateCart()) return;
         const { items } = get();
         const currentItem = items.find(
-          (i) => i.productId === oldProductId && i.quantity > 0 && !i.originalOrderId
+          (i) => i.productId === oldProductId && isPlainSaleLine(i)
         );
         if (!currentItem) return;
 
@@ -129,8 +183,7 @@ export const useCartStore = create<CartStore>()((set, get) => ({
           (i) =>
             i.productId === newProduct.id &&
             i !== currentItem &&
-            i.quantity > 0 &&
-            !i.originalOrderId
+            isPlainSaleLine(i)
         );
 
         if (existingTarget) {
@@ -239,11 +292,13 @@ export const useCartStore = create<CartStore>()((set, get) => ({
         set({ items: [...items, returnItem], attachedCustomer: nextCustomer });
       },
 
-      updateItemQuantity: (productId, newQty) => {
+      updateItemQuantity: (productId, newQty, points = false) => {
         if (!canOperateCart()) return;
         set({
           items: get().items.map((i) => {
-            if (i.productId !== productId) return i;
+            if (!matchesLine(i, productId, points)) return i;
+            // 點數折抵列固定 1 件；要多買請加在一般列。
+            if (i.pointsDiscountApplied) return i;
             if (newQty < 0 && i.maxReturnableQty !== undefined) {
               const clamped = Math.min(Math.abs(newQty), i.maxReturnableQty);
               return { ...i, quantity: -clamped };
@@ -256,22 +311,60 @@ export const useCartStore = create<CartStore>()((set, get) => ({
       updateItemPrice: (productId, newPrice, reason) => {
         if (!canOperateCart()) return;
         set({
+          // 點數折抵列不能直接改價，要先取消勾選。
           items: get().items.map((i) =>
-            i.productId === productId
+            matchesLine(i, productId, false)
               ? { ...i, unitPrice: newPrice, isManualPrice: true, priceChangeReason: reason }
               : i
           ),
         });
       },
 
-      removeItem: (productId) => {
+      removeItem: (productId, points = false) => {
         if (!canOperateCart()) return;
-        set({ items: get().items.filter((i) => i.productId !== productId) });
+        set({ items: get().items.filter((i) => !matchesLine(i, productId, points)) });
+      },
+
+      setPointsDiscount: (productId, applied) => {
+        if (!canOperateCart()) return;
+        const { items, attachedCustomer } = get();
+        const pointsLine = items.find((i) => i.productId === productId && i.pointsDiscountApplied);
+        if (!applied) {
+          if (pointsLine) set({ items: withoutPointsLine(items, pointsLine) });
+          return;
+        }
+        // 散客不能折抵；同一商品只能折抵一次。
+        if (!attachedCustomer || pointsLine) return;
+        const plain = items.find((i) => i.productId === productId && isPlainSaleLine(i));
+        if (!plain) return;
+        const basePrice = plain.unitPrice;
+        const redeemed: CartItem = {
+          ...plain,
+          quantity: 1,
+          unitPrice: pointsDiscountedPrice(basePrice),
+          pointsDiscountApplied: true,
+          pointsBasePrice: basePrice,
+        };
+        if (plain.quantity <= 1) {
+          set({ items: items.map((i) => (i === plain ? redeemed : i)) });
+          return;
+        }
+        // 多件時拆出 1 件折抵，其餘維持原價，所以一個商品最多折 360。
+        const next: CartItem[] = [];
+        for (const i of items) {
+          if (i === plain) {
+            next.push({ ...i, quantity: i.quantity - 1 }, redeemed);
+          } else {
+            next.push(i);
+          }
+        }
+        set({ items: next });
       },
 
       attachCustomer: (customer) => {
         if (!canOperateCart()) return;
-        set({ attachedCustomer: customer });
+        // 解除會員時，點數折抵全部取消並還原單價。
+        set(customer ? { attachedCustomer: customer } : { attachedCustomer: null, items: withoutAllPointsLines(get().items) });
       },
 
       setShippingFee: (fee) => {

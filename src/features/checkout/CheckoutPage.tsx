@@ -326,12 +326,23 @@ export function CheckoutPage() {
               <div className="space-y-0.5">
                 {salesItems.map((item, idx) => {
                   const siblingProducts = item.barcode ? siblingsByBarcode[item.barcode] ?? [] : [];
+                  const isPointsLine = Boolean(item.pointsDiscountApplied);
+                  const productRedeemed = salesItems.some(
+                    (other) => other.productId === item.productId && other.pointsDiscountApplied
+                  );
+                  const pointsDisabledReason = isPointsLine
+                    ? undefined
+                    : !cart.attachedCustomer
+                    ? '需綁定會員'
+                    : productRedeemed
+                    ? '此商品已折抵'
+                    : undefined;
 
                   return (
                     <UnavailableCartLine
-                      key={`sales-${item.productId}-${idx}`}
+                      key={`sales-${item.productId}-${isPointsLine ? 'points' : 'plain'}-${idx}`}
                       reason={unavailableReason(item, unavailable)}
-                      onRemove={() => cart.removeItem(item.productId)}
+                      onRemove={() => cart.removeItem(item.productId, isPointsLine)}
                     >
                       <CartItemRow
                         item={item}
@@ -340,7 +351,15 @@ export function CheckoutPage() {
                         onSwitchSku={(newP) => cart.switchItemSku(item.productId, newP)}
                         onUpdateQuantity={(q) => handleUpdateQuantity(item, q)}
                         onUpdatePrice={(p) => cart.updateItemPrice(item.productId, p, '現場改價')}
-                        onRemove={() => cart.removeItem(item.productId)}
+                        onRemove={() => cart.removeItem(item.productId, isPointsLine)}
+                        pointsDiscount={{
+                          applied: isPointsLine,
+                          disabledReason: pointsDisabledReason,
+                          onToggle: (applied) => {
+                            cart.setPointsDiscount(item.productId, applied);
+                            focusBarcode();
+                          },
+                        }}
                         busy={detailBusyId === item.productId}
                         onViewDetail={() => {
                           setDetailSource('cart');

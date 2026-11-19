@@ -199,6 +199,12 @@ export function OrderDetailModal({
                         已退 {returned} 件 {remaining > 0 ? `(可退: ${remaining})` : '(已退清)'}
                       </span>
                     )}
+                    {/* 只標示這一列用點數折抵；實際少收的金額已反映在單價（最低 0）。 */}
+                    {item.pointsDiscountApplied && (
+                      <span className="shrink-0 rounded border border-violet-500/50 bg-violet-500/15 px-2 py-0.5 text-xs font-bold text-violet-200 select-none">
+                        點數折抵
+                      </span>
+                    )}
                     {item.quantity < 0 ? (
                       <span className={`shrink-0 rounded px-2 py-0.5 text-xs font-bold ${item.restock === false ? 'bg-amber-950 text-amber-300' : 'bg-emerald-950 text-emerald-300'}`}>
                         {item.restock === false ? '→ 退至退貨庫存點' : '✓ 回補至門市現貨'}

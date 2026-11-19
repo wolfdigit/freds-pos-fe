@@ -48,7 +48,9 @@ function unitPriceDelta(item: CheckoutOrder['items'][number]): number | null {
 }
 
 function itemTitle(item: CheckoutOrder['items'][number]): string {
-  return item.quantity < 0 ? `退貨 ${item.name}` : item.name;
+  const name = item.quantity < 0 ? `退貨 ${item.name}` : item.name;
+  // 點數折抵的單價已扣在下面的「價格調整」列裡，這裡標示這一列是用點數折抵的。
+  return item.pointsDiscountApplied ? `${name}（點數折抵）` : name;
 }
 
 function moneyRows(item: CheckoutOrder['items'][number]): ReceiptMoneyRow[] {

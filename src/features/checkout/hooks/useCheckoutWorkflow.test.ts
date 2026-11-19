@@ -227,3 +227,40 @@ function clearCheckoutKeyMemoryOnly(stored: string) {
   clearCheckoutKey();
   sessionStorage.setItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY, stored);
 }
+
+describe('useCheckoutWorkflow points discount payload', () => {
+  beforeEach(() => {
+    sessionStorage.clear();
+    clearCheckoutKey();
+    createCheckoutOrder.mockReset();
+    useSessionStore.setState({ storeName: '奇可門市' });
+    useToastStore.setState({ toasts: [] });
+  });
+
+  it('sends pointsDiscountApplied with the reduced unit price only on the points line', async () => {
+    useCartStore.setState({
+      items: [
+        { ...item('p1', 2), originalPrice: 500, unitPrice: 500 },
+        { ...item('p1', 1), originalPrice: 500, unitPrice: 140, pointsDiscountApplied: true, pointsBasePrice: 500 },
+      ],
+      attachedCustomer: { id: 'cust-1' } as never,
+      shippingFee: 0,
+      orderNote: '',
+    });
+    createCheckoutOrder.mockResolvedValueOnce(receipt('SO-1'));
+    const { result } = renderHook(() => useCheckoutWorkflow());
+    await act(async () => {
+      await result.current.submitCheckout([{ type: 'cash', name: '現金', amount: 1140 }]);
+    });
+
+    const [payload] = createCheckoutOrder.mock.calls[0];
+    expect(payload.customerId).toBe('cust-1');
+    expect(payload.items).toEqual([
+      expect.objectContaining({ productId: 'p1', quantity: 2, unitPrice: 500 }),
+      expect.objectContaining({ productId: 'p1', quantity: 1, unitPrice: 140, pointsDiscountApplied: true }),
+    ]);
+    expect(payload.items[0]).not.toHaveProperty('pointsDiscountApplied');
+    expect(payload.items[1]).not.toHaveProperty('pointsBasePrice');
+  });
+});
+

@@ -52,6 +52,13 @@ interface CartItemRowProps {
   busy?: boolean;
   siblingProducts?: Product[];
   onSwitchSku?: (newProduct: Product) => void;
+  /** 銷售列的「點數折抵 $360」勾選框。退貨列不傳。 */
+  pointsDiscount?: {
+    applied: boolean;
+    /** 有值時勾選框停用，並顯示這個原因（例如「需綁定會員」）。 */
+    disabledReason?: string;
+    onToggle: (applied: boolean) => void;
+  };
 }
 
 export function CartItemRow({
@@ -64,7 +71,10 @@ export function CartItemRow({
   busy = false,
   siblingProducts = [],
   onSwitchSku,
+  pointsDiscount,
 }: CartItemRowProps) {
+  // 點數折抵列固定 1 件、單價由勾選決定，不能直接改價、改數量或換貨號。
+  const isPointsLine = Boolean(item.pointsDiscountApplied);
   const [priceInput, setPriceInput] = useState(String(item.unitPrice));
   const [qtyInput, setQtyInput] = useState(String(item.quantity));
   const [isHighlighted, setIsHighlighted] = useState(false);
@@ -126,7 +136,7 @@ export function CartItemRow({
   const sellable = item.loginStoreQuantity;
   const isOverStock = typeof sellable === 'number' && currentQuantity > sellable;
 
-  const hasMultipleSkus = siblingProducts.length > 1;
+  const hasMultipleSkus = siblingProducts.length > 1 && !isPointsLine;
 
   return (
     <div
@@ -207,6 +217,32 @@ export function CartItemRow({
               原價 {formatCurrency(item.originalPrice)}
             </span>
           )}
+          {isPointsLine && (
+            <span className="rounded border border-violet-500/50 bg-violet-500/15 px-1 text-[11px] font-bold text-violet-200 shrink-0">
+              點數折抵
+            </span>
+          )}
+          {pointsDiscount && (
+            <label
+              onClick={(e) => e.stopPropagation()}
+              className={`inline-flex items-center gap-1 rounded px-1 text-xs shrink-0 ${
+                pointsDiscount.disabledReason ? 'cursor-not-allowed text-zinc-500' : 'cursor-pointer text-violet-200 hover:bg-violet-500/10'
+              }`}
+              title={pointsDiscount.disabledReason ?? '勾選後此商品 1 件單價扣 NT$360（最低 0）'}
+            >
+              <input
+                type="checkbox"
+                checked={pointsDiscount.applied}
+                disabled={Boolean(pointsDiscount.disabledReason)}
+                onChange={(e) => pointsDiscount.onToggle(e.target.checked)}
+                className="h-3.5 w-3.5 accent-violet-500"
+              />
+              <span>點數折抵 $360</span>
+              {pointsDiscount.disabledReason && (
+                <span className="text-[11px] text-zinc-500">（{pointsDiscount.disabledReason}）</span>
+              )}
+            </label>
+          )}
         </div>
       </div>
 
@@ -216,7 +252,8 @@ export function CartItemRow({
         <input
           type="text"
           inputMode="numeric"
-          title="直接修改單價"
+          title={isPointsLine ? '點數折抵列不能直接改價，請先取消勾選' : '直接修改單價'}
+          readOnly={isPointsLine}
           value={priceInput}
           onChange={(e) => setPriceInput(e.target.value.replace(/[^0-9]/g, ''))}
           onBlur={handlePriceBlur}
@@ -237,7 +274,8 @@ export function CartItemRow({
             type="number"
             step="1"
             min="1"
-            title="修改數量"
+            title={isPointsLine ? '點數折抵固定 1 件' : '修改數量'}
+            disabled={isPointsLine}
             value={qtyInput}
             onChange={handleQtyChange}
             onBlur={handleQtyBlur}
@@ -247,6 +285,7 @@ export function CartItemRow({
           <div className="flex flex-col border-l border-zinc-800 bg-zinc-900/80 shrink-0">
             <button
               type="button"
+              disabled={isPointsLine}
               onClick={() => {
                 const next = item.quantity + 1;
                 onUpdateQuantity(next);
@@ -259,6 +298,7 @@ export function CartItemRow({
             </button>
             <button
               type="button"
+              disabled={isPointsLine}
               onClick={() => {
                 if (item.quantity > 1) {
                   const next = item.quantity - 1;
