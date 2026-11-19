@@ -5,7 +5,8 @@ import type { CheckoutOrder } from '@/types/checkout';
 import { paymentMethodLabel } from '@/types/report';
 import type { CartItem } from '@/store/cartStore';
 import { useUiStore } from '@/store/uiStore';
-import { formatCurrency } from '@/utils/currency';
+import { formatCurrency, formatSignedCurrency } from '@/utils/currency';
+import { orderAmountBreakdown } from '@/utils/orderBreakdown';
 import { formatDateTime } from '@/utils/date';
 
 interface OrderDetailModalProps {
@@ -30,6 +31,8 @@ export function OrderDetailModal({
   if (!order) return null;
 
   const totalQty = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  // 與收據相同：商品原價 + 價格調整 − 點數折抵（+ 運費）= 實收總金額。點數列的差額只算點數折抵。
+  const breakdown = orderAmountBreakdown(order.items);
 
   const renderStatusBadge = (status: CheckoutOrder['status']) => {
     switch (status) {
@@ -269,8 +272,8 @@ export function OrderDetailModal({
             <p className="text-zinc-400 font-bold border-b border-zinc-800/80 pb-1">金額結算彙整</p>
             <div className="space-y-1.5 text-zinc-300">
               <div className="flex justify-between">
-                <span className="text-zinc-400">商品原價小計</span>
-                <span>{formatCurrency(order.itemsSubtotal)}</span>
+                <span className="text-zinc-400">商品原價</span>
+                <span>{formatCurrency(breakdown.originalTotal)}</span>
               </div>
               {order.shippingFee > 0 && (
                 <div className="flex justify-between text-cyan-300">
@@ -278,10 +281,16 @@ export function OrderDetailModal({
                   <span>+{formatCurrency(order.shippingFee)}</span>
                 </div>
               )}
-              {order.discountAmount !== 0 && (
+              {breakdown.priceAdjustment !== 0 && (
                 <div className="flex justify-between text-rose-400">
-                  <span>現場優惠折讓</span>
-                  <span>-{formatCurrency(order.discountAmount)}</span>
+                  <span>價格調整</span>
+                  <span>{formatSignedCurrency(breakdown.priceAdjustment)}</span>
+                </div>
+              )}
+              {breakdown.pointsDiscount !== 0 && (
+                <div className="flex justify-between text-violet-300">
+                  <span>點數折抵</span>
+                  <span>{formatSignedCurrency(-breakdown.pointsDiscount)}</span>
                 </div>
               )}
               <div className="flex justify-between text-sm font-bold text-cyan-300 pt-2 border-t border-zinc-800">

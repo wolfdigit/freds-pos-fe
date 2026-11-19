@@ -1,6 +1,7 @@
 import { Fragment } from 'react';
 import type { CheckoutOrder } from '@/types/checkout';
-import { formatCurrency } from '@/utils/currency';
+import { formatCurrency, formatSignedCurrency } from '@/utils/currency';
+import { orderAmountBreakdown } from '@/utils/orderBreakdown';
 import { formatReceiptDateTime } from '@/utils/date';
 import { RECEIPT_PRINT_SHEET_ID } from '../printReceipt';
 import '../receipt-print.css';
@@ -30,7 +31,12 @@ interface ReceiptModel {
   orderNumber: string;
   createdAtLabel: string;
   lines: ReceiptLine[];
-  itemsSubtotalLabel: string;
+  /** 商品原價合計。 */
+  originalTotalLabel: string;
+  /** 沒勾點數的列的價格調整合計（帶正負號），0 時不顯示。 */
+  priceAdjustmentLabel: string | null;
+  /** 點數折抵合計，0 時不顯示。 */
+  pointsDiscountLabel: string | null;
   shippingLabel: string | null;
   totalCaption: string;
   totalAmountLabel: string;
@@ -47,15 +53,15 @@ function unitPriceDelta(item: CheckoutOrder['items'][number]): number | null {
   return item.unitPrice - item.originalPrice;
 }
 
-function itemTitle(item: CheckoutOrder['items'][number]): string {
+function itemTitle(item: CheckoutOrder['items'][number], hasDelta: boolean): string {
   const name = item.quantity < 0 ? `退貨 ${item.name}` : item.name;
-  // 點數折抵的單價已扣在下面的「價格調整」列裡，這裡標示這一列是用點數折抵的。
-  return item.pointsDiscountApplied ? `${name}（點數折抵）` : name;
+  // 點數列有差額時，下面那列就叫「點數折抵」；沒有差額時才在品名標示。
+  return item.pointsDiscountApplied && !hasDelta ? `${name}（點數折抵）` : name;
 }
 
 function moneyRows(item: CheckoutOrder['items'][number]): ReceiptMoneyRow[] {
   const delta = unitPriceDelta(item);
-  const title = itemTitle(item);
+  const title = itemTitle(item, delta !== null);
   if (delta === null) {
     return [
       {
@@ -80,7 +86,7 @@ function moneyRows(item: CheckoutOrder['items'][number]): ReceiptMoneyRow[] {
     },
     {
       key: 'delta',
-      label: '價格調整',
+      label: item.pointsDiscountApplied ? '點數折抵' : '價格調整',
       unitLabel: formatSignedCurrency(delta),
       quantity: item.quantity,
       amountLabel: formatSignedCurrency(delta * item.quantity),
@@ -89,16 +95,12 @@ function moneyRows(item: CheckoutOrder['items'][number]): ReceiptMoneyRow[] {
   ];
 }
 
-function formatSignedCurrency(amount: number): string {
-  const label = formatCurrency(Math.abs(amount));
-  if (amount > 0) return `+${label}`;
-  if (amount < 0) return `-${label}`;
-  return label;
-}
 
 function buildReceiptModel(order: CheckoutOrder): ReceiptModel {
   const items = order.items ?? [];
   const payments = order.payments ?? [];
+  // 商品原價 + 價格調整 − 點數折抵 = 商品成交小計；點數列的差額只算點數折抵。
+  const breakdown = orderAmountBreakdown(items);
 
   return {
     orderNumber: order.orderNumber,
@@ -107,7 +109,9 @@ function buildReceiptModel(order: CheckoutOrder): ReceiptModel {
       key: `${item.productId}-${index}`,
       rows: moneyRows(item),
     })),
-    itemsSubtotalLabel: formatCurrency(order.itemsSubtotal),
+    originalTotalLabel: formatCurrency(breakdown.originalTotal),
+    priceAdjustmentLabel: breakdown.priceAdjustment !== 0 ? formatSignedCurrency(breakdown.priceAdjustment) : null,
+    pointsDiscountLabel: breakdown.pointsDiscount !== 0 ? formatSignedCurrency(-breakdown.pointsDiscount) : null,
     shippingLabel: order.shippingFee > 0 ? `+${formatCurrency(order.shippingFee)}` : null,
     totalCaption: order.totalAmount < 0 ? '退款總額' : '結帳總額',
     totalAmountLabel: formatCurrency(order.totalAmount),
@@ -183,9 +187,21 @@ function ScreenReceipt({ model }: { model: ReceiptModel }) {
       </div>
       <div className="space-y-1 border-t border-dashed border-zinc-700 pt-2">
         <div className="flex justify-between text-zinc-400">
-          <span>商品小計</span>
-          <span>{model.itemsSubtotalLabel}</span>
+          <span>商品原價</span>
+          <span>{model.originalTotalLabel}</span>
         </div>
+        {model.priceAdjustmentLabel ? (
+          <div className="flex justify-between text-zinc-400">
+            <span>價格調整</span>
+            <span>{model.priceAdjustmentLabel}</span>
+          </div>
+        ) : null}
+        {model.pointsDiscountLabel ? (
+          <div className="flex justify-between text-violet-300">
+            <span>點數折抵</span>
+            <span>{model.pointsDiscountLabel}</span>
+          </div>
+        ) : null}
         {model.shippingLabel ? (
           <div className="flex justify-between text-cyan-300">
             <span>運費</span>
@@ -226,9 +242,21 @@ function PrintReceipt({ model }: { model: ReceiptModel }) {
       <div className="receipt-rule" />
       <div className="receipt-summary">
         <div className="receipt-row">
-          <span>商品小計</span>
-          <span>{model.itemsSubtotalLabel}</span>
+          <span>商品原價</span>
+          <span>{model.originalTotalLabel}</span>
         </div>
+        {model.priceAdjustmentLabel ? (
+          <div className="receipt-row">
+            <span>價格調整</span>
+            <span>{model.priceAdjustmentLabel}</span>
+          </div>
+        ) : null}
+        {model.pointsDiscountLabel ? (
+          <div className="receipt-row">
+            <span>點數折抵</span>
+            <span>{model.pointsDiscountLabel}</span>
+          </div>
+        ) : null}
         {model.shippingLabel ? (
           <div className="receipt-row">
             <span>運費</span>

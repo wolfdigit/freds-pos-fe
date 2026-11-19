@@ -10,7 +10,6 @@ import type {
 import { getProducts, setProducts, getOrders, setOrders, getStoredStores, simulateDelay } from './storageHelper';
 import { addQuantity, defaultLocationRows, LOCATIONS_STORAGE_KEY, loginStoreFrom, readPersistedStoreName } from './inventoryCatalog';
 import { safeAdd } from '@/utils/currency';
-import { POINTS_DISCOUNT_AMOUNT } from '@/types/checkout';
 import { nowIso, formatDate } from '@/utils/date';
 import { BusinessError } from '@/utils/errors';
 import { MockCustomerService } from './mockCustomerService';
@@ -53,11 +52,12 @@ export class MockCheckoutService implements ICheckoutService {
       }
 
       // 決定單價與原價
-      const originalPrice = product.listPrice;
+      let originalPrice = product.listPrice;
       let unitPrice = item.unitPrice ?? product.listPrice;
+      let isManualPrice = !!item.isManualPrice;
 
-      // 與後端相同的點數折抵規則：需會員、需單價、同商品一次、退貨列不可用。
-      const pointsApplied = Boolean(item.pointsDiscountApplied);
+      // 與後端相同的點數折抵規則：需會員、需單價（不可負）、數量 1、同商品一次、退貨列不可送旗標。
+      let pointsApplied = Boolean(item.pointsDiscountApplied);
       if (pointsApplied) {
         if (item.quantity < 0) {
           throw new BusinessError('INVALID_PAYMENT', '退貨品項不能使用點數折抵');
@@ -70,6 +70,12 @@ export class MockCheckoutService implements ICheckoutService {
         }
         if (item.unitPrice === undefined || item.unitPrice === null) {
           throw new BusinessError('INVALID_PAYMENT', '點數折抵必須提供單價');
+        }
+        if (item.unitPrice < 0) {
+          throw new BusinessError('INVALID_PAYMENT', '點數折抵後單價不能為負數');
+        }
+        if (item.quantity !== 1) {
+          throw new BusinessError('INVALID_PAYMENT', '點數折抵的品項數量必須為 1');
         }
         redeemedProducts.add(item.productId);
         unitPrice = item.unitPrice;
@@ -91,25 +97,34 @@ export class MockCheckoutService implements ICheckoutService {
               );
             }
 
-            const originalItem = originalOrder.items.find(
-              (i) => i.productId === item.productId || (i as any).id === item.originalOrderItemId
-            );
+            const originalItem =
+              originalOrder.items.find((i) => (i as any).id && (i as any).id === item.originalOrderItemId) ??
+              originalOrder.items.find((i) => i.productId === item.productId);
             if (originalItem) {
               const returnedSoFar = originalItem.returnedQuantity ?? 0;
               const remainingReturnable = originalItem.quantity - returnedSoFar;
               if (Math.abs(item.quantity) > remainingReturnable) {
                 throw new BusinessError('RETURN_QTY_EXCEEDED', `退貨數量超過原單剩餘可退上限 (${remainingReturnable} 件)`);
               }
+              // 與後端相同：退貨列沿用原單那一列的價格與點數旗標，退回的差額記在點數折抵。
+              originalPrice = originalItem.originalPrice;
+              unitPrice = originalItem.unitPrice;
+              isManualPrice = originalItem.isManualPrice;
+              pointsApplied = Boolean(originalItem.pointsDiscountApplied);
             }
           }
         }
       }
 
       const lineSubtotal = safeAdd(unitPrice * item.quantity);
-      const linePointsAmount = pointsApplied ? POINTS_DISCOUNT_AMOUNT : 0;
-      pointsDiscountAmount = safeAdd(pointsDiscountAmount, linePointsAmount);
+      const priceDifference = (originalPrice - unitPrice) * item.quantity;
       itemsSubtotal = safeAdd(itemsSubtotal, lineSubtotal);
-      discountAmount = safeAdd(discountAmount, (originalPrice - unitPrice) * item.quantity);
+      // 點數列的整個差額算點數折抵；折讓只算手動改價且沒有點數旗標的列（與後端相同）。
+      if (pointsApplied) {
+        pointsDiscountAmount = safeAdd(pointsDiscountAmount, priceDifference);
+      } else if (isManualPrice) {
+        discountAmount = safeAdd(discountAmount, priceDifference);
+      }
 
       calculatedItems.push({
         productId: product.id,
@@ -118,12 +133,11 @@ export class MockCheckoutService implements ICheckoutService {
         scale: product.scale,
         originalPrice,
         unitPrice,
-        isManualPrice: !!item.isManualPrice,
+        isManualPrice,
         priceDiffReason: item.priceDiffReason,
         quantity: item.quantity,
         subtotal: lineSubtotal,
         pointsDiscountApplied: pointsApplied,
-        pointsDiscountAmount: linePointsAmount,
         note: item.note,
         returnedQuantity: 0,
         originalOrderId: item.originalOrderId,

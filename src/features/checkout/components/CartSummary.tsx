@@ -6,6 +6,8 @@ interface CartSummaryProps {
   salesSubtotal?: number;
   returnSubtotal?: number;
   discount: number;
+  /** 點數折抵合計（點數列的原價 − 成交價）。不含在 discount 裡。 */
+  pointsDiscount?: number;
   shippingFee: number;
   onShippingFeeChange: (fee: number) => void;
   totalAmount: number;
@@ -27,6 +29,7 @@ export function CartSummary({
   salesSubtotal,
   returnSubtotal,
   discount,
+  pointsDiscount = 0,
   shippingFee,
   onShippingFeeChange,
   totalAmount,
@@ -64,6 +67,13 @@ export function CartSummary({
           <div className="flex justify-between items-center text-amber-400 text-xs">
             <span>改價折讓</span>
             <span className="font-semibold text-sm">-{formatCurrency(discount)}</span>
+          </div>
+        )}
+
+        {pointsDiscount !== 0 && (
+          <div className="flex justify-between items-center text-violet-300 text-xs">
+            <span>點數折抵</span>
+            <span className="font-semibold text-sm">-{formatCurrency(pointsDiscount)}</span>
           </div>
         )}
 

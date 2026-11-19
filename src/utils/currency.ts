@@ -31,3 +31,14 @@ export function calculateChange(
     shortageAmount: Math.max(0, -diff),
   };
 }
+
+/**
+ * 帶正負號的金額：減價顯示 -NT$ 70，加價顯示 +NT$ 50，0 不加符號。
+ * 與收據「價格調整」列相同的寫法。
+ */
+export function formatSignedCurrency(amount: number): string {
+  const label = formatCurrency(Math.abs(amount));
+  if (Math.round(amount) > 0) return `+${label}`;
+  if (Math.round(amount) < 0) return `-${label}`;
+  return label;
+}

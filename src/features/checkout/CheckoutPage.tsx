@@ -62,7 +62,13 @@ export function CheckoutPage() {
   const returnSubtotal = returnItems.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
 
   const subtotal = cart.getSubtotal();
-  const discount = cart.items.reduce((sum, i) => sum + (i.originalPrice - i.unitPrice) * i.quantity, 0);
+  // 折讓與點數折抵分開：點數列的差額只算點數折抵（與後端相同）。
+  const discount = cart.items
+    .filter((i) => !i.pointsDiscountApplied)
+    .reduce((sum, i) => sum + (i.originalPrice - i.unitPrice) * i.quantity, 0);
+  const pointsDiscount = cart.items
+    .filter((i) => i.pointsDiscountApplied)
+    .reduce((sum, i) => sum + (i.originalPrice - i.unitPrice) * i.quantity, 0);
   const totalAmount = cart.getTotalAmount();
 
   const focusBarcode = () => {
@@ -475,6 +481,7 @@ export function CheckoutPage() {
           salesSubtotal={salesSubtotal}
           returnSubtotal={returnSubtotal}
           discount={discount}
+          pointsDiscount={pointsDiscount}
           shippingFee={cart.shippingFee}
           onShippingFeeChange={cart.setShippingFee}
           totalAmount={totalAmount}
