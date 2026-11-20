@@ -22,6 +22,7 @@ import { useUiStore } from '@/store/uiStore';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { productService, checkoutService } from '@/services';
 import { formatCurrency } from '@/utils/currency';
+import { orderAmountBreakdown } from '@/utils/orderBreakdown';
 import { exceedsLoginStoreQuantity, formatLoginStoreQuantity, type Product } from '@/types/product';
 import type { CheckoutOrder } from '@/types/checkout';
 
@@ -58,17 +59,12 @@ export function CheckoutPage() {
   const siblingsByBarcode = useBarcodeSiblings(salesItems.map((item) => item.barcode));
   const returnItems = cart.items.filter((i) => i.quantity < 0);
 
-  const salesSubtotal = salesItems.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
   const returnSubtotal = returnItems.reduce((sum, i) => sum + i.unitPrice * i.quantity, 0);
 
-  const subtotal = cart.getSubtotal();
-  // 折讓與點數折抵分開：點數列的差額只算點數折抵（與後端相同）。
-  const discount = cart.items
-    .filter((i) => !i.pointsDiscountApplied)
-    .reduce((sum, i) => sum + (i.originalPrice - i.unitPrice) * i.quantity, 0);
-  const pointsDiscount = cart.items
-    .filter((i) => i.pointsDiscountApplied)
-    .reduce((sum, i) => sum + (i.originalPrice - i.unitPrice) * i.quantity, 0);
+  // 與收據、單據明細相同：商品原價 + 價格調整 − 點數折抵 = 成交小計；點數列差額只算點數折抵。
+  const salesBreakdown = orderAmountBreakdown(salesItems);
+  const returnBreakdown = orderAmountBreakdown(returnItems);
+  const breakdown = orderAmountBreakdown(cart.items);
   const totalAmount = cart.getTotalAmount();
 
   const focusBarcode = () => {
@@ -477,11 +473,11 @@ export function CheckoutPage() {
 
         {/* 待結統計與按鈕 (依需求 10：傳遞銷售件數與退貨件數分開統計) */}
         <CartSummary
-          subtotal={subtotal}
-          salesSubtotal={salesSubtotal}
-          returnSubtotal={returnSubtotal}
-          discount={discount}
-          pointsDiscount={pointsDiscount}
+          originalTotal={breakdown.originalTotal}
+          salesOriginalTotal={salesBreakdown.originalTotal}
+          returnOriginalTotal={returnBreakdown.originalTotal}
+          priceAdjustment={breakdown.priceAdjustment}
+          pointsDiscount={breakdown.pointsDiscount}
           shippingFee={cart.shippingFee}
           onShippingFeeChange={cart.setShippingFee}
           totalAmount={totalAmount}

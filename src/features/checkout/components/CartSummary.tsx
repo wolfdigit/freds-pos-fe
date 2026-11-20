@@ -1,12 +1,16 @@
-import { formatCurrency } from '@/utils/currency';
+import { formatCurrency, formatSignedCurrency } from '@/utils/currency';
 import { Button } from '@/components/common/Button';
 
 interface CartSummaryProps {
-  subtotal: number;
-  salesSubtotal?: number;
-  returnSubtotal?: number;
-  discount: number;
-  /** 點數折抵合計（點數列的原價 − 成交價）。不含在 discount 裡。 */
+  /** 商品原價合計（含退貨列，退貨為負）。 */
+  originalTotal: number;
+  /** 待結銷售列的原價合計；有退貨時顯示「待結銷售原價」。 */
+  salesOriginalTotal?: number;
+  /** 退貨列的原價合計（為負）；有退貨時顯示「瑕疵退貨折抵（原價）」。 */
+  returnOriginalTotal?: number;
+  /** 沒有點數旗標的列 Σ（成交單價 − 原價）× 數量。減價為負、加價為正。 */
+  priceAdjustment?: number;
+  /** 點數折抵合計（點數列的原價 − 成交價）。不含在價格調整裡。 */
   pointsDiscount?: number;
   shippingFee: number;
   onShippingFeeChange: (fee: number) => void;
@@ -25,10 +29,10 @@ const SHIPPING_PRESETS = [
 ];
 
 export function CartSummary({
-  subtotal,
-  salesSubtotal,
-  returnSubtotal,
-  discount,
+  originalTotal,
+  salesOriginalTotal,
+  returnOriginalTotal,
+  priceAdjustment = 0,
   pointsDiscount = 0,
   shippingFee,
   onShippingFeeChange,
@@ -39,7 +43,7 @@ export function CartSummary({
   onClear,
   onCheckout,
 }: CartSummaryProps) {
-  const hasReturns = returnSubtotal !== undefined && returnSubtotal < 0;
+  const hasReturns = returnItemCount > 0;
 
   return (
     <div className="mt-2.5 space-y-2.5 border-t border-zinc-800 pt-2.5">
@@ -48,32 +52,32 @@ export function CartSummary({
         {hasReturns ? (
           <>
             <div className="flex justify-between items-center text-xs">
-              <span className="text-zinc-400">待結銷售小計</span>
-              <span className="font-semibold text-zinc-200">{formatCurrency(salesSubtotal ?? 0)}</span>
+              <span className="text-zinc-400">待結銷售原價</span>
+              <span className="font-semibold text-zinc-200">{formatCurrency(salesOriginalTotal ?? 0)}</span>
             </div>
             <div className="flex justify-between items-center text-xs text-rose-400">
-              <span>↩️ 瑕疵退貨折抵</span>
-              <span className="font-bold">{formatCurrency(returnSubtotal)}</span>
+              <span>↩️ 瑕疵退貨折抵（原價）</span>
+              <span className="font-bold">{formatCurrency(returnOriginalTotal ?? 0)}</span>
             </div>
           </>
         ) : (
           <div className="flex justify-between items-center">
-            <span className="text-zinc-400 text-xs">商品小計</span>
-            <span className="font-semibold text-zinc-200 text-base">{formatCurrency(subtotal)}</span>
+            <span className="text-zinc-400 text-xs">商品原價</span>
+            <span className="font-semibold text-zinc-200 text-base">{formatCurrency(originalTotal)}</span>
           </div>
         )}
 
-        {discount !== 0 && (
+        {priceAdjustment !== 0 && (
           <div className="flex justify-between items-center text-amber-400 text-xs">
-            <span>改價折讓</span>
-            <span className="font-semibold text-sm">-{formatCurrency(discount)}</span>
+            <span>價格調整</span>
+            <span className="font-semibold text-sm">{formatSignedCurrency(priceAdjustment)}</span>
           </div>
         )}
 
         {pointsDiscount !== 0 && (
           <div className="flex justify-between items-center text-violet-300 text-xs">
             <span>點數折抵</span>
-            <span className="font-semibold text-sm">-{formatCurrency(pointsDiscount)}</span>
+            <span className="font-semibold text-sm">{formatSignedCurrency(-pointsDiscount)}</span>
           </div>
         )}
 

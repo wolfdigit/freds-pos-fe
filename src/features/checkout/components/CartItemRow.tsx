@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import type { CartItem } from '@/store/cartStore';
 import { useCartStore } from '@/store/cartStore';
 import type { Product } from '@/types/product';
-import { formatCurrency } from '@/utils/currency';
+import { formatCurrency, formatSignedCurrency } from '@/utils/currency';
 import { checkoutService } from '@/services';
 import { Spinner } from '@/components/feedback/Spinner';
 
@@ -215,6 +215,11 @@ export function CartItemRow({
           {isModifiedPrice && (
             <span className="text-zinc-500 line-through text-xs shrink-0">
               原價 {formatCurrency(item.originalPrice)}
+            </span>
+          )}
+          {isModifiedPrice && !isPointsLine && (
+            <span className="font-mono text-xs font-semibold text-amber-400 shrink-0" title="成交單價減原價">
+              價格調整 {formatSignedCurrency(item.unitPrice - item.originalPrice)}
             </span>
           )}
           {isPointsLine && (
