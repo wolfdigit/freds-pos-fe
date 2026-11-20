@@ -33,4 +33,14 @@ describe('orderAmountBreakdown', () => {
       pointsDiscount: 0,
     });
   });
+
+  it('signs a markdown negative and a markup positive without involving points', () => {
+    const lines = [
+      { originalPrice: 350, unitPrice: 280, quantity: 1 },
+      { originalPrice: 350, unitPrice: 400, quantity: 1 },
+    ];
+    const result = orderAmountBreakdown(lines);
+    expect(result).toEqual({ originalTotal: 700, priceAdjustment: -20, pointsDiscount: 0 });
+    expect(result.originalTotal + result.priceAdjustment - result.pointsDiscount).toBe(680);
+  });
 });
