@@ -66,13 +66,13 @@ export function ReceiptModal({ receipt, onClose }: ReceiptModalProps) {
         open={!!receipt}
         onClose={onClose}
         title="結帳明細"
-        widthClassName="max-w-md"
+        widthClassName="max-w-2xl"
         footer={
           <div className="receipt-no-print flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={printReceiptSheet}>
+            <Button type="button" variant="secondary" onClick={printReceiptSheet} className="text-base">
               列印
             </Button>
-            <Button type="button" variant="primary" onClick={onClose}>
+            <Button type="button" variant="primary" onClick={onClose} className="text-base">
               完成，返回結帳櫃檯
             </Button>
           </div>

@@ -321,8 +321,8 @@ export class MockProductService implements IProductService {
 
   async batchAdjustStock(request: BatchInventoryAdjustRequest): Promise<boolean> {
     await simulateDelay();
-    const note = request.note?.trim() ?? '';
-    if (!note) throw new BusinessError('INVALID_LOCATION_TRANSFER', '備註不可空白');
+    // 與後端相同：異動原因選填，空白視為沒填。
+    const note = request.note?.trim() || undefined;
 
     const locations = readLocations();
     const products = getProducts();

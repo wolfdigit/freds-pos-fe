@@ -38,6 +38,8 @@ interface ReceiptModel {
   /** 點數折抵合計，0 時不顯示。 */
   pointsDiscountLabel: string | null;
   shippingLabel: string | null;
+  /** 商品數量總計，例如「3 件」、「退貨 1 件」、「3 件／退貨 1 件」。 */
+  quantityLabel: string;
   totalCaption: string;
   totalAmountLabel: string;
   payments: ReceiptPaymentLine[];
@@ -96,6 +98,15 @@ function moneyRows(item: CheckoutOrder['items'][number]): ReceiptMoneyRow[] {
 }
 
 
+/** 銷售件數與退貨件數分開算，不互相抵銷，讓店員一眼看出各有幾件。 */
+export function receiptQuantityLabel(items: CheckoutOrder['items']): string {
+  const sold = items.reduce((sum, item) => (item.quantity > 0 ? sum + item.quantity : sum), 0);
+  const returned = items.reduce((sum, item) => (item.quantity < 0 ? sum - item.quantity : sum), 0);
+  if (returned === 0) return `${sold} 件`;
+  if (sold === 0) return `退貨 ${returned} 件`;
+  return `${sold} 件／退貨 ${returned} 件`;
+}
+
 function buildReceiptModel(order: CheckoutOrder): ReceiptModel {
   const items = order.items ?? [];
   const payments = order.payments ?? [];
@@ -112,6 +123,7 @@ function buildReceiptModel(order: CheckoutOrder): ReceiptModel {
     originalTotalLabel: formatCurrency(breakdown.originalTotal),
     priceAdjustmentLabel: breakdown.priceAdjustment !== 0 ? formatSignedCurrency(breakdown.priceAdjustment) : null,
     pointsDiscountLabel: breakdown.pointsDiscount !== 0 ? formatSignedCurrency(-breakdown.pointsDiscount) : null,
+    quantityLabel: receiptQuantityLabel(items),
     shippingLabel: order.shippingFee > 0 ? `+${formatCurrency(order.shippingFee)}` : null,
     totalCaption: order.totalAmount < 0 ? '退款總額' : '結帳總額',
     totalAmountLabel: formatCurrency(order.totalAmount),
@@ -136,12 +148,12 @@ export function ReceiptDocument({ order, variant }: ReceiptDocumentProps) {
 
 function ReceiptLineGrid({ lines, variant }: { lines: ReceiptLine[]; variant: 'screen' | 'print' }) {
   return (
-    <div className={variant === 'print' ? 'receipt-grid' : 'grid grid-cols-[minmax(0,1fr)_max-content_max-content_max-content_max-content] items-start font-mono text-xs'}>
+    <div className={variant === 'print' ? 'receipt-grid' : 'grid grid-cols-[minmax(0,1fr)_max-content_max-content_max-content_max-content] items-start gap-y-1 font-mono text-base leading-relaxed'}>
       {lines.map((line, lineIndex) =>
         line.rows.map((row, rowIndex) => (
           <Fragment key={`${line.key}-${row.key}`}>
             {lineIndex > 0 && rowIndex === 0 ? (
-              <div className={variant === 'print' ? 'receipt-item-rule' : 'col-span-5 mt-1.5 border-t border-dashed border-zinc-700 pt-1.5'} />
+              <div className={variant === 'print' ? 'receipt-item-rule' : 'col-span-5 mt-2 border-t border-dashed border-zinc-700 pt-2'} />
             ) : null}
             <span
               className={
@@ -150,17 +162,17 @@ function ReceiptLineGrid({ lines, variant }: { lines: ReceiptLine[]; variant: 's
                     ? 'receipt-cell-name receipt-cell-child'
                     : 'receipt-cell-name'
                   : `min-w-0 whitespace-pre-wrap break-words pr-2 [overflow-wrap:anywhere] ${
-                      row.indent ? 'pl-4 text-zinc-400' : 'font-medium text-zinc-200'
+                      row.indent ? 'pl-6 text-zinc-300' : 'font-semibold text-zinc-100'
                     }`
               }
             >
               {row.label}
             </span>
-            <span className={variant === 'print' ? 'receipt-cell-unit' : 'whitespace-nowrap text-right text-zinc-400'}>
+            <span className={variant === 'print' ? 'receipt-cell-unit' : 'whitespace-nowrap text-right text-zinc-300'}>
               {row.unitLabel}
             </span>
-            <span className={variant === 'print' ? 'receipt-cell-times' : 'whitespace-nowrap text-center text-zinc-300'}>×</span>
-            <span className={variant === 'print' ? 'receipt-cell-qty' : 'whitespace-nowrap pr-3 text-left font-bold text-zinc-300'}>
+            <span className={variant === 'print' ? 'receipt-cell-times' : 'whitespace-nowrap px-1 text-center text-zinc-300'}>×</span>
+            <span className={variant === 'print' ? 'receipt-cell-qty' : 'whitespace-nowrap pr-4 text-left font-bold text-zinc-200'}>
               {row.quantity}
             </span>
             <span className={variant === 'print' ? 'receipt-cell-amt' : 'whitespace-nowrap text-right font-bold text-cyan-300'}>
@@ -173,25 +185,30 @@ function ReceiptLineGrid({ lines, variant }: { lines: ReceiptLine[]; variant: 's
   );
 }
 
+// 螢幕版字級放大給視力較差的使用者看（內文 16px 以上、總額更大）。列印版另用 receipt-print.css，不受影響。
 function ScreenReceipt({ model }: { model: ReceiptModel }) {
   return (
-    <div className="space-y-3 rounded-lg border border-zinc-800 bg-zinc-950 p-4 font-mono text-sm">
+    <div className="space-y-4 rounded-lg border border-zinc-800 bg-zinc-950 p-5 font-mono text-base leading-relaxed">
       <div className="text-center">
-        <p className="text-lg font-bold text-cyan-300">FRED'S POS</p>
-        <p className="text-sm font-semibold text-zinc-200">結帳明細</p>
-        <p className="text-xs text-zinc-500">{model.orderNumber}</p>
-        <p className="text-xs text-zinc-500">{model.createdAtLabel}</p>
+        <p className="text-2xl font-bold text-cyan-300">FRED'S POS</p>
+        <p className="text-lg font-semibold text-zinc-100">結帳明細</p>
+        <p className="text-base text-zinc-300">{model.orderNumber}</p>
+        <p className="text-base text-zinc-300">{model.createdAtLabel}</p>
       </div>
-      <div className="border-t border-dashed border-zinc-700 pt-2 text-zinc-300">
+      <div className="border-t border-dashed border-zinc-700 pt-3 text-zinc-200">
         <ReceiptLineGrid lines={model.lines} variant="screen" />
       </div>
-      <div className="space-y-1 border-t border-dashed border-zinc-700 pt-2">
-        <div className="flex justify-between text-zinc-400">
+      <div className="space-y-1.5 border-t border-dashed border-zinc-700 pt-3 text-lg">
+        <div className="flex justify-between text-zinc-200">
+          <span>商品數量總計</span>
+          <span className="font-bold">{model.quantityLabel}</span>
+        </div>
+        <div className="flex justify-between text-zinc-300">
           <span>商品原價</span>
           <span>{model.originalTotalLabel}</span>
         </div>
         {model.priceAdjustmentLabel ? (
-          <div className="flex justify-between text-zinc-400">
+          <div className="flex justify-between text-zinc-300">
             <span>價格調整</span>
             <span>{model.priceAdjustmentLabel}</span>
           </div>
@@ -208,20 +225,20 @@ function ScreenReceipt({ model }: { model: ReceiptModel }) {
             <span>{model.shippingLabel}</span>
           </div>
         ) : null}
-        <div className="flex justify-between border-t border-zinc-800 pt-1 text-base font-bold text-cyan-300">
+        <div className="flex items-baseline justify-between border-t border-zinc-800 pt-2 text-2xl font-bold text-cyan-300">
           <span>{model.totalCaption}</span>
           <span>{model.totalAmountLabel}</span>
         </div>
       </div>
-      <div className="space-y-1 border-t border-dashed border-zinc-700 pt-2 text-zinc-400">
+      <div className="space-y-1.5 border-t border-dashed border-zinc-700 pt-3 text-lg text-zinc-300">
         {model.payments.map((payment) => (
           <div key={payment.key} className="flex justify-between">
             <span>支付方式：{payment.name}</span>
-            <span className="font-bold text-zinc-200">{payment.amountLabel}</span>
+            <span className="font-bold text-zinc-100">{payment.amountLabel}</span>
           </div>
         ))}
       </div>
-      <p className="border-t border-dashed border-zinc-700 pt-2 text-center text-xs text-zinc-400">
+      <p className="border-t border-dashed border-zinc-700 pt-3 text-center text-base text-zinc-300">
         本單為結帳明細，非電子發票或統一發票
       </p>
     </div>
@@ -241,6 +258,10 @@ function PrintReceipt({ model }: { model: ReceiptModel }) {
       <ReceiptLineGrid lines={model.lines} variant="print" />
       <div className="receipt-rule" />
       <div className="receipt-summary">
+        <div className="receipt-row">
+          <span>商品數量總計</span>
+          <span>{model.quantityLabel}</span>
+        </div>
         <div className="receipt-row">
           <span>商品原價</span>
           <span>{model.originalTotalLabel}</span>

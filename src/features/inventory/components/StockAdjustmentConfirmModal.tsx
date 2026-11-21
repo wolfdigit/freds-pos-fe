@@ -32,16 +32,14 @@ export function StockAdjustmentConfirmModal({
 
   const handleSave = async () => {
     if (inFlight.current) return;
-    if (!note.trim()) {
-      showToast('請填寫異動備註', 'error');
-      return;
-    }
     inFlight.current = true;
     setIsSubmitting(true);
     try {
+      // 異動原因選填（含庫存調撥），沒填就不送。
+      const trimmed = note.trim();
       await productService.batchAdjustStock({
         adjustments,
-        note: note.trim(),
+        ...(trimmed ? { note: trimmed } : {}),
       });
 
       showToast(`已成功更新 ${adjustments.length} 項商品庫存並紀錄操作日誌`, 'success');
@@ -153,7 +151,7 @@ export function StockAdjustmentConfirmModal({
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-semibold text-zinc-400">異動原因 / 備註說明 *</label>
+          <label className="mb-1 block text-xs font-semibold text-zinc-400">異動原因 / 備註說明（選填）</label>
           <Input
             value={note}
             onChange={(e) => setNote(e.target.value)}

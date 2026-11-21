@@ -146,10 +146,10 @@ export interface InventoryItemAdjustment {
   summaryText: string;
 }
 
-/** `note` 必填。操作人員與時間由伺服器決定，不要送。 */
+/** `note`（異動原因）選填，沒填就不送。操作人員與時間由伺服器決定，不要送。 */
 export interface BatchInventoryAdjustRequest {
   adjustments: InventoryItemAdjustment[];
-  note: string;
+  note?: string;
 }
 
 export interface InventoryAdjustmentLog {
