@@ -199,9 +199,10 @@ function ScreenReceipt({ model }: { model: ReceiptModel }) {
         <ReceiptLineGrid lines={model.lines} variant="screen" />
       </div>
       <div className="space-y-1.5 border-t border-dashed border-zinc-700 pt-3 text-lg">
-        <div className="flex justify-between text-zinc-200">
+        {/* 字級與粗細和結帳總額相同 */}
+        <div className="flex items-baseline justify-between pb-1 text-2xl font-bold text-zinc-100">
           <span>商品數量總計</span>
-          <span className="font-bold">{model.quantityLabel}</span>
+          <span>{model.quantityLabel}</span>
         </div>
         <div className="flex justify-between text-zinc-300">
           <span>商品原價</span>
@@ -258,7 +259,7 @@ function PrintReceipt({ model }: { model: ReceiptModel }) {
       <ReceiptLineGrid lines={model.lines} variant="print" />
       <div className="receipt-rule" />
       <div className="receipt-summary">
-        <div className="receipt-row">
+        <div className="receipt-row receipt-qty-total">
           <span>商品數量總計</span>
           <span>{model.quantityLabel}</span>
         </div>

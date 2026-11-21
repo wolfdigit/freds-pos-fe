@@ -26,6 +26,7 @@ describe('商品數量總計', () => {
     render(<ReceiptDocument order={order([line('A', 500, 2), line('B', 80, 1)])} variant={variant} />);
     const label = screen.getByText('商品數量總計');
     expect(label.parentElement?.lastElementChild?.textContent).toBe('3 件');
-    if (variant === 'print') expect(label.parentElement?.className).toBe('receipt-row');
+    if (variant === 'print') expect(label.parentElement?.className).toBe('receipt-row receipt-qty-total');
+    else expect(label.parentElement?.className).toContain('text-2xl');
   });
 });
