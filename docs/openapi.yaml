@@ -1674,11 +1674,11 @@ components:
 
     BatchStockAdjustRequest:
       type: object
-      required: [adjustments, note]
+      required: [adjustments]
       properties:
         note:
           type: string
-          description: Required. Blank text is rejected. operatorName and timestamp are not sent.
+          description: 選填（異動原因，含庫存調撥）。沒送或空白時伺服器存成 null。operatorName and timestamp are not sent.
         adjustments:
           type: array
           items:

@@ -181,6 +181,12 @@
   font-weight: 800;
 }
 
+/* 商品數量總計：字級與粗細和結帳總額相同，但沒有上框線，其他列不受影響。 */
+.receipt-qty-total {
+  font-size: 4mm;
+  font-weight: 800;
+}
+
 .receipt-disclaimer {
   margin-top: 2.5mm;
   font-size: 2.7mm;
