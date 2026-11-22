@@ -300,7 +300,16 @@ export function SettingsPage() {
             {/* 據點統計概況列 */}
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="flex items-center gap-4 text-sm text-zinc-400">
-                <span>據點總數: <strong className="text-cyan-400 font-mono text-base font-bold">{locations.length}</strong> 個</span>
+                <span>據點總數: {isLoading ? (
+                  <span className="inline-flex items-center gap-1 align-middle text-zinc-400">
+                    <Spinner size="sm" />
+                    讀取中
+                  </span>
+                ) : locationError ? (
+                  <strong className="text-rose-300">讀取失敗</strong>
+                ) : (
+                  <strong className="text-cyan-400 font-mono text-base font-bold">{locations.length}</strong>
+                )}{isLoading || locationError ? '' : ' 個'}</span>
                 <span>•</span>
                 <span>全據點在庫總量: {productsLoading ? (
                   <span className="inline-flex items-center gap-1 align-middle text-zinc-400">
@@ -364,7 +373,7 @@ export function SettingsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-zinc-800/60 font-medium">
-                      {sortedLocations.map((loc) => {
+                      {sortedLocations.map((loc, index) => {
                         const stats = locationStockStats[loc.id] || { totalQty: 0, productCount: 0, hasNonZeroStock: false };
                         const hasQuantity = stats.totalQty !== 0 || stats.hasNonZeroStock;
 
@@ -373,9 +382,12 @@ export function SettingsPage() {
                             key={loc.id}
                             className="hover:bg-zinc-800/40 transition-colors group"
                           >
-                            {/* 排序 */}
-                            <td className="py-3.5 pl-4 pr-2 text-center font-mono text-xs text-zinc-500 font-bold">
-                              #{loc.displayOrder ?? 1}
+                            {/* 排序：列表中的位置。排序權重可以重複（例如兩個都設 1），所以不直接顯示權重。 */}
+                            <td
+                              className="py-3.5 pl-4 pr-2 text-center font-mono text-xs text-zinc-500 font-bold"
+                              title={`排序權重 ${loc.displayOrder ?? 1}`}
+                            >
+                              #{index + 1}
                             </td>
 
                             {/* 據點名稱與圖示 */}
