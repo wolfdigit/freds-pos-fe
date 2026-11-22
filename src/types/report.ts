@@ -12,8 +12,8 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethodType, string> = {
   cash: '現金',
   bank_transfer_ctbc: '轉帳(中信)',
   bank_transfer_ubot: '轉帳(聯邦)',
-  credit_card_physical: '信用卡(實體)',
-  credit_card_online: '信用卡(網路)',
+  credit_card_physical: '信用卡',
+  credit_card_online: '官網刷卡',
   line_pay: 'LINE Pay',
   cod: '貨到付款',
 };
