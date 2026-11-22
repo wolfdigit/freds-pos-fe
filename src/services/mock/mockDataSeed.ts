@@ -14282,7 +14282,7 @@ export const INITIAL_ORDERS: CheckoutOrder[] = [
         "isManualPrice": false,
         "quantity": 1,
         "subtotal": 560,
-        "note": "現貨加購 (原預購單號:Pre-20260205-004)"
+        "note": "現貨加購"
       },
       {
         "productId": "prod-mgt01007bl",
@@ -14309,7 +14309,7 @@ export const INITIAL_ORDERS: CheckoutOrder[] = [
         "amount": 560
       }
     ],
-    "note": "現貨加購 (原預購單號:Pre-20260205-004)；(瑕疵) (瑕疵)",
+    "note": "現貨加購；(瑕疵) (瑕疵)",
     "createdAt": "2026-02-06T10:00:00Z",
     "createdBy": "Fay",
     "updatedAt": "2026-02-06T10:00:00Z",
@@ -14940,6 +14940,8 @@ export const INITIAL_STORES = [
     inventoryLocationName: '門市現貨',
     returnedInventoryLocationId: 'e1a10005-0000-4000-8000-000000000005',
     returnedInventoryLocationName: '退貨品',
+    preorderInventoryLocationId: 'e1a10006-0000-4000-8000-000000000006',
+    preorderInventoryLocationName: '預購保留',
   },
   {
     name: '線上網購',
@@ -14948,5 +14950,7 @@ export const INITIAL_STORES = [
     inventoryLocationName: '門市現貨',
     returnedInventoryLocationId: 'e1a10005-0000-4000-8000-000000000005',
     returnedInventoryLocationName: '退貨品',
+    preorderInventoryLocationId: 'e1a10006-0000-4000-8000-000000000006',
+    preorderInventoryLocationName: '預購保留',
   },
 ];

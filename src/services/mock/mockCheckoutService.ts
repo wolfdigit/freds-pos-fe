@@ -60,6 +60,10 @@ export class MockCheckoutService implements ICheckoutService {
       let isManualPrice = !!item.isManualPrice;
 
       // 與後端相同的點數折抵規則：需會員、需單價（不可負）、數量 1、同商品一次、退貨列不可送旗標。
+      // 預購取貨只能用在銷售列（跟後端一樣回 422）。
+      if (item.preorderPickup && item.quantity < 0) {
+        throw new BusinessError('INVALID_PAYMENT', '退貨品項不能標記預購取貨');
+      }
       let pointsApplied = Boolean(item.pointsDiscountApplied);
       if (pointsApplied) {
         if (item.quantity < 0) {
@@ -141,6 +145,7 @@ export class MockCheckoutService implements ICheckoutService {
         quantity: item.quantity,
         subtotal: lineSubtotal,
         pointsDiscountApplied: pointsApplied,
+        preorderPickup: item.quantity > 0 && Boolean(item.preorderPickup),
         note: item.note,
         returnedQuantity: 0,
         originalOrderId: item.originalOrderId,
@@ -162,7 +167,7 @@ export class MockCheckoutService implements ICheckoutService {
     }
 
     // --- 3. 原子寫入異動階段 ---
-    // 3.1 銷售扣登入門市的正常貨地點（可以變負數）。
+    // 3.1 銷售扣登入門市的正常貨地點（可以變負數）；預購取貨的列改扣預購保留地點。
     // 退貨：restock 不是 false 時加回正常貨（可售）；false 時加到退貨庫存點。
     const loginStore = loginStoreFrom(getStoredStores(), readPersistedStoreName());
     if (!loginStore) throw new BusinessError('LOCATION_NOT_FOUND', '找不到門市');
@@ -173,9 +178,12 @@ export class MockCheckoutService implements ICheckoutService {
       const idx = nextProducts.findIndex((product) => product.id === item.productId);
       if (idx === -1) continue;
       if (item.quantity > 0) {
-        nextProducts[idx] = addQuantity(nextProducts[idx], loginStore.inventoryLocationId, -item.quantity, locations);
-        item.inventoryLocationId = loginStore.inventoryLocationId;
-        item.inventoryLocationName = loginStore.inventoryLocationName;
+        const fromPreorder = Boolean(item.preorderPickup) && Boolean(loginStore.preorderInventoryLocationId);
+        const locationId = fromPreorder ? loginStore.preorderInventoryLocationId : loginStore.inventoryLocationId;
+        const locationName = fromPreorder ? loginStore.preorderInventoryLocationName : loginStore.inventoryLocationName;
+        nextProducts[idx] = addQuantity(nextProducts[idx], locationId, -item.quantity, locations);
+        item.inventoryLocationId = locationId;
+        item.inventoryLocationName = locationName;
       } else if (item.quantity < 0) {
         const toNormal = item.restock !== false;
         const locationId = toNormal ? loginStore.inventoryLocationId : loginStore.returnedInventoryLocationId;

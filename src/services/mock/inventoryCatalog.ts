@@ -40,9 +40,40 @@ export function defaultLocationRows(): InventoryLocationDto[] {
     icon: location.icon,
     isDefault: location.isDefault,
     displayOrder: location.displayOrder,
+    systemRole: 'systemRole' in location ? location.systemRole : null,
     storeNames: [],
     returnedStoreNames: [],
+    preorderStoreNames: [],
   }));
+}
+
+/**
+ * 跟後端 ensure_locations 一樣補齊三個系統地點：先認同 id（公司總倉、退貨品、預購保留），
+ * 都沒有才用預設名稱新增。舊的 mock localStorage 沒有預購保留時會在這裡補上。
+ */
+export function withSystemLocations(rows: InventoryLocationDto[]): InventoryLocationDto[] {
+  const next = rows.map((row) => ({ ...row }));
+  for (const preset of DEFAULT_INVENTORY_LOCATIONS) {
+    const role = 'systemRole' in preset ? preset.systemRole : undefined;
+    if (!role || next.some((row) => row.systemRole === role)) continue;
+    const existing = next.find((row) => row.id === preset.id && !row.systemRole);
+    if (existing) {
+      existing.systemRole = role;
+      continue;
+    }
+    next.push({
+      id: preset.id,
+      name: next.some((row) => row.name === preset.name) ? `${preset.name}（系統）` : preset.name,
+      icon: preset.icon,
+      isDefault: false,
+      displayOrder: preset.displayOrder,
+      systemRole: role,
+      storeNames: [],
+      returnedStoreNames: [],
+      preorderStoreNames: [],
+    });
+  }
+  return next;
 }
 
 export function resolveLocationId(raw: string): string {
@@ -104,6 +135,8 @@ export function withStoreQuantities(product: Product, store: StoreDto | null): P
     totalInventory,
     loginStoreQuantity: store ? quantityAt(product, store.inventoryLocationId) : null,
     loginStoreReturnedQuantity: store ? quantityAt(product, store.returnedInventoryLocationId) : null,
+    loginStorePreorderQuantity:
+      store && store.preorderInventoryLocationId ? quantityAt(product, store.preorderInventoryLocationId) : null,
   };
 }
 
@@ -170,6 +203,9 @@ export function attachStoreBindings(
       storeNames: stores.filter((store) => store.inventoryLocationId === location.id).map((store) => store.name),
       returnedStoreNames: stores
         .filter((store) => store.returnedInventoryLocationId === location.id)
+        .map((store) => store.name),
+      preorderStoreNames: stores
+        .filter((store) => store.preorderInventoryLocationId === location.id)
         .map((store) => store.name),
     }))
     .sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999) || a.id.localeCompare(b.id));

@@ -40,7 +40,7 @@ describe('store binding refreshes locations', () => {
     await user.click(within(storeRow).getByRole('button', { name: '改綁' }));
 
     const dialog = await screen.findByRole('dialog');
-    await user.selectOptions(within(dialog).getByRole('combobox', { name: /正常貨庫存點/ }), warehouseId);
+    await user.selectOptions(within(dialog).getByRole('combobox', { name: /門市庫存/ }), warehouseId);
     await user.click(within(dialog).getByRole('button', { name: '儲存綁定' }));
 
     await waitFor(() => expect(getLocations.mock.calls.length).toBeGreaterThan(callsBeforeRebind));

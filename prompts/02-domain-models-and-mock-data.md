@@ -36,7 +36,6 @@ export interface Product {
   vipPrice?: number;         // 會員專屬優惠價
   stocks: LocationStock[];   // 各地點庫存明細
   totalStock: number;        // 現貨總庫存
-  preOrderPendingCount: number; // 預購未交數量 (統計欄位)
   note?: string;             // 備註說明
   status: ProductStatus;     // 軟刪除狀態。active 在架上；deleted 已隱藏，列不刪除
 }
@@ -107,57 +106,16 @@ export interface StockAdjustmentLog {
 ```
 
 
-### 1.3 預訂單實體 (`src/types/preorder.ts`)
-
-```typescript
-export type PreOrderStatus = 
-  | 'pending'              // 全品項尚未到貨 (所有品項 qtyArrived = 0)
-  | 'partially_arrived'    // 至少一項已到貨、尚未全數領取完畢（含「全到貨但未領」情境）
-  | 'partially_completed'  // 客人已領取部分，尚有剩餘項目
-  | 'completed'            // 全部已取貨完成結案
-  | 'cancelled';           // 已取消
-
-export interface PreOrderItem {
-  id: string;
-  productId: string;
-  sku: string;
-  productName: string;
-  scale: ModelScale;
-  brand: string;
-  quotedPrice: number;     // 預購當時報價
-  qtyOrdered: number;      // 客戶下訂數量
-  qtyArrived: number;      // 門市已到貨數量
-  qtyDelivered: number;    // 客人已結帳領取數量
-  // 計算得出：可領取數 = qtyArrived - qtyDelivered
-  // 計算得出：未到貨數 = qtyOrdered - qtyArrived
-}
-
-export interface PreOrder {
-  id: string;
-  orderNumber: string;     // 預訂單號 (例如: PO-20260815-001)
-  customerId: string;
-  customerName: string;
-  customerPhone: string;
-  orderDate: string;       // 下訂日期
-  expectedArrivalDate?: string; // 預計到貨時間
-  status: PreOrderStatus;
-  source: 'in_store' | 'website'; // 來源：門市臨櫃 / 官網匯入
-  items: PreOrderItem[];
-  note?: string;
-  updatedAt: string;
-}
-```
-
-### 1.4 結帳單實體 (`src/types/checkout.ts`)
+### 1.3 結帳單實體 (`src/types/checkout.ts`)
 
 ```typescript
 // Mockup 階段 UI 僅實作：cash | credit_card | line_pay | bank_transfer
-// 'cod'（取貨付款）保留於型別供未來官網訂單匯入，結帳彈窗不顯示此選項
+// 'cod'（貨到付款）保留於型別供未來官網訂單匯入，結帳彈窗不顯示此選項
 export type PaymentMethodType = 'cash' | 'credit_card' | 'line_pay' | 'bank_transfer' | 'cod';
 
 export interface PaymentTender {
   type: PaymentMethodType;
-  name: string;            // '現金' | '信用卡' | 'LINE Pay' | '銀行轉帳' | '取貨付款'
+  name: string;            // '現金' | '信用卡' | 'LINE Pay' | '銀行轉帳' | '貨到付款'
   amount: number;          // 支付金額
   tenderedCash?: number;   // 若為現金，顧客實際給予鈔票金額 (例: 給 2000)
   changeAmount?: number;   // 找零金額 (例: 找 350)
@@ -183,10 +141,9 @@ export interface CheckoutOrderItem {
   quantity: number;        // 銷售數量 (負數代表瑕疵退換貨)
   subtotal: number;        // unitPrice * quantity (後端權威計算)
   returnedQuantity?: number; // 累計已退貨數量 (供售後退貨可退上限校驗)
-  preOrderId?: string;     // 關聯預購單號 (若為預購取貨)
-  preOrderItemId?: string;
   originalOrderId?: string; // 關聯原銷售單號 (若為退換貨)
   originalOrderItemId?: string;
+  preorderPickup?: boolean; // 預購取貨：這一列從門市的預購保留地點扣（只在銷售列）
   restock?: boolean;       // true/省略：回補正常貨；false：進退貨庫存點
   returnReason?: string;
 }
@@ -221,10 +178,9 @@ export interface CreateOrderItemPayload {
   unitPrice?: number;      // 店員設定之單價 (後端校驗或依改價原因記錄)
   isManualPrice?: boolean;
   priceDiffReason?: string;
-  preOrderId?: string;
-  preOrderItemId?: string;
   originalOrderId?: string; // 退換貨時必填
   originalOrderItemId?: string; // 退換貨時必填
+  preorderPickup?: boolean; // 預購取貨：改扣登入門市的預購保留地點；退貨列不可用
   restock?: boolean;       // 預設 true：加回門市現貨；false：加到退貨庫存點
   returnReason?: string;
 }
@@ -254,7 +210,7 @@ export interface CheckoutReceipt {
 }
 ```
 
-### 1.5 客戶會員實體 (`src/types/customer.ts`)
+### 1.4 客戶會員實體 (`src/types/customer.ts`)
 
 ```typescript
 export type VipTier = 'regular' | 'silver' | 'gold' | 'platinum';
@@ -305,7 +261,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 17,
-    preOrderPendingCount: 3,
     status: 'active',
     note: '熱銷神物，門市架上陳列 1 台',
   },
@@ -329,7 +284,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 7,
-    preOrderPendingCount: 2,
     status: 'active',
     note: '精緻水貼細節，限量附壓克力展示盒',
   },
@@ -353,7 +307,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 42,
-    preOrderPendingCount: 0,
     status: 'active',
     note: '附備用輪圈與水貼紙',
   },
@@ -377,7 +330,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 11,
-    preOrderPendingCount: 1,
     status: 'active',
     note: 'TLV 玩家必備款',
   },
@@ -401,7 +353,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 4,
-    preOrderPendingCount: 1,
     status: 'active',
     note: '門市現貨已售罄，需從倉庫調撥',
   },
@@ -425,7 +376,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 12,
-    preOrderPendingCount: 0,
     status: 'active',
   },
   {
@@ -448,7 +398,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 2,
-    preOrderPendingCount: 0,
     status: 'active',
     note: '僅公司總倉有貨，門市需調撥',
   },
@@ -472,7 +421,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 1,
-    preOrderPendingCount: 0,
     status: 'active',
   },
   {
@@ -494,7 +442,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 36,
-    preOrderPendingCount: 0,
     status: 'active',
   },
   {
@@ -517,9 +464,8 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 0,
-    preOrderPendingCount: 2,
     status: 'active',
-    note: '全店零庫存，僅接受預購',
+    note: '全店零庫存',
   },
   {
     id: 'prod-011',
@@ -541,7 +487,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 6,
-    preOrderPendingCount: 1,
     status: 'active',
   },
   {
@@ -564,7 +509,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 8,
-    preOrderPendingCount: 0,
     status: 'active',
   },
   {
@@ -587,7 +531,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 24,
-    preOrderPendingCount: 0,
     status: 'active',
   },
   {
@@ -610,7 +553,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 7,
-    preOrderPendingCount: 0,
     status: 'active',
   },
   {
@@ -633,7 +575,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 3,
-    preOrderPendingCount: 0,
     status: 'active',
     note: '門市缺貨，倉庫有 2 台可調撥',
   },
@@ -655,7 +596,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 70,
-    preOrderPendingCount: 0,
     status: 'active',
   },
   {
@@ -678,7 +618,6 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 2,
-    preOrderPendingCount: 0,
     status: 'active',
   },
   {
@@ -701,126 +640,13 @@ export const INITIAL_PRODUCTS: Product[] = [
       { location: 'other', locationName: '調度暫存', quantity: 0 }
     ],
     totalStock: 0,
-    preOrderPendingCount: 3,
     status: 'active',
-    note: '已停產，僅接受預購候補',
+    note: '已停產',
   }
 ];
 ```
 
-### 2.2 預訂單資料庫 (特別設計部分到貨的情境)
-
-```typescript
-export const INITIAL_PREORDERS: PreOrder[] = [
-  {
-    id: 'po-1001',
-    orderNumber: 'PO-202607-0019',
-    customerId: 'cust-001',
-    customerName: '陳冠宇',
-    customerPhone: '0912345678',
-    orderDate: '2026-07-15',
-    expectedArrivalDate: '2026-08-28',
-    status: 'partially_arrived', // 核心展示亮點：部分到貨
-    source: 'in_store',
-    note: '常客，預訂兩台，交代到貨電話通知',
-    updatedAt: '2026-08-28T14:20:00Z',
-    items: [
-      {
-        id: 'poi-101',
-        productId: 'prod-001',
-        sku: 'AA-79121',
-        productName: 'Nissan Skyline GT-R (R34) V-Spec II 灣岸藍',
-        scale: '1:18',
-        brand: 'AutoArt',
-        quotedPrice: 6900,
-        qtyOrdered: 2,       // 訂了 2 台
-        qtyArrived: 1,       // 廠家本次先到貨 1 台
-        qtyDelivered: 0      // 尚未領取 (可取貨 1 台，未到 1 台)
-      },
-      {
-        id: 'poi-102',
-        productId: 'prod-003',
-        sku: 'INNO-64-FD2-W',
-        productName: 'Honda Civic Type-R (FD2) 冠軍白 碳纖引擎蓋特仕版',
-        scale: '1:64',
-        brand: 'Inno64',
-        quotedPrice: 620,
-        qtyOrdered: 1,
-        qtyArrived: 1,       // 已全數到貨 1 台
-        qtyDelivered: 0      // 待領取 1 台
-      }
-    ]
-  },
-  {
-    id: 'po-1002',
-    orderNumber: 'PO-202608-0042',
-    customerId: 'cust-002',
-    customerName: '林俊宏 (小林)',
-    customerPhone: '0988765432',
-    orderDate: '2026-08-02',
-    expectedArrivalDate: '2026-09-15',
-    status: 'pending', // 尚未到貨
-    source: 'website',
-    note: '官網匯入訂單',
-    updatedAt: '2026-08-02T10:00:00Z',
-    items: [
-      {
-        id: 'poi-201',
-        productId: 'prod-002',
-        sku: 'SP-S7682',
-        productName: 'Porsche 911 GT3 R #911 Manthey EMA 2024 紐柏林冠軍',
-        scale: '1:43',
-        brand: 'Spark',
-        quotedPrice: 2850,
-        qtyOrdered: 1,
-        qtyArrived: 0,
-        qtyDelivered: 0
-      }
-    ]
-  },
-  {
-    id: 'po-1003',
-    orderNumber: 'PO-202606-0012',
-    customerId: 'cust-003',
-    customerName: '極速模型工作室 (統編戶)',
-    customerPhone: '0933112233',
-    orderDate: '2026-06-10',
-    expectedArrivalDate: '2026-08-15',
-    status: 'partially_completed', // 已領取部分，尚有未到貨品項
-    source: 'in_store',
-    note: '批發客戶，已領 1 台 GT3 RS，另 1 台尚未到貨',
-    updatedAt: '2026-08-20T16:30:00Z',
-    items: [
-      {
-        id: 'poi-301',
-        productId: 'prod-014',
-        sku: 'MC-155026090',
-        productName: 'Porsche 911 (992) GT3 RS 蜥蜴綠',
-        scale: '1:18',
-        brand: 'Minichamps',
-        quotedPrice: 7500,
-        qtyOrdered: 2,
-        qtyArrived: 2,
-        qtyDelivered: 1       // 已領 1 台，尚可領 1 台
-      },
-      {
-        id: 'poi-302',
-        productId: 'prod-011',
-        sku: 'SP-S2055',
-        productName: 'Ferrari 499P #51 2023 利曼冠軍',
-        scale: '1:43',
-        brand: 'Spark',
-        quotedPrice: 3000,
-        qtyOrdered: 1,
-        qtyArrived: 0,
-        qtyDelivered: 0       // 尚未到貨
-      }
-    ]
-  }
-];
-```
-
-### 2.3 客戶會員資料庫
+### 2.2 客戶會員資料庫
 
 ```typescript
 export const INITIAL_CUSTOMERS: Customer[] = [
@@ -863,9 +689,9 @@ export const INITIAL_CUSTOMERS: Customer[] = [
 ];
 ```
 
-### 2.4 歷史結帳單種子 (`INITIAL_ORDERS`)
+### 2.3 歷史結帳單種子 (`INITIAL_ORDERS`)
 
-供「客戶會員 → 歷史結帳紀錄」與「補印收據」展示使用，預置 3 筆涵蓋手動改價、預購取貨、組合支付等情境：
+供「客戶會員 → 歷史結帳紀錄」與「補印收據」展示使用，預置 3 筆涵蓋手動改價、組合支付等情境：
 
 ```typescript
 export const INITIAL_ORDERS: CheckoutOrder[] = [
@@ -921,9 +747,7 @@ export const INITIAL_ORDERS: CheckoutOrder[] = [
         unitPrice: 7500,
         isManualPrice: false,
         quantity: 1,
-        subtotal: 7500,
-        preOrderId: 'po-1003',
-        preOrderItemId: 'poi-301'
+        subtotal: 7500
       }
     ],
     itemsSubtotal: 7500,
@@ -937,7 +761,7 @@ export const INITIAL_ORDERS: CheckoutOrder[] = [
     invoice: { type: 'tax_id', taxId: '83521409', buyerTitle: '極速模型工作室' },
     earnedPoints: 75,
     usedPoints: 0,
-    note: '預購取貨第一批次',
+    note: '組合支付（信用卡＋轉帳）',
     createdAt: '2026-08-18T14:15:00Z'
   },
   {
@@ -985,4 +809,4 @@ export const INITIAL_ORDERS: CheckoutOrder[] = [
 ];
 ```
 
-> `mockDataSeed.ts` 應同時匯出 `INITIAL_PRODUCTS`、`INITIAL_PREORDERS`、`INITIAL_CUSTOMERS`、`INITIAL_ORDERS`，並在 `storageHelper` 初始化時一併寫入 localStorage。
+> `mockDataSeed.ts` 應同時匯出 `INITIAL_PRODUCTS`、`INITIAL_CUSTOMERS`、`INITIAL_ORDERS`，並在 `storageHelper` 初始化時一併寫入 localStorage。

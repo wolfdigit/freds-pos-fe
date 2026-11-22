@@ -15,6 +15,7 @@ import {
   attachStoreBindings,
   defaultLocationRows,
   quantityAt,
+  withSystemLocations,
   renameInventoryCopies,
 } from './inventoryCatalog';
 import { BusinessError } from '@/utils/errors';
@@ -26,15 +27,19 @@ function readStoredLocations(): InventoryLocationDto[] {
   try {
     const parsed = JSON.parse(raw) as InventoryLocationDto[];
     if (!Array.isArray(parsed) || parsed.length === 0) return defaultLocationRows();
-    return parsed.map((location, index) => ({
-      id: location.id,
-      name: location.name || '未命名據點',
-      icon: location.icon || '📍',
-      isDefault: Boolean(location.isDefault),
-      displayOrder: location.displayOrder ?? index + 1,
-      storeNames: [],
-      returnedStoreNames: [],
-    }));
+    return withSystemLocations(
+      parsed.map((location, index) => ({
+        id: location.id,
+        name: location.name || '未命名據點',
+        icon: location.icon || '📍',
+        isDefault: Boolean(location.isDefault),
+        displayOrder: location.displayOrder ?? index + 1,
+        systemRole: location.systemRole ?? null,
+        storeNames: [],
+        returnedStoreNames: [],
+        preorderStoreNames: [],
+      }))
+    );
   } catch {
     return defaultLocationRows();
   }
@@ -43,7 +48,11 @@ function readStoredLocations(): InventoryLocationDto[] {
 function writeLocations(locations: InventoryLocationDto[]): void {
   localStorage.setItem(
     LOCATIONS_STORAGE_KEY,
-    JSON.stringify(locations.map(({ storeNames: _storeNames, returnedStoreNames: _returned, ...location }) => location))
+    JSON.stringify(
+      locations.map(
+        ({ storeNames: _storeNames, returnedStoreNames: _returned, preorderStoreNames: _preorder, ...location }) => location
+      )
+    )
   );
 }
 
@@ -77,8 +86,10 @@ export class MockLocationService implements ILocationService {
       icon: location.icon || '📍',
       isDefault: false,
       displayOrder: location.displayOrder ?? current.length + 1,
+      systemRole: null,
       storeNames: [],
       returnedStoreNames: [],
+      preorderStoreNames: [],
     };
     writeLocations([...current, created]);
     return attachStoreBindings([created], getStoredStores())[0];
@@ -116,6 +127,8 @@ export class MockLocationService implements ILocationService {
         inventoryLocationName: store.inventoryLocationId === id ? name : store.inventoryLocationName,
         returnedInventoryLocationName:
           store.returnedInventoryLocationId === id ? name : store.returnedInventoryLocationName,
+        preorderInventoryLocationName:
+          store.preorderInventoryLocationId === id ? name : store.preorderInventoryLocationName,
       }));
       setStoredStores(stores);
     }
@@ -130,6 +143,9 @@ export class MockLocationService implements ILocationService {
     const current = readStoredLocations();
     const source = current.find((location) => location.id === id);
     if (!source) throw new BusinessError('LOCATION_NOT_FOUND', '找不到欲刪除的庫存地點');
+    if (source.systemRole) {
+      throw new BusinessError('SYSTEM_LOCATION', `系統庫存點（${source.name}）不能刪除，可以改名`);
+    }
     if (current.length <= 1) throw new BusinessError('LAST_LOCATION', '至少要保留一個庫存點');
 
     const products = getProducts();
@@ -140,7 +156,10 @@ export class MockLocationService implements ILocationService {
 
     const stores = getStoredStores();
     const bound = stores.filter(
-      (store) => store.inventoryLocationId === source.id || store.returnedInventoryLocationId === source.id
+      (store) =>
+        store.inventoryLocationId === source.id ||
+        store.returnedInventoryLocationId === source.id ||
+        store.preorderInventoryLocationId === source.id
     );
     const rebound: ReboundStore[] = [];
     let nextStores = stores;
@@ -165,6 +184,14 @@ export class MockLocationService implements ILocationService {
             returnedInventoryLocationName: target.name,
           };
           rebound.push({ name: store.name, binding: 'returned', inventoryLocationId: target.id });
+        }
+        if (store.preorderInventoryLocationId === source.id) {
+          next = {
+            ...next,
+            preorderInventoryLocationId: target.id,
+            preorderInventoryLocationName: target.name,
+          };
+          rebound.push({ name: store.name, binding: 'preorder', inventoryLocationId: target.id });
         }
         return next;
       });

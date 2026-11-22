@@ -15,7 +15,7 @@ import {
   normalizeRole,
 } from '@/auth/permissions';
 import { simulateDelay, getStoredStores, setStoredStores } from './storageHelper';
-import { defaultLocationRows, LOCATIONS_STORAGE_KEY } from './inventoryCatalog';
+import { defaultLocationRows, LOCATIONS_STORAGE_KEY, withSystemLocations } from './inventoryCatalog';
 import type { InventoryLocationDto } from '@/types/inventory';
 import { BusinessError } from '@/utils/errors';
 
@@ -45,6 +45,10 @@ export class MockSystemService implements ISystemService {
 
     const normal = requireLocation(request.inventoryLocationId);
     const returned = requireLocation(request.returnedInventoryLocationId);
+    // 沒指定預購保留時用系統地點「預購保留」。
+    const preorder = request.preorderInventoryLocationId
+      ? requireLocation(request.preorderInventoryLocationId)
+      : systemLocation('preorder');
     const newStore: StoreDto = {
       name: cleanName,
       isDefault: current.length === 0,
@@ -52,6 +56,8 @@ export class MockSystemService implements ISystemService {
       inventoryLocationName: normal.name,
       returnedInventoryLocationId: returned.id,
       returnedInventoryLocationName: returned.name,
+      preorderInventoryLocationId: preorder.id,
+      preorderInventoryLocationName: preorder.name,
     };
 
     setStoredStores([...current, newStore]);
@@ -69,12 +75,19 @@ export class MockSystemService implements ISystemService {
     if (idx === -1) throw new BusinessError('STORE_NOT_FOUND', `找不到門市「${storeName}」`);
     const normal = requireLocation(request.inventoryLocationId);
     const returned = requireLocation(request.returnedInventoryLocationId);
+    // 省略預購保留時維持原綁定。
+    const preorder = request.preorderInventoryLocationId
+      ? requireLocation(request.preorderInventoryLocationId)
+      : null;
     const updated: StoreDto = {
       ...current[idx],
       inventoryLocationId: normal.id,
       inventoryLocationName: normal.name,
       returnedInventoryLocationId: returned.id,
       returnedInventoryLocationName: returned.name,
+      ...(preorder
+        ? { preorderInventoryLocationId: preorder.id, preorderInventoryLocationName: preorder.name }
+        : {}),
     };
     const next = [...current];
     next[idx] = updated;
@@ -219,13 +232,21 @@ function writeMockAccounts(accounts: OAuthAccountDto[]): void {
   localStorage.setItem(MOCK_ACCOUNTS_KEY, JSON.stringify(accounts));
 }
 
-function requireLocation(locationId: string): InventoryLocationDto {
+function mockLocations(): InventoryLocationDto[] {
   const raw = localStorage.getItem(LOCATIONS_STORAGE_KEY);
   const locations: InventoryLocationDto[] = raw ? (JSON.parse(raw) as InventoryLocationDto[]) : defaultLocationRows();
-  const found = (Array.isArray(locations) && locations.length > 0 ? locations : defaultLocationRows()).find(
-    (location) => location.id === locationId
-  );
+  return withSystemLocations(Array.isArray(locations) && locations.length > 0 ? locations : defaultLocationRows());
+}
+
+function requireLocation(locationId: string): InventoryLocationDto {
+  const found = mockLocations().find((location) => location.id === locationId);
   if (!found) throw new BusinessError('LOCATION_NOT_FOUND', '找不到庫存地點');
+  return found;
+}
+
+function systemLocation(role: 'company' | 'preorder' | 'defective'): InventoryLocationDto {
+  const found = mockLocations().find((location) => location.systemRole === role);
+  if (!found) throw new BusinessError('LOCATION_NOT_FOUND', '找不到系統庫存點');
   return found;
 }
 

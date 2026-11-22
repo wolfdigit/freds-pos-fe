@@ -59,6 +59,11 @@ interface CartItemRowProps {
     disabledReason?: string;
     onToggle: (applied: boolean) => void;
   };
+  /** 銷售列的「預購取貨」勾選框：勾選後這一列從門市的預購保留地點扣庫存。退貨列不傳。 */
+  preorderPickup?: {
+    checked: boolean;
+    onToggle: (checked: boolean) => void;
+  };
 }
 
 export function CartItemRow({
@@ -72,6 +77,7 @@ export function CartItemRow({
   siblingProducts = [],
   onSwitchSku,
   pointsDiscount,
+  preorderPickup,
 }: CartItemRowProps) {
   // 點數折抵列固定 1 件、單價由勾選決定，不能直接改價、改數量或換貨號。
   const isPointsLine = Boolean(item.pointsDiscountApplied);
@@ -246,6 +252,21 @@ export function CartItemRow({
               {pointsDiscount.disabledReason && (
                 <span className="text-[11px] text-zinc-500">（{pointsDiscount.disabledReason}）</span>
               )}
+            </label>
+          )}
+          {preorderPickup && (
+            <label
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 rounded px-1 text-xs shrink-0 cursor-pointer text-sky-200 hover:bg-sky-500/10"
+              title="勾選後這一列從門市的預購保留地點扣庫存，不扣門市庫存"
+            >
+              <input
+                type="checkbox"
+                checked={preorderPickup.checked}
+                onChange={(e) => preorderPickup.onToggle(e.target.checked)}
+                className="h-3.5 w-3.5 accent-sky-500"
+              />
+              <span>預購取貨</span>
             </label>
           )}
         </div>

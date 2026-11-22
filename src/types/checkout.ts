@@ -41,6 +41,8 @@ export interface CheckoutOrderItem {
   originalOrderItemId?: string;
   restock?: boolean;
   returnReason?: string;
+  /** 預購取貨：這一列從門市的預購保留地點扣庫存。只會出現在銷售列。 */
+  preorderPickup?: boolean;
   /** 退貨入帳的地點。restock 不是 false 時是正常貨，false 時是退貨庫存點。 */
   inventoryLocationId?: string;
   inventoryLocationName?: string;
@@ -80,6 +82,8 @@ export interface CreateOrderItemPayload {
   priceDiffReason?: string;
   /** 這個商品用會員點數折抵 NT$360。需要綁定會員、帶 unitPrice；同一商品一張單只能一次；退貨列不可用。 */
   pointsDiscountApplied?: boolean;
+  /** 預購取貨：從登入門市的預購保留地點扣，不扣門市庫存。只能用在銷售列，可和點數折抵並用。 */
+  preorderPickup?: boolean;
   originalOrderId?: string;
   originalOrderItemId?: string;
   /** 省略或 true：加回登入門市正常貨。false：加到登入門市退貨庫存點。都會改數量。 */

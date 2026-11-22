@@ -22,6 +22,7 @@ export class HttpLocationService implements ILocationService {
       ...location,
       storeNames: [...location.storeNames],
       returnedStoreNames: [...location.returnedStoreNames],
+      preorderStoreNames: [...(location.preorderStoreNames ?? [])],
     }));
   }
 

@@ -15,10 +15,10 @@ interface DeleteLocationModalProps {
   onRefresh?: () => void;
 }
 
-const BINDING_LABEL = { normal: '正常商品', returned: '退貨' } as const;
+const BINDING_LABEL = { normal: '正常商品', returned: '退貨', preorder: '預購保留' } as const;
 
 function isBound(location: InventoryLocationDto | null | undefined): boolean {
-  return Boolean(location && (location.storeNames.length > 0 || location.returnedStoreNames.length > 0));
+  return Boolean(location && (location.storeNames.length > 0 || location.returnedStoreNames.length > 0 || (location.preorderStoreNames ?? []).length > 0));
 }
 
 export function DeleteLocationModal({
@@ -177,7 +177,7 @@ export function DeleteLocationModal({
         ) : phase === 'ready' && snapshot?.location && isBound(snapshot.location) ? (
           <div className="space-y-2">
             <p className="text-sm text-zinc-300">
-              正常商品門市：{snapshot.location.storeNames.join('、') || '無'}。退貨門市：{snapshot.location.returnedStoreNames.join('、') || '無'}。
+              正常商品門市：{snapshot.location.storeNames.join('、') || '無'}。退貨門市：{snapshot.location.returnedStoreNames.join('、') || '無'}。預購保留門市：{(snapshot.location.preorderStoreNames ?? []).join('、') || '無'}。
               請指定既有的另一個地點，兩邊角色都會改綁過去，可以綁到同一個地點。
             </p>
             {snapshot.targets.length === 0 ? (
