@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { useProductSearch } from './hooks/useProductSearch';
+import { useSearchEnter } from './hooks/useSearchEnter';
 import { useCheckoutWorkflow } from './hooks/useCheckoutWorkflow';
 import { blockingCartItems, unavailableReason, useCartProductCheck } from './hooks/useCartProductCheck';
 import { UnavailableCartLine } from './components/UnavailableCartLine';
@@ -28,8 +29,9 @@ import type { CheckoutOrder } from '@/types/checkout';
 
 export function CheckoutPage() {
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const { keyword, setKeyword, brand, setBrand, results, total, hasMore, isLoading, isLoadingMore, loadMore } =
+  const { keyword, setKeyword, brand, setBrand, results, total, hasMore, isLoading, isLoadingMore, loadMore, resultsMatch } =
     useProductSearch();
+  const resolveSearchEnter = useSearchEnter({ keyword, brand, results, hasMore, resultsMatch });
   const cart = useCartStore();
   const ui = useUiStore();
   const showToast = useToastStore((s) => s.showToast);
@@ -84,26 +86,13 @@ export function CheckoutPage() {
   }, []);
 
   const handleSearchSubmit = async () => {
-    const query = keyword.trim();
-    if (!query) return;
-    const matchesExactly = (p: Product) =>
-      p.barcode === query ||
-      p.sku.toLowerCase() === query.toLowerCase() ||
-      p.normalizedSku.toLowerCase() === query.toLowerCase();
-    let exactMatch = results.find(matchesExactly);
-    if (!exactMatch && hasMore) {
-      // 結果只載入了第一頁：條碼完全相符的商品可能在後面的頁，直接用條碼查一次。
-      try {
-        exactMatch = (await productService.getProductsByBarcode(query))[0];
-      } catch {
-        exactMatch = undefined;
-      }
-    }
-    if (results.length > 0 || exactMatch) {
-      const exact = exactMatch || results[0];
-
-      handleAddProduct(exact);
-      showToast(`已帶入【${exact.name}】(${exact.sku})`, 'success');
+    // 以按下 Enter 當下的輸入文字為準；畫面上若還是上一次搜尋的結果，會重新查詢，不會加入舊結果。
+    const outcome = await resolveSearchEnter();
+    if (!outcome) return;
+    const { query, product } = outcome;
+    if (product) {
+      handleAddProduct(product);
+      showToast(`已帶入【${product.name}】(${product.sku})`, 'success');
       setKeyword('');
     } else if (isReturnMode) {
       // 只販售清單商品的門市搜尋不到清單外的商品，但這些商品仍可退貨：直接用輸入內容查原始單據。
