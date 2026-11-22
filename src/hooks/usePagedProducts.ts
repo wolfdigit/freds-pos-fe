@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { productService } from '@/services';
 import { MAX_PRODUCT_PAGE_SIZE as MAX_PAGE_SIZE, PRODUCT_PAGE_SIZE, type Product, type ProductSearchParams } from '@/types/product';
 
@@ -31,6 +31,8 @@ export function usePagedProducts(filters: ProductSearchParams, options: PagedPro
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState<unknown>(null);
+  // 目前 items 是哪一組條件查出來的（JSON）。條件剛改、新結果還沒回來時跟 filterKey 不同。
+  const [resultKey, setResultKey] = useState<string | null>(null);
   const latest = useRef(0);
   const loadedPagesRef = useRef(0);
   const busyMore = useRef(false);
@@ -50,6 +52,7 @@ export function usePagedProducts(filters: ProductSearchParams, options: PagedPro
         if (!enabled) {
           setItems([]);
           setTotal(0);
+          setResultKey(null);
           loadedPagesRef.current = 0;
           setLoadedPages(0);
           return;
@@ -71,6 +74,7 @@ export function usePagedProducts(filters: ProductSearchParams, options: PagedPro
         if (requestId !== latest.current) return;
         setItems(results.reduce<Product[]>((acc, page) => mergeById(acc, page.items), []).slice(0, wanted));
         setTotal(results[results.length - 1].total);
+        setResultKey(filterKey);
         loadedPagesRef.current = count;
         setLoadedPages(count);
       } catch (err) {
@@ -80,7 +84,7 @@ export function usePagedProducts(filters: ProductSearchParams, options: PagedPro
         if (requestId === latest.current) setIsLoading(false);
       }
     },
-    [enabled, pageSize, params]
+    [enabled, pageSize, params, filterKey]
   );
 
   useEffect(() => {
@@ -115,5 +119,11 @@ export function usePagedProducts(filters: ProductSearchParams, options: PagedPro
   /** 重新查詢目前已載入的頁數（儲存、調撥等寫入之後用），清單不會縮回第一頁。 */
   const reload = useCallback(() => fetchPages(loadedPagesRef.current), [fetchPages]);
 
-  return { items, total, hasMore, loadedPages, isLoading, isLoadingMore, error, loadMore, reload };
+  /** items 對應的查詢條件；查詢中或沒有結果時為 null。用來判斷畫面上的結果是不是目前條件的。 */
+  const resultFilters = useMemo(
+    () => (isLoading || resultKey === null ? null : (JSON.parse(resultKey) as ProductSearchParams)),
+    [isLoading, resultKey]
+  );
+
+  return { items, total, hasMore, loadedPages, isLoading, isLoadingMore, error, loadMore, reload, resultFilters };
 }
