@@ -9,8 +9,8 @@ describe('orderAmountBreakdown', () => {
       { originalPrice: 500, unitPrice: 90, quantity: 1, pointsDiscountApplied: true },
     ];
     const result = orderAmountBreakdown(lines);
-    expect(result).toEqual({ originalTotal: 2000, priceAdjustment: -50, pointsDiscount: 410 });
-    expect(result.originalTotal + result.priceAdjustment - result.pointsDiscount).toBe(1000 + 450 + 90);
+    expect(result).toEqual({ originalTotal: 2000, priceAdjustment: -50, pointsDiscount: 410, finalTotal: 1540 });
+    expect(result.originalTotal + result.priceAdjustment - result.pointsDiscount).toBe(result.finalTotal);
   });
 
   it('counts the real gap, not 360, when the price floors at 0', () => {
@@ -18,12 +18,13 @@ describe('orderAmountBreakdown', () => {
       originalTotal: 80,
       priceAdjustment: 0,
       pointsDiscount: 80,
+      finalTotal: 0,
     });
   });
 
   it('makes 點數折抵 negative on a return of a points line', () => {
     const result = orderAmountBreakdown([{ originalPrice: 500, unitPrice: 140, quantity: -1, pointsDiscountApplied: true }]);
-    expect(result).toEqual({ originalTotal: -500, priceAdjustment: 0, pointsDiscount: -360 });
+    expect(result).toEqual({ originalTotal: -500, priceAdjustment: 0, pointsDiscount: -360, finalTotal: -140 });
   });
 
   it('treats lines without an original price as unadjusted', () => {
@@ -31,6 +32,7 @@ describe('orderAmountBreakdown', () => {
       originalTotal: 280,
       priceAdjustment: 0,
       pointsDiscount: 0,
+      finalTotal: 280,
     });
   });
 
@@ -40,7 +42,7 @@ describe('orderAmountBreakdown', () => {
       { originalPrice: 350, unitPrice: 400, quantity: 1 },
     ];
     const result = orderAmountBreakdown(lines);
-    expect(result).toEqual({ originalTotal: 700, priceAdjustment: -20, pointsDiscount: 0 });
-    expect(result.originalTotal + result.priceAdjustment - result.pointsDiscount).toBe(680);
+    expect(result).toEqual({ originalTotal: 700, priceAdjustment: -20, pointsDiscount: 0, finalTotal: 680 });
+    expect(result.originalTotal + result.priceAdjustment - result.pointsDiscount).toBe(result.finalTotal);
   });
 });
