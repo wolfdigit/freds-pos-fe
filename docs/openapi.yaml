@@ -452,9 +452,9 @@ paths:
       operationId: deleteLocation
       summary: Delete a location without moving quantity
       description: |
-        Does not move quantity. `409 LAST_LOCATION` when this is the only location.
+        Does not move quantity. `409 SYSTEM_LOCATION` for a system location (公司總倉 / 預購保留 / 退貨品). `409 LAST_LOCATION` when this is the only location.
         `409 LOCATION_NOT_EMPTY` when any quantity is not exactly 0, including negatives.
-        When stores use this location, `rebindToLocation` is required and must be a different existing location.
+        When stores use this location (normal, returned, or preorder binding), `rebindToLocation` is required and must be a different existing location.
       parameters:
         - name: locationId
           in: path
@@ -1038,6 +1038,7 @@ components:
         - INSUFFICIENT_INVENTORY
         - LOCATION_NOT_EMPTY
         - LAST_LOCATION
+        - SYSTEM_LOCATION
         - LOCATION_NAME_TAKEN
         - INVENTORY_LOCATION_IN_USE
         - RETURN_QTY_EXCEEDED
@@ -1102,6 +1103,16 @@ components:
           items:
             type: string
           description: Stores that use this location for returned goods.
+        preorderStoreNames:
+          type: array
+          items:
+            type: string
+          description: Stores that use this location to hold preorder stock (預購保留).
+        systemRole:
+          type: string
+          nullable: true
+          enum: [company, preorder, defective, null]
+          description: 系統庫存點：公司總倉 = company、預購保留 = preorder、退貨品 = defective。不能刪，可以改名、改圖示。一般地點為 null。
 
     CreateStockLocationRequest:
       type: object
@@ -1240,6 +1251,10 @@ components:
           type: integer
           nullable: true
           description: Quantity at the session store's returned location. `0` when that row is missing. `null` when the session has no selected store.
+        loginStorePreorderQuantity:
+          type: integer
+          nullable: true
+          description: Quantity at the session store's preorder location (預購保留). `0` when that row is missing. `null` when the session has no selected store.
         note:
           type: string
         createdAt:
@@ -1630,6 +1645,10 @@ components:
           type: boolean
           default: false
           description: 這一列用會員點數折抵（1 件，單價最多扣 NT$360、最低 0）。unitPrice 已是扣過後的單價。只存旗標；退貨列沿用原列旗標。
+        preorderPickup:
+          type: boolean
+          default: false
+          description: 預購取貨：這一列從門市的預購保留地點扣庫存。只會出現在銷售列。
         note:
           type: string
           description: 項目備註
@@ -1751,6 +1770,10 @@ components:
           type: boolean
           default: false
           description: 這個商品用會員點數折抵 NT$360。需要 customerId 與 unitPrice（已扣過、不可為負）；同一 productId 一張單只能一次；退貨列不可用。
+        preorderPickup:
+          type: boolean
+          default: false
+          description: 預購取貨：從登入門市的預購保留地點扣庫存，不扣門市庫存。只能用在銷售列（退貨列送 true 回 422），可以和點數折抵同時使用。
         originalOrderId:
           type: string
           description: Required when quantity < 0 (links return to original sales order)
@@ -1901,7 +1924,7 @@ components:
 
     StoreDto:
       type: object
-      required: [name, inventoryLocationId, inventoryLocationName, returnedInventoryLocationId, returnedInventoryLocationName]
+      required: [name, inventoryLocationId, inventoryLocationName, returnedInventoryLocationId, returnedInventoryLocationName, preorderInventoryLocationId, preorderInventoryLocationName]
       properties:
         name:
           type: string
@@ -1917,6 +1940,11 @@ components:
           type: string
         returnedInventoryLocationName:
           type: string
+        preorderInventoryLocationId:
+          type: string
+          description: 預購保留。預購取貨的列從這裡扣。
+        preorderInventoryLocationName:
+          type: string
 
     CreateStoreRequest:
       type: object
@@ -1930,6 +1958,9 @@ components:
           description: Existing location for normal goods. May match returnedInventoryLocationId.
         returnedInventoryLocationId:
           type: string
+        preorderInventoryLocationId:
+          type: string
+          description: Existing location for preorder stock. Omitted → system location 預購保留.
 
     UpdateStoreBindingRequest:
       type: object
@@ -1939,6 +1970,9 @@ components:
           type: string
         returnedInventoryLocationId:
           type: string
+        preorderInventoryLocationId:
+          type: string
+          description: Omitted → keep the current preorder binding.
 
     OAuthRole:
       type: string

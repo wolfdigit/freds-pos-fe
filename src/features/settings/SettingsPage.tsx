@@ -63,6 +63,7 @@ export function SettingsPage() {
   const [newStoreInput, setNewStoreInput] = useState('');
   const [normalLocationId, setNormalLocationId] = useState('');
   const [returnedLocationId, setReturnedLocationId] = useState('');
+  const [preorderLocationId, setPreorderLocationId] = useState('');
   const [editingStoreName, setEditingStoreName] = useState<string | null>(null);
 
   // 各據點合計由後端一次算好（GET /inventory/locations/summary），不再抓全部商品。
@@ -134,6 +135,9 @@ export function SettingsPage() {
     const firstId = locations[0].id;
     setNormalLocationId((current) => (locations.some((location) => location.id === current) ? current : firstId));
     setReturnedLocationId((current) => (locations.some((location) => location.id === current) ? current : firstId));
+    // 預購保留預設選系統地點「預購保留」，多數門市會共用它。
+    const preorderDefault = locations.find((location) => location.systemRole === 'preorder')?.id ?? firstId;
+    setPreorderLocationId((current) => (locations.some((location) => location.id === current) ? current : preorderDefault));
   }, [locations]);
 
   const handleDataRefresh = () => {
@@ -160,8 +164,8 @@ export function SettingsPage() {
       showToast('請輸入門市名稱', 'error');
       return;
     }
-    if (!normalLocationId || !returnedLocationId) {
-      showToast('請選擇正常貨與退貨庫存點', 'error');
+    if (!normalLocationId || !returnedLocationId || !preorderLocationId) {
+      showToast('請選擇門市庫存、預購保留與退貨庫存點', 'error');
       return;
     }
     if (storePending) return;
@@ -171,6 +175,7 @@ export function SettingsPage() {
         name: clean,
         inventoryLocationId: normalLocationId,
         returnedInventoryLocationId: returnedLocationId,
+        preorderInventoryLocationId: preorderLocationId,
       });
       if (success) {
         showToast(`成功新增門市：「${clean}」`, 'success');
@@ -346,6 +351,7 @@ export function SettingsPage() {
                         <th className="py-3 px-3">據點名稱</th>
                         <th className="py-3 px-3 w-36 text-right">現有數量</th>
                         <th className="py-3 px-3">正常商品門市</th>
+                        <th className="py-3 px-3">預購保留門市</th>
                         <th className="py-3 px-3">退貨門市</th>
                         <th className="py-3 pl-3 pr-4 w-48 text-right whitespace-nowrap">管理操作</th>
                       </tr>
@@ -375,10 +381,21 @@ export function SettingsPage() {
                                   <span className="font-bold text-base text-zinc-100 group-hover:text-cyan-300 transition-colors">
                                     {loc.name}
                                   </span>
+                                  {loc.systemRole && (
+                                    <span
+                                      className="ml-2 inline-block text-[11px] font-bold bg-zinc-800 text-amber-200 border border-amber-700/60 px-1.5 rounded"
+                                      title="系統庫存點：不能刪除，可以改名、改圖示"
+                                    >
+                                      🔒 系統
+                                    </span>
+                                  )}
                                   {loc.isDefault && (
                                     <span className="ml-2 inline-block text-[10px] font-bold bg-cyan-950 text-cyan-300 border border-cyan-800 px-1.5 py-0.2 rounded">
                                       預設
                                     </span>
+                                  )}
+                                  {loc.systemRole && (
+                                    <p className="mt-0.5 text-xs text-zinc-500">不能刪除，可改名</p>
                                   )}
                                 </div>
                               </div>
@@ -413,6 +430,9 @@ export function SettingsPage() {
                               {loc.storeNames.length > 0 ? loc.storeNames.join('、') : '—'}
                             </td>
                             <td className="py-3.5 px-3 text-sm text-zinc-300">
+                              {(loc.preorderStoreNames ?? []).length > 0 ? loc.preorderStoreNames.join('、') : '—'}
+                            </td>
+                            <td className="py-3.5 px-3 text-sm text-zinc-300">
                               {loc.returnedStoreNames.length > 0 ? loc.returnedStoreNames.join('、') : '—'}
                             </td>
                             <td className="py-3.5 pl-3 pr-4 text-right">
@@ -429,9 +449,17 @@ export function SettingsPage() {
                                   size="sm"
                                   variant="danger"
                                   onClick={() => setDeletingLocation(loc)}
-                                  disabled={onlyLocation}
+                                  disabled={onlyLocation || Boolean(loc.systemRole)}
                                   className="text-xs px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60 whitespace-nowrap disabled:opacity-40"
-                                  title={onlyLocation ? '至少要保留一個庫存點' : hasQuantity ? '還有數量，刪除時會被拒絕' : '刪除此庫存點'}
+                                  title={
+                                    loc.systemRole
+                                      ? '系統庫存點不能刪除（可以改名、改圖示）'
+                                      : onlyLocation
+                                        ? '至少要保留一個庫存點'
+                                        : hasQuantity
+                                          ? '還有數量，刪除時會被拒絕'
+                                          : '刪除此庫存點'
+                                  }
                                 >
                                   刪除
                                 </Button>
@@ -456,7 +484,7 @@ export function SettingsPage() {
                 <span>門市清單管理</span>
               </h3>
               <p className="mt-1 text-xs text-zinc-400">
-                新增門市時要指定既有的正常貨地點與退貨地點，兩個可以選同一個。不會在這裡順便建立地點。
+                新增門市時要指定既有的門市庫存、預購保留與退貨地點，可以選同一個。不會在這裡順便建立地點。
               </p>
             </div>
 
@@ -486,9 +514,9 @@ export function SettingsPage() {
                   </Button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <label className="text-sm text-zinc-300">
-                    正常貨庫存點
+                    門市庫存
                     <select
                       value={normalLocationId}
                       onChange={(e) => setNormalLocationId(e.target.value)}
@@ -496,6 +524,18 @@ export function SettingsPage() {
                     >
                       {sortedLocations.map((location) => (
                         <option key={location.id} value={location.id}>{location.name}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm text-zinc-300">
+                    預購保留
+                    <select
+                      value={preorderLocationId}
+                      onChange={(e) => setPreorderLocationId(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100"
+                    >
+                      {sortedLocations.map((location) => (
+                        <option key={`preorder-${location.id}`} value={location.id}>{location.name}</option>
                       ))}
                     </select>
                   </label>
@@ -513,7 +553,7 @@ export function SettingsPage() {
                   </label>
                 </div>
               )}
-              <p className="text-xs text-zinc-500">兩個可以選同一個庫存點。</p>
+              <p className="text-xs text-zinc-500">可以選同一個庫存點。預購取貨的商品從「預購保留」扣。</p>
               <Button
                 type="submit"
                 variant="primary"
@@ -539,7 +579,7 @@ export function SettingsPage() {
                         <span className="font-bold text-zinc-100 text-base">{store.name}</span>
                         {store.inventoryLocationName && (
                           <p className="mt-1 text-xs text-zinc-400">
-                            正常貨：{store.inventoryLocationName}　退貨：{store.returnedInventoryLocationName}
+                            門市庫存：{store.inventoryLocationName}　預購保留：{store.preorderInventoryLocationName ?? '—'}　退貨：{store.returnedInventoryLocationName}
                           </p>
                         )}
                         {isCurrent && (
@@ -673,6 +713,9 @@ function StoreRebindForm({
   const showToast = useToastStore((state) => state.showToast);
   const [normalId, setNormalId] = useState(current?.inventoryLocationId ?? locations[0]?.id ?? '');
   const [returnedId, setReturnedId] = useState(current?.returnedInventoryLocationId ?? current?.inventoryLocationId ?? locations[0]?.id ?? '');
+  const [preorderId, setPreorderId] = useState(
+    current?.preorderInventoryLocationId ?? locations.find((location) => location.systemRole === 'preorder')?.id ?? locations[0]?.id ?? ''
+  );
   const [saving, setSaving] = useState(false);
 
   const save = async (event: React.FormEvent) => {
@@ -682,6 +725,7 @@ function StoreRebindForm({
       await systemService.rebindStore(storeName, {
         inventoryLocationId: normalId,
         returnedInventoryLocationId: returnedId,
+        preorderInventoryLocationId: preorderId,
       });
       showToast(`已更新「${storeName}」的庫存點`, 'success');
       onSaved();
@@ -695,7 +739,7 @@ function StoreRebindForm({
   return (
     <Modal open onClose={onClose} title={`改綁門市：${storeName}`}>
       <form onSubmit={(event) => void save(event)} className="space-y-3 text-sm text-zinc-200">
-        <p>兩個庫存點都必填，可以選同一個。不會移動已經入帳的數量。</p>
+        <p>三個庫存點都必填，可以選同一個。不會移動已經入帳的數量。</p>
         {locations.length === 0 ? (
           <div className={`rounded-xl border p-4 ${locationError ? 'border-rose-900/60 bg-rose-950/30 text-rose-200' : 'border-amber-700/50 bg-amber-950/30 text-amber-100'}`} role={locationError ? 'alert' : 'status'}>
             <p>{locationError ? '無法讀取庫存點。請再試一次。' : '目前沒有庫存點，無法改綁。'}</p>
@@ -708,10 +752,18 @@ function StoreRebindForm({
         ) : (
         <>
         <label className="block">
-          正常貨庫存點
+          門市庫存
           <select value={normalId} onChange={(event) => setNormalId(event.target.value)} className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
             {locations.map((location) => (
               <option key={location.id} value={location.id}>{location.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="block">
+          預購保留
+          <select value={preorderId} onChange={(event) => setPreorderId(event.target.value)} className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2">
+            {locations.map((location) => (
+              <option key={`p-${location.id}`} value={location.id}>{location.name}</option>
             ))}
           </select>
         </label>
@@ -725,7 +777,7 @@ function StoreRebindForm({
         </label>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose} disabled={saving}>取消</Button>
-          <Button type="submit" variant="primary" disabled={saving || locations.length === 0 || !normalId || !returnedId}>儲存綁定</Button>
+          <Button type="submit" variant="primary" disabled={saving || locations.length === 0 || !normalId || !returnedId || !preorderId}>儲存綁定</Button>
         </div>
         </>
         )}

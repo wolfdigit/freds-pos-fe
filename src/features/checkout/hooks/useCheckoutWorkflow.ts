@@ -79,6 +79,8 @@ export function useCheckoutWorkflow({ onProductNotFound }: CheckoutWorkflowOptio
           priceDiffReason: i.priceChangeReason,
           // 點數折抵列：unitPrice 已是扣過 360 的價格，後端照收並記錄這一列由點數折抵。
           ...(i.pointsDiscountApplied ? { pointsDiscountApplied: true } : {}),
+          // 預購取貨：後端改從登入門市的預購保留地點扣庫存。
+          ...(i.preorderPickup && i.quantity > 0 ? { preorderPickup: true } : {}),
           originalOrderId: (i as any).originalOrderId,
           originalOrderItemId: (i as any).originalOrderItemId,
           restock: (i as any).restock ?? true,

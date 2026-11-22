@@ -1,3 +1,4 @@
+import { PREORDER_LOCATION_ID } from '@/types/inventory';
 import { BusinessError } from '@/utils/errors';
 import {
   INITIAL_PRODUCTS,
@@ -122,7 +123,13 @@ export function setOrders(orders: CheckoutOrder[]): void {
 }
 
 export function getStoredStores(): StoreDto[] {
-  return readRaw<StoreDto[]>(STORAGE_KEYS.STORES) ?? INITIAL_STORES;
+  const stores = readRaw<StoreDto[]>(STORAGE_KEYS.STORES) ?? INITIAL_STORES;
+  // 舊的 mock 資料沒有預購保留綁定時，跟後端 migration 一樣補成系統地點「預購保留」。
+  return stores.map((store) =>
+    store.preorderInventoryLocationId
+      ? store
+      : { ...store, preorderInventoryLocationId: PREORDER_LOCATION_ID, preorderInventoryLocationName: '預購保留' }
+  );
 }
 export function setStoredStores(stores: StoreDto[]): void {
   writeRaw(STORAGE_KEYS.STORES, stores);

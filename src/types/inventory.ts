@@ -28,6 +28,7 @@ export const DEFAULT_INVENTORY_LOCATIONS = [
     isDefault: false,
     displayOrder: 3,
     legacyKey: 'company',
+    systemRole: 'company',
   },
   {
     id: 'e1a10004-0000-4000-8000-000000000004',
@@ -44,8 +45,22 @@ export const DEFAULT_INVENTORY_LOCATIONS = [
     isDefault: false,
     displayOrder: 5,
     legacyKey: 'returned',
+    systemRole: 'defective',
+  },
+  {
+    id: 'e1a10006-0000-4000-8000-000000000006',
+    name: '預購保留',
+    icon: '📋',
+    isDefault: false,
+    displayOrder: 6,
+    legacyKey: 'preorder',
+    systemRole: 'preorder',
   },
 ] as const;
+
+/** 系統庫存點：公司總倉 / 預購保留 / 退貨品。一開始就存在，不能刪，可以改名、改圖示。 */
+export type SystemLocationRole = 'company' | 'preorder' | 'defective';
+export const PREORDER_LOCATION_ID = 'e1a10006-0000-4000-8000-000000000006';
 
 export const LEGACY_LOCATION_IDS: Record<string, string> = Object.fromEntries(
   DEFAULT_INVENTORY_LOCATIONS.map((location) => [location.legacyKey, location.id])
@@ -74,6 +89,10 @@ export interface InventoryLocationDto {
   storeNames: string[];
   /** 把這個地點當退貨的門市 */
   returnedStoreNames: string[];
+  /** 把這個地點當預購保留的門市 */
+  preorderStoreNames: string[];
+  /** 系統庫存點的角色；一般地點為 null／省略。系統庫存點不能刪除。 */
+  systemRole?: SystemLocationRole | null;
 }
 
 export interface CreateInventoryLocationRequest {
@@ -88,7 +107,7 @@ export interface UpdateInventoryLocationRequest {
   displayOrder?: number;
 }
 
-export type StoreBindingRole = 'normal' | 'returned';
+export type StoreBindingRole = 'normal' | 'returned' | 'preorder';
 
 export interface ReboundStore {
   name: string;

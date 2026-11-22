@@ -27,6 +27,8 @@ export interface Product {
   loginStoreQuantity: number | null;
   /** 登入門市退貨地點的數量。沒有選定門市時是 null，不是 0。 */
   loginStoreReturnedQuantity: number | null;
+  /** 登入門市預購保留地點的數量。沒有選定門市時是 null。舊資料可能沒有這個欄位。 */
+  loginStorePreorderQuantity?: number | null;
   note?: string;
   /** 後端回傳的商品狀態。已下架的商品只能退貨，不能再賣。 */
   status?: string;

@@ -207,6 +207,11 @@ export function OrderDetailModal({
                         點數折抵
                       </span>
                     )}
+                    {item.preorderPickup && item.quantity > 0 && (
+                      <span className="shrink-0 rounded border border-sky-500/50 bg-sky-500/15 px-2 py-0.5 text-xs font-bold text-sky-200 select-none">
+                        預購取貨
+                      </span>
+                    )}
                     {item.quantity < 0 ? (
                       <span className={`shrink-0 rounded px-2 py-0.5 text-xs font-bold ${item.restock === false ? 'bg-amber-950 text-amber-300' : 'bg-emerald-950 text-emerald-300'}`}>
                         {item.restock === false ? '→ 退至退貨庫存點' : '✓ 回補至門市現貨'}

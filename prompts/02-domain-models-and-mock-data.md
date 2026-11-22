@@ -143,6 +143,7 @@ export interface CheckoutOrderItem {
   returnedQuantity?: number; // 累計已退貨數量 (供售後退貨可退上限校驗)
   originalOrderId?: string; // 關聯原銷售單號 (若為退換貨)
   originalOrderItemId?: string;
+  preorderPickup?: boolean; // 預購取貨：這一列從門市的預購保留地點扣（只在銷售列）
   restock?: boolean;       // true/省略：回補正常貨；false：進退貨庫存點
   returnReason?: string;
 }
@@ -179,6 +180,7 @@ export interface CreateOrderItemPayload {
   priceDiffReason?: string;
   originalOrderId?: string; // 退換貨時必填
   originalOrderItemId?: string; // 退換貨時必填
+  preorderPickup?: boolean; // 預購取貨：改扣登入門市的預購保留地點；退貨列不可用
   restock?: boolean;       // 預設 true：加回門市現貨；false：加到退貨庫存點
   returnReason?: string;
 }

@@ -14,7 +14,7 @@ const location: InventoryLocationDto = {
   name: '臨時倉',
   icon: '📦',
   storeNames: [],
-  returnedStoreNames: [],
+  returnedStoreNames: [], preorderStoreNames: [],
 };
 
 afterEach(() => {

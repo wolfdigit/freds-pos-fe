@@ -7,6 +7,7 @@ import { defaultLocationRows, LOCATIONS_STORAGE_KEY } from './inventoryCatalog';
 
 const NORMAL = 'e1a10001-0000-4000-8000-000000000001';
 const RETURNED = 'e1a10005-0000-4000-8000-000000000005';
+const PREORDER = 'e1a10006-0000-4000-8000-000000000006';
 
 function product(normalQty: number, returnedQty: number): Product {
   return {
@@ -47,6 +48,8 @@ describe('return restock locations', () => {
         inventoryLocationName: '門市現貨',
         returnedInventoryLocationId: RETURNED,
         returnedInventoryLocationName: '退貨品',
+        preorderInventoryLocationId: PREORDER,
+        preorderInventoryLocationName: '預購保留',
       },
     ]);
     setProducts([product(3, 1)]);
@@ -73,6 +76,49 @@ describe('return restock locations', () => {
     expect(unchecked.order.items[0]?.inventoryLocationName).toBe('退貨品');
     expect(qty(NORMAL)).toBe(4);
     expect(qty(RETURNED)).toBe(3);
+  });
+
+  it('deducts a preorder pickup line from the preorder location, alongside points discount', async () => {
+    setCustomers([
+      {
+        id: 'cust-1',
+        name: '會員',
+        phone: '0900000000',
+        email: null,
+        vipTier: 'Retail',
+        vipTierName: '零售客戶 (Retail)',
+        totalSpent: 0,
+        createdAt: '2026-01-01T00:00:00Z',
+        updatedAt: '2026-01-01T00:00:00Z',
+      },
+    ] as never);
+    const service = new MockCheckoutService();
+    const result = await service.createCheckoutOrder({
+      customerId: 'cust-1',
+      items: [
+        { productId: 'prod-1', quantity: 1, unitPrice: 0, pointsDiscountApplied: true, preorderPickup: true },
+        { productId: 'prod-1', quantity: 2, unitPrice: 100, preorderPickup: true },
+        { productId: 'prod-1', quantity: 1, unitPrice: 100 },
+      ],
+      shippingFee: 0,
+      payments: [{ type: 'cash', name: '現金', amount: 300 }],
+    });
+    expect(result.order.items.map((item) => item.preorderPickup)).toEqual([true, true, false]);
+    expect(result.order.items[0]?.inventoryLocationName).toBe('預購保留');
+    expect(result.order.items[2]?.inventoryLocationName).toBe('門市現貨');
+    expect(qty(PREORDER)).toBe(-3);
+    expect(qty(NORMAL)).toBe(2);
+  });
+
+  it('rejects preorder pickup on a return line', async () => {
+    const service = new MockCheckoutService();
+    await expect(
+      service.createCheckoutOrder({
+        items: [{ productId: 'prod-1', quantity: -1, restock: true, preorderPickup: true }],
+        shippingFee: 0,
+        payments: [{ type: 'cash', name: '現金', amount: -100 }],
+      })
+    ).rejects.toThrow('退貨品項不能標記預購取貨');
   });
 });
 
@@ -158,6 +204,8 @@ describe('points discount (點數折抵)', () => {
         inventoryLocationName: '門市現貨',
         returnedInventoryLocationId: RETURNED,
         returnedInventoryLocationName: '退貨品',
+        preorderInventoryLocationId: PREORDER,
+        preorderInventoryLocationName: '預購保留',
       },
     ]);
     setProducts([{ ...product(3, 0), listPrice: 500 }]);

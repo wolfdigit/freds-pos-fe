@@ -33,6 +33,8 @@ export interface CartItem {
   pointsDiscountApplied?: boolean;
   /** 勾選點數折抵前的單價；取消勾選時還原成這個價格。 */
   pointsBasePrice?: number;
+  /** 預購取貨：這一列從門市的預購保留地點扣庫存。只用在銷售列。 */
+  preorderPickup?: boolean;
 }
 
 export { POINTS_DISCOUNT_AMOUNT };
@@ -105,6 +107,8 @@ interface CartStore {
    * 單價 = max(0, 原單價 − 360)；取消時併回。需要已綁定會員，同商品只能一列。
    */
   setPointsDiscount: (productId: string, applied: boolean) => void;
+  /** 勾選或取消某一銷售列的「預購取貨」。points 指定是點數折抵列還是一般列。 */
+  setPreorderPickup: (productId: string, points: boolean, pickup: boolean) => void;
   attachCustomer: (customer: Customer | null) => void;
   setShippingFee: (fee: number) => void;
   setOrderNote: (note: string) => void;
@@ -359,6 +363,19 @@ export const useCartStore = create<CartStore>()((set, get) => ({
           }
         }
         set({ items: next });
+      },
+
+      setPreorderPickup: (productId, points, pickup) => {
+        if (!canOperateCart()) return;
+        set({
+          items: get().items.map((i) => {
+            if (!matchesLine(i, productId, points) || i.quantity <= 0 || i.originalOrderId) return i;
+            if (pickup) return { ...i, preorderPickup: true };
+            const next = { ...i };
+            delete next.preorderPickup;
+            return next;
+          }),
+        });
       },
 
       attachCustomer: (customer) => {

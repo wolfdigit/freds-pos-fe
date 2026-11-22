@@ -14940,6 +14940,8 @@ export const INITIAL_STORES = [
     inventoryLocationName: '門市現貨',
     returnedInventoryLocationId: 'e1a10005-0000-4000-8000-000000000005',
     returnedInventoryLocationName: '退貨品',
+    preorderInventoryLocationId: 'e1a10006-0000-4000-8000-000000000006',
+    preorderInventoryLocationName: '預購保留',
   },
   {
     name: '線上網購',
@@ -14948,5 +14950,7 @@ export const INITIAL_STORES = [
     inventoryLocationName: '門市現貨',
     returnedInventoryLocationId: 'e1a10005-0000-4000-8000-000000000005',
     returnedInventoryLocationName: '退貨品',
+    preorderInventoryLocationId: 'e1a10006-0000-4000-8000-000000000006',
+    preorderInventoryLocationName: '預購保留',
   },
 ];

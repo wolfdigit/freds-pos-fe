@@ -27,6 +27,7 @@ export const locationList = createSharedRequest<InventoryLocationDto[]>(
           ...location,
           storeNames: location.storeNames ?? [],
           returnedStoreNames: location.returnedStoreNames ?? [],
+          preorderStoreNames: location.preorderStoreNames ?? [],
         }))
         .sort((a, b) => (a.displayOrder ?? 999) - (b.displayOrder ?? 999))
     ),

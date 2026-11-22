@@ -13,7 +13,7 @@ const stale: InventoryLocationDto = {
   name: '臨時倉',
   icon: '📦',
   storeNames: [],
-  returnedStoreNames: [],
+  returnedStoreNames: [], preorderStoreNames: [],
 };
 
 const other: InventoryLocationDto = {
@@ -21,7 +21,7 @@ const other: InventoryLocationDto = {
   name: '門市現貨',
   icon: '🏪',
   storeNames: [],
-  returnedStoreNames: [],
+  returnedStoreNames: [], preorderStoreNames: [],
 };
 
 const directDeleteCopy = '沒有門市綁這個地點，也沒有剩餘數量，可以直接刪除。';
@@ -52,7 +52,7 @@ describe('delete location confirmation', () => {
     expect(screen.queryByText(directDeleteCopy)).not.toBeInTheDocument();
 
     await act(async () => {
-      resolveLocations([{ ...stale, storeNames: ['奇可門市'], returnedStoreNames: [] }, other]);
+      resolveLocations([{ ...stale, storeNames: ['奇可門市'], returnedStoreNames: [], preorderStoreNames: [] }, other]);
     });
 
     expect(await screen.findByText(/正常商品門市：奇可門市/)).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe('delete location confirmation', () => {
 
   it('refetches again before delete and blocks a binding that appeared after open', async () => {
     const user = userEvent.setup();
-    const bound = { ...stale, storeNames: ['奇可門市'], returnedStoreNames: [] as string[] };
+    const bound = { ...stale, storeNames: ['奇可門市'], returnedStoreNames: [], preorderStoreNames: [] as string[] };
     let calls = 0;
     vi.spyOn(locationService, 'getLocations').mockImplementation(async () => {
       calls += 1;

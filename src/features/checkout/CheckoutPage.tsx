@@ -397,6 +397,13 @@ export function CheckoutPage() {
                             focusBarcode();
                           },
                         }}
+                        preorderPickup={{
+                          checked: Boolean(item.preorderPickup),
+                          onToggle: (checked) => {
+                            cart.setPreorderPickup(item.productId, isPointsLine, checked);
+                            focusBarcode();
+                          },
+                        }}
                         busy={detailBusyId === item.productId}
                         onViewDetail={() => {
                           setDetailSource('cart');
