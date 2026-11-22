@@ -88,7 +88,7 @@ export interface ProductSearchParams {
   /** totalInventory 下限／上限，含等號。 */
   totalInventoryMin?: number;
   totalInventoryMax?: number;
-  /** 僅管理員：不套用登入門市的商品清單，列出全部商品。 */
+  /** 不套用登入門市的商品清單，列出全部商品（任何業務帳號都可勾「顯示全部商品」）。 */
   allProducts?: boolean;
 }
 
