@@ -129,6 +129,26 @@ export interface ICustomerService {
 }
 ```
 
+```typescript
+// src/services/interfaces/ISystemService.ts（門市商品清單相關，節錄）
+export interface ISystemService {
+  /** 門市清單（任何業務帳號可讀，http 走 GET /auth/stores） */
+  listStoreChoices(): Promise<StoreDto[]>;
+  /** 切換門市販售範圍 'all' | 'list'（任何業務帳號，PUT /stores/{storeName}/product-scope） */
+  setStoreProductScope(storeName: string, productScope: StoreProductScope): Promise<StoreDto>;
+  /** 分頁列出全部商品並標示是否在清單（GET /stores/{storeName}/products） */
+  listStoreProducts(storeName: string, query: StoreProductQuery): Promise<StoreProductPage>;
+  /** 勾選畫面「存檔」：{ add, remove } 一次送出，同一個交易套用（POST .../products/batch，合計最多 2000 個 id） */
+  saveStoreProducts(storeName: string, request: StoreProductBatchRequest): Promise<StoreProductChangeResult>;
+  /** 從另一門市複製清單；replace=true 時移除來源沒有的商品（POST .../products/copy） */
+  copyStoreProducts(storeName: string, request: CopyStoreProductsRequest): Promise<StoreProductChangeResult>;
+}
+```
+
+`IProductService.searchProducts` 的 `ProductSearchParams.allProducts`（任何業務帳號）會帶 `allProducts=true`，略過登入門市的商品清單。Mock 端清單存在 localStorage `FREDS_POS_STORE_PRODUCTS`（`src/services/mock/storeProductCatalog.ts`），重設種子資料時一併清除。
+
+未存檔變更守門（`src/utils/unsavedChanges.ts`、`src/hooks/useUnsavedChangesGuard.ts`）：畫面有未存檔變更時登記訊息；`uiStore.setActiveTab` / `navigateToCustomer` / `syncStateFromHash`（瀏覽器返回）、設定頁分頁切換與登出會先 `window.confirm`，取消就留在原頁並把網址改回；關閉或重新整理分頁由 `beforeunload` 提示。
+
 ---
 
 ## 3. Mock 服務實作規範 (`src/services/mock/`)

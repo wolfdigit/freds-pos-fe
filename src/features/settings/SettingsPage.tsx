@@ -18,8 +18,11 @@ import type { InventoryLocationDto, LocationStockSummary } from '@/types/invento
 import type { StoreDto } from '@/types/system';
 import { locationService, systemService, isMockService } from '@/services';
 import { errorMessage } from '@/auth/businessError';
+import { StoreProductListPanel } from './components/StoreProductListPanel';
+import { confirmDiscardUnsavedChanges } from '@/utils/unsavedChanges';
+import { storeProductScope } from '@/types/system';
 
-type SettingsSection = 'locations' | 'store_info' | 'security';
+type SettingsSection = 'locations' | 'store_info' | 'store_products' | 'security';
 
 interface SettingsTabConfig {
   id: SettingsSection;
@@ -30,6 +33,7 @@ interface SettingsTabConfig {
 const SETTINGS_TABS: SettingsTabConfig[] = [
   { id: 'locations', label: '庫存據點管理', description: '管理多門市、總倉與調度暫存據點' },
   { id: 'store_info', label: '門市清單管理', description: '維護門市清單與切換目前營業門市' },
+  { id: 'store_products', label: '門市商品清單', description: '設定各門市販售的商品與販售範圍，所有店員都可以編輯' },
   { id: 'security', label: '使用者管理', description: '使用者管理，僅管理員可維護' },
 ];
 
@@ -272,7 +276,10 @@ export function SettingsPage() {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveSection(tab.id)}
+              onClick={() => {
+                if (tab.id !== activeSection && !confirmDiscardUnsavedChanges()) return;
+                setActiveSection(tab.id);
+              }}
               className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold rounded-t-xl border-t border-x transition-all ${
                 isCurrent
                   ? 'border-zinc-700 bg-zinc-900 text-cyan-300 border-b-2 border-b-cyan-400 shadow-sm'
@@ -580,6 +587,7 @@ export function SettingsPage() {
                         {store.inventoryLocationName && (
                           <p className="mt-1 text-xs text-zinc-400">
                             門市庫存：{store.inventoryLocationName}　預購保留：{store.preorderInventoryLocationName ?? '—'}　退貨：{store.returnedInventoryLocationName}
+                            　販售：{storeProductScope(store) === 'list' ? '只販售清單商品' : '全部商品'}
                           </p>
                         )}
                         {isCurrent && (
@@ -645,6 +653,10 @@ export function SettingsPage() {
               })}
             </div>
           </div>
+        )}
+
+        {activeSection === 'store_products' && (
+          <StoreProductListPanel currentStoreName={storeName} />
         )}
 
         {activeSection === 'security' && canManageWhitelist && (

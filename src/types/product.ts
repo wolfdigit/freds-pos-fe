@@ -29,6 +29,11 @@ export interface Product {
   loginStoreReturnedQuantity: number | null;
   /** 登入門市預購保留地點的數量。沒有選定門市時是 null。舊資料可能沒有這個欄位。 */
   loginStorePreorderQuantity?: number | null;
+  /**
+   * 登入門市是否販售此商品。沒有選定門市時是 null；販售全部商品的門市一律 true。
+   * 舊版後端沒有這個欄位（undefined），視為販售。
+   */
+  soldInLoginStore?: boolean | null;
   note?: string;
   /** 後端回傳的商品狀態。已下架的商品只能退貨，不能再賣。 */
   status?: string;
@@ -44,12 +49,27 @@ export interface Product {
  * - available：可以結帳
  * - missing：後端回 PRODUCT_NOT_FOUND，商品已不存在
  * - delisted：商品已下架，只能退貨不能賣
+ * - notInStore：登入門市沒有販售這個商品（不在門市商品清單），只能退貨不能賣
  * - unknown：查不到結果（斷線、逾時等），不阻擋結帳，交給後端判斷
  */
-export type CartProductAvailability = 'available' | 'missing' | 'delisted' | 'unknown';
+export type CartProductAvailability = 'available' | 'missing' | 'delisted' | 'notInStore' | 'unknown';
 
 export function isDelistedProduct(product: Pick<Product, 'status' | 'deleted'>): boolean {
   return product.deleted === true || product.status === 'deleted';
+}
+
+/** 只有後端明確回 false 才算沒販售；null（沒有登入門市）與 undefined（舊版後端）都不擋。 */
+export function isNotSoldInLoginStore(product: Pick<Product, 'soldInLoginStore'>): boolean {
+  return product.soldInLoginStore === false;
+}
+
+/** 結帳前購物車商品的狀態：已下架優先，其次是本門市未販售。 */
+export function productAvailability(
+  product: Pick<Product, 'status' | 'deleted' | 'soldInLoginStore'>
+): CartProductAvailability {
+  if (isDelistedProduct(product)) return 'delisted';
+  if (isNotSoldInLoginStore(product)) return 'notInStore';
+  return 'available';
 }
 
 export interface ProductSearchParams {
@@ -68,6 +88,8 @@ export interface ProductSearchParams {
   /** totalInventory 下限／上限，含等號。 */
   totalInventoryMin?: number;
   totalInventoryMax?: number;
+  /** 僅管理員：不套用登入門市的商品清單，列出全部商品。 */
+  allProducts?: boolean;
 }
 
 /** 數量篩選的參數名稱（送給後端時照這個順序）。 */

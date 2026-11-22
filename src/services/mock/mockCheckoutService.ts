@@ -16,6 +16,7 @@ import { safeAdd } from '@/utils/currency';
 import { nowIso, formatDate } from '@/utils/date';
 import { BusinessError } from '@/utils/errors';
 import { MockCustomerService } from './mockCustomerService';
+import { soldInStore } from './storeProductCatalog';
 
 const customerService = new MockCustomerService();
 
@@ -52,6 +53,16 @@ export class MockCheckoutService implements ICheckoutService {
       const product = productMap.get(item.productId);
       if (!product) {
         throw new BusinessError('PRODUCT_NOT_FOUND', `找不到商品 (ID: ${item.productId})`);
+      }
+      // 跟後端一樣：list 門市只能賣清單商品，退貨不檢查。
+      if (
+        item.quantity > 0 &&
+        soldInStore(loginStoreFrom(getStoredStores(), readPersistedStoreName()), product.id) === false
+      ) {
+        throw new BusinessError(
+          'PRODUCT_NOT_IN_STORE',
+          `本門市未販售此商品：${product.sku} (ID: ${product.id})`
+        );
       }
 
       // 決定單價與原價

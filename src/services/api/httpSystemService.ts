@@ -7,7 +7,14 @@ import type {
   OAuthAccountDto,
   CreateOAuthAccountRequest,
   UpdateOAuthAccountRequest,
+  StoreProductScope,
+  StoreProductQuery,
+  StoreProductPage,
+  StoreProductBatchRequest,
+  StoreProductChangeResult,
+  CopyStoreProductsRequest,
 } from '@/types/system';
+import { loadLoginStores } from '@/auth/storePrefetch';
 import { httpClient } from './httpClient';
 import { invalidateStoreAndLocationCaches, storeRecords } from './sharedCaches';
 
@@ -41,6 +48,47 @@ export class HttpSystemService implements ISystemService {
     } finally {
       invalidateStoreAndLocationCaches();
     }
+  }
+
+  async listStoreChoices(options?: { fresh?: boolean }): Promise<StoreDto[]> {
+    const rows = await loadLoginStores(options);
+    return rows.map((row) => ({ ...row }));
+  }
+
+  async setStoreProductScope(storeName: string, productScope: StoreProductScope): Promise<StoreDto> {
+    try {
+      return await httpClient.put<StoreDto>(`/system/stores/${encodeURIComponent(storeName)}/product-scope`, {
+        productScope,
+      });
+    } finally {
+      invalidateStoreAndLocationCaches();
+    }
+  }
+
+  async listStoreProducts(storeName: string, query: StoreProductQuery): Promise<StoreProductPage> {
+    const params = new URLSearchParams();
+    const keyword = query.keyword?.trim();
+    if (keyword) params.set('keyword', keyword);
+    if (query.inList !== undefined) params.set('inList', String(query.inList));
+    params.set('page', String(query.page));
+    params.set('pageSize', String(query.pageSize));
+    return httpClient.get<StoreProductPage>(
+      `/system/stores/${encodeURIComponent(storeName)}/products?${params.toString()}`
+    );
+  }
+
+  async saveStoreProducts(storeName: string, request: StoreProductBatchRequest): Promise<StoreProductChangeResult> {
+    return httpClient.post<StoreProductChangeResult>(
+      `/system/stores/${encodeURIComponent(storeName)}/products/batch`,
+      { add: request.add, remove: request.remove }
+    );
+  }
+
+  async copyStoreProducts(storeName: string, request: CopyStoreProductsRequest): Promise<StoreProductChangeResult> {
+    return httpClient.post<StoreProductChangeResult>(
+      `/system/stores/${encodeURIComponent(storeName)}/products/copy`,
+      request
+    );
   }
 
   async listAccounts(): Promise<OAuthAccountDto[]> {

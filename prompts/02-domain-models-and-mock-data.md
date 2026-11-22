@@ -231,6 +231,45 @@ export interface Customer {
 
 ---
 
+### 1.5 門市商品清單 (`src/types/system.ts`、`src/types/product.ts`)
+
+```typescript
+/** 'all'：販售全部商品（預設，舊門市不變）；'list'：只販售清單內商品 */
+export type StoreProductScope = 'all' | 'list';
+
+export interface StoreDto {
+  // ...既有欄位
+  productScope?: StoreProductScope; // 舊後端沒有這個欄位時視為 'all'（storeProductScope()）
+}
+
+export interface StoreProductItem {
+  productId: string; sku: string; barcode?: string | null; brand?: string | null;
+  name: string; listPrice: number; inList: boolean;
+}
+
+export interface StoreProductPage {
+  storeName: string; productScope: StoreProductScope;
+  listedTotal: number; // 清單內未刪除商品數
+  items: StoreProductItem[]; page: number; pageSize: number; total: number;
+}
+
+/** 勾選畫面按「存檔」一次送出；同一商品不能同時出現在 add 與 remove。 */
+export interface StoreProductBatchRequest { add: string[]; remove: string[]; }
+
+export interface StoreProductChangeResult {
+  storeName: string; productScope: StoreProductScope;
+  changed: number; added?: number; removed?: number; listedTotal: number;
+}
+
+// Product 新增：
+//   soldInLoginStore?: boolean | null
+//   登入門市是否販售此商品；null 表示沒有登入門市（管理員）或門市販售全部。
+//   只有明確 false 才算未販售（舊後端缺欄位時當作有販售）。
+// CartProductAvailability 新增 'notInStore'。
+```
+
+---
+
 ## 2. 模型車專屬 Mock 資料集種子 (`src/services/mock/mockDataSeed.ts`)
 
 為了讓業主審查時有真實門市的操作體驗，預置以下高品質模型車資料：

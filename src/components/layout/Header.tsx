@@ -12,6 +12,7 @@ import { resetDemoData, isMockService, canToggleMockMode, toggleMockMode } from 
 import { useToastStore } from '@/components/feedback/toastStore';
 import { useThemeStore } from '@/store/themeStore';
 import { switchLoginStore, useAuthStore } from '@/store/authStore';
+import { confirmDiscardUnsavedChanges } from '@/utils/unsavedChanges';
 
 function useClock() {
   const [now, setNow] = useState(new Date());
@@ -121,6 +122,7 @@ export function Header() {
       showToast('示範模式使用本機資料，沒有伺服器登入階段', 'warning');
       return;
     }
+    if (!confirmDiscardUnsavedChanges()) return;
     setLoggingOut(true);
     void logout()
       .then(() => {

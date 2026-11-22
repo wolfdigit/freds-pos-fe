@@ -105,6 +105,11 @@ export function CheckoutPage() {
       handleAddProduct(exact);
       showToast(`已帶入【${exact.name}】(${exact.sku})`, 'success');
       setKeyword('');
+    } else if (isReturnMode) {
+      // 只販售清單商品的門市搜尋不到清單外的商品，但這些商品仍可退貨：直接用輸入內容查原始單據。
+      setReturnModalPrefill({ keyword: query });
+      setIsReturnModalOpen(true);
+      setKeyword('');
     } else {
       showToast('查無符合之商品，請確認條碼或貨號', 'warning');
     }
@@ -173,7 +178,7 @@ export function CheckoutPage() {
     const blocked = blockingCartItems(useCartStore.getState().items, latestUnavailable);
     if (blocked.length > 0) {
       showToast(
-        `購物車有 ${blocked.length} 項商品已不存在或已下架（例如「${blocked[0].name}」），請移除標示紅色的商品後再結帳。`,
+        `購物車有 ${blocked.length} 項商品已不存在、已下架或本門市未販售（例如「${blocked[0].name}」），請移除標示紅色的商品後再結帳。`,
         'error',
         10000
       );

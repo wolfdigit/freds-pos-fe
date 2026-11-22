@@ -17,6 +17,7 @@ import {
   defaultLocationRows,
   normalizeSeedProduct,
 } from './inventoryCatalog';
+import { STORE_PRODUCTS_STORAGE_KEY } from './storeProductCatalog';
 
 export const STORAGE_KEYS = {
   PRODUCTS: 'FREDS_POS_PRODUCTS',
@@ -66,6 +67,7 @@ function seedAll(): void {
   localStorage.removeItem(RECEIPTS_STORAGE_KEY);
   localStorage.removeItem(MOVEMENTS_STORAGE_KEY);
   localStorage.removeItem(STORAGE_KEYS.STOCK_LOGS);
+  localStorage.removeItem(STORE_PRODUCTS_STORAGE_KEY);
   writeRaw(STORAGE_KEYS.INITIALIZED, true);
   writeRaw(STORAGE_KEYS.SCHEMA_VERSION, CURRENT_SCHEMA_VERSION);
 }

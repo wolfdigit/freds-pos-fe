@@ -13,6 +13,7 @@ vi.mock('@/services', async (importOriginal) => ({
 }));
 
 import { useCartStore } from '@/store/cartStore';
+import { useSessionStore } from '@/store/sessionStore';
 import { blockingCartItems, unavailableReason, useCartProductCheck } from './useCartProductCheck';
 
 function item(productId: string, quantity = 1): CartItem {
@@ -32,6 +33,7 @@ const STATES: Record<string, CartProductAvailability> = {
   ok: 'available',
   gone: 'missing',
   off: 'delisted',
+  elsewhere: 'notInStore',
   flaky: 'unknown',
 };
 
@@ -78,6 +80,35 @@ describe('useCartProductCheck', () => {
     });
     expect(latest).toEqual({ ok: 'missing' });
     expect(result.current.unavailable).toEqual({ ok: 'missing' });
+  });
+
+  it('blocks selling a product the login store does not sell but still allows returning it', async () => {
+    const sale = item('elsewhere', 1);
+    const ret = { ...item('elsewhere', -1), originalOrderId: 'ord-1', originalOrderItemId: 'oli-1' };
+    useCartStore.setState({ items: [sale, ret] });
+    const { result } = renderHook(() => useCartProductCheck([sale, ret]));
+
+    await waitFor(() => expect(result.current.unavailable).toEqual({ elsewhere: 'notInStore' }));
+    expect(blockingCartItems([sale, ret], result.current.unavailable)).toEqual([sale]);
+    expect(unavailableReason(sale, result.current.unavailable)).toContain('本門市未販售');
+    expect(unavailableReason(ret, result.current.unavailable)).toBeNull();
+  });
+
+  it('checks the cart again after switching the login store', async () => {
+    useSessionStore.setState({ storeName: '奇可門市' });
+    const items = [item('ok')];
+    useCartStore.setState({ items });
+    const { result } = renderHook(() => useCartProductCheck(items));
+    await waitFor(() => expect(checkProductAvailability).toHaveBeenCalledTimes(1));
+    expect(result.current.unavailable).toEqual({});
+
+    // 換到只販售清單商品、清單沒有這個商品的門市。
+    checkProductAvailability.mockResolvedValue('notInStore');
+    act(() => {
+      useSessionStore.setState({ storeName: '台南快閃店' });
+    });
+    await waitFor(() => expect(result.current.unavailable).toEqual({ ok: 'notInStore' }));
+    expect(checkProductAvailability).toHaveBeenCalledTimes(2);
   });
 
   it('does not call the backend for an empty cart', async () => {
