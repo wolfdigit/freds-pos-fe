@@ -119,6 +119,7 @@ export function ProductTable({
                       {p.brand}
                     </span>
                     {p.scale && <Badge color="zinc">{p.scale}</Badge>}
+                    {p.soldInLoginStore === false && <Badge color="rose">本門市未販售</Badge>}
                     {p.spec && <span className="text-xs text-zinc-400">{p.spec}</span>}
                   </div>
                 </td>

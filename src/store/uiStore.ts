@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { CartItem } from './cartStore';
 import { getHashFromState } from '@/utils/hashRouter';
+import { confirmDiscardUnsavedChanges } from '@/utils/unsavedChanges';
 
 export type ActiveTab = 'checkout' | 'inventory' | 'customers' | 'settings' | 'reports';
 
@@ -53,6 +54,10 @@ export const useUiStore = create<UiStore>((set) => ({
   toggleSidebar: () => set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),
   setActiveTab: (tab) =>
     set((state) => {
+      // 有未存檔變更時先確認；取消就留在原頁。
+      if (tab !== state.activeTab && !confirmDiscardUnsavedChanges()) {
+        return state;
+      }
       const customerId = tab === 'customers' ? state.selectedCustomerId : null;
       syncHashWithState(tab, customerId);
       return {
@@ -61,7 +66,10 @@ export const useUiStore = create<UiStore>((set) => ({
       };
     }),
   navigateToCustomer: (customerId) =>
-    set(() => {
+    set((state) => {
+      if (state.activeTab !== 'customers' && !confirmDiscardUnsavedChanges()) {
+        return state;
+      }
       syncHashWithState('customers', customerId);
       return {
         activeTab: 'customers',
@@ -79,6 +87,11 @@ export const useUiStore = create<UiStore>((set) => ({
   syncStateFromHash: (tab, customerId) =>
     set((state) => {
       if (state.activeTab === tab && state.selectedCustomerId === customerId) {
+        return state;
+      }
+      // 瀏覽器返回 / 手動改網址：有未存檔變更且使用者取消時，把網址改回目前頁面。
+      if (tab !== state.activeTab && !confirmDiscardUnsavedChanges()) {
+        syncHashWithState(state.activeTab, state.selectedCustomerId);
         return state;
       }
       return {

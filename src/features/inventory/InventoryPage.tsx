@@ -14,6 +14,7 @@ import type { InventoryItemAdjustment, InventoryLocationChange } from '@/types/i
 import { useLocations } from './hooks/useLocations';
 import { Button } from '@/components/common/Button';
 import { useUiStore } from '@/store/uiStore';
+import { useLoginStoreScope } from '@/hooks/useLoginStoreScope';
 
 const BRAND_TABS: string[] = [
   'ALL',
@@ -85,6 +86,11 @@ export function InventoryPage() {
   );
   // 「後方倉庫低庫存」要等庫存點讀完；沒有後方倉庫時沒有商品符合（跟以前一樣）。
   const filterReady = stockFilter !== 'WAREHOUSE_LOW' || (!locationsLoading && Boolean(warehouseLocationId));
+  // 只販售清單商品的門市：後端只列清單內的商品。所有店員都可以切換成看全部商品。
+  const loginScope = useLoginStoreScope();
+  const [showAllProducts, setShowAllProducts] = useState(false);
+  const listStore = loginScope === 'list';
+  const allProducts = listStore && showAllProducts;
   const {
     keyword,
     setKeyword,
@@ -98,7 +104,7 @@ export function InventoryPage() {
     loadMore,
     reload,
     pinProduct,
-  } = useProductList({ stockFilters, enabled: filterReady, keepVisible: draftedProducts });
+  } = useProductList({ stockFilters, enabled: filterReady, keepVisible: draftedProducts, allProducts });
 
   const [transferTarget, setTransferTarget] = useState<Product | null>(null);
   const [selectedDetailProduct, setSelectedDetailProduct] = useState<Product | null>(null);
@@ -332,6 +338,25 @@ export function InventoryPage() {
           </Button>
         </div>
       </div>
+
+      {listStore && (
+        <div
+          className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-100"
+          role="status"
+          data-testid="store-product-scope-hint"
+        >
+          <span className="font-bold">{allProducts ? '顯示全部商品（含本門市未販售）' : '僅顯示本門市商品'}</span>
+          <span className="text-xs text-amber-200/80">各據點欄位與總庫存仍是全部據點的數量。</span>
+          <label className="ml-auto flex items-center gap-2 text-xs font-semibold text-amber-200">
+            <input
+              type="checkbox"
+              checked={showAllProducts}
+              onChange={(event) => setShowAllProducts(event.target.checked)}
+            />
+            顯示全部商品
+          </label>
+        </div>
+      )}
 
       {/* 品牌廠牌分類標籤 (Brand Tabs) */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">

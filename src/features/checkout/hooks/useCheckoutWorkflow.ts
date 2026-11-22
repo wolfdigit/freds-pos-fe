@@ -19,22 +19,23 @@ export function isUncertainCheckoutError(err: unknown): boolean {
   return err instanceof ApiError && UNCERTAIN_STATUSES.has(err.status);
 }
 
-/** 後端明確回覆商品不存在或已下架。交易已整筆回滾，不重送。 */
+const CART_PRODUCT_REJECTED_CODES = new Set(['PRODUCT_NOT_FOUND', 'PRODUCT_NOT_IN_STORE']);
+
+/** 後端明確回覆商品不存在、已下架或本門市未販售。交易已整筆回滾，不重送。 */
 export function isProductNotFoundError(err: unknown): boolean {
   return (
-    (err instanceof ApiError && err.code === 'PRODUCT_NOT_FOUND') ||
-    (err instanceof BusinessError && err.code === 'PRODUCT_NOT_FOUND')
+    (err instanceof ApiError || err instanceof BusinessError) && CART_PRODUCT_REJECTED_CODES.has(err.code ?? '')
   );
 }
 
 export const CHECKOUT_PRODUCT_NOT_FOUND_MESSAGE =
-  '結帳失敗，沒有建立訂單：購物車裡有商品已不存在或已下架。請移除標示紅色的商品後再結帳。';
+  '結帳失敗，沒有建立訂單：購物車裡有商品已不存在、已下架或本門市未販售。請移除標示紅色的商品後再結帳。';
 
 export const CHECKOUT_UNCERTAIN_MESSAGE =
   '結帳結果未確認：連線逾時或中斷，訂單可能已經建立。請直接再按一次結帳，系統會用同一筆請求重送，不會重複建單；若仍失敗，請先到銷售紀錄確認。';
 
 interface CheckoutWorkflowOptions {
-  /** 後端回 PRODUCT_NOT_FOUND 時呼叫，讓畫面重新檢查並標示購物車商品。 */
+  /** 後端回 PRODUCT_NOT_FOUND 或 PRODUCT_NOT_IN_STORE 時呼叫，讓畫面重新檢查並標示購物車商品。 */
   onProductNotFound?: () => void;
 }
 

@@ -8,7 +8,9 @@ import type {
   CreateProductRequest,
   UpdateProductRequest,
 } from '@/types/product';
-import { isDelistedProduct, matchesStockFilters } from '@/types/product';
+import { matchesStockFilters, productAvailability } from '@/types/product';
+import type { StoreDto } from '@/types/system';
+import { storeProductScope } from '@/types/system';
 import type {
   InventoryTransferRequest,
   InventoryAdjustRequest,
@@ -35,6 +37,7 @@ import {
   resolveLocationId,
   setQuantity,
 } from './inventoryCatalog';
+import { addListedProducts, listedProductIds, soldInStore } from './storeProductCatalog';
 import { isSkuMatch, normalizeSku } from '@/utils/skuNormalizer';
 import { BusinessError } from '@/utils/errors';
 
@@ -63,11 +66,27 @@ function knownLocation(locationId: string): { id: string; name: string } {
   return found;
 }
 
-async function presentAll(products: Product[]): Promise<Product[]> {
+async function loginStore(): Promise<StoreDto | null> {
   const { useSessionStore } = await import('@/store/sessionStore');
   const name = useSessionStore.getState().storeName ?? '';
-  const store = loginStoreFrom(getStoredStores(), name);
-  return products.map((product) => withStoreQuantities(product, store));
+  return loginStoreFrom(getStoredStores(), name);
+}
+
+async function presentAll(products: Product[]): Promise<Product[]> {
+  const store = await loginStore();
+  const listed = store ? listedProductIds(store.name) : new Set<string>();
+  return products.map((product) => ({
+    ...withStoreQuantities(product, store),
+    soldInLoginStore: soldInStore(store, product.id, listed),
+  }));
+}
+
+/** 跟後端 GET /products 一樣：list 門市只列清單商品；allProducts 任何人都可以帶。 */
+async function scopedProducts(products: Product[], allProducts?: boolean): Promise<Product[]> {
+  const store = await loginStore();
+  if (allProducts || !store || storeProductScope(store) !== 'list') return products;
+  const listed = listedProductIds(store.name);
+  return products.filter((product) => listed.has(product.id));
 }
 
 function requireProduct(products: Product[], productId: string): number {
@@ -89,7 +108,7 @@ function writeMovement(movement: InventoryMovement): void {
 export class MockProductService implements IProductService {
   async searchProducts(params: ProductSearchParams): Promise<Product[]> {
     await simulateDelay();
-    const products = await presentAll(getProducts());
+    const products = await presentAll(await scopedProducts(getProducts(), params.allProducts));
     const keyword = params.keyword?.trim() ?? '';
 
     return products.filter((product) => {
@@ -121,7 +140,7 @@ export class MockProductService implements IProductService {
     const code = barcode.trim();
     if (!code) return [];
     await simulateDelay();
-    return presentAll(getProducts().filter((product) => product.barcode === code));
+    return presentAll(await scopedProducts(getProducts().filter((product) => product.barcode === code)));
   }
 
   async getProductById(id: string): Promise<Product | null> {
@@ -134,7 +153,7 @@ export class MockProductService implements IProductService {
   async checkProductAvailability(id: string): Promise<CartProductAvailability> {
     const product = await this.getProductById(id);
     if (!product) return 'missing';
-    return isDelistedProduct(product) ? 'delisted' : 'available';
+    return productAvailability(product);
   }
 
   async createProduct(product: CreateProductRequest): Promise<Product> {
@@ -160,6 +179,11 @@ export class MockProductService implements IProductService {
       updatedBy: await operatorName(),
     };
     setProducts([...products, created]);
+    // 在 list 門市登入時建立的商品，加入該門市清單；不會加入其他 list 門市。
+    const store = await loginStore();
+    if (store && storeProductScope(store) === 'list') {
+      addListedProducts(store.name, [created.id], await operatorName());
+    }
     return (await presentAll([created]))[0];
   }
 

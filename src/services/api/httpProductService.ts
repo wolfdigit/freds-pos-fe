@@ -1,5 +1,5 @@
 import type { IProductService } from '@/services/interfaces/IProductService';
-import { STOCK_FILTER_KEYS, hasStockFilters, isDelistedProduct, matchesStockFilters } from '@/types/product';
+import { STOCK_FILTER_KEYS, hasStockFilters, matchesStockFilters, productAvailability } from '@/types/product';
 import type {
   CartProductAvailability,
   Product,
@@ -61,6 +61,7 @@ function filterQuery(params: ProductSearchParams): URLSearchParams {
   if (params.scale && params.scale !== 'ALL') query.set('scale', params.scale);
   if (params.brand && params.brand !== 'ALL') query.set('brand', params.brand);
   if (params.inInventoryOnly !== undefined) query.set('inInventoryOnly', String(params.inInventoryOnly));
+  if (params.allProducts) query.set('allProducts', 'true');
   for (const key of STOCK_FILTER_KEYS) {
     const value = params[key];
     if (value !== undefined && value !== '') query.set(key, String(value));
@@ -126,7 +127,7 @@ export class HttpProductService implements IProductService {
       const product = await httpClient.get<Product>(`/products/${encodeURIComponent(id)}`, {
         silentToast: true,
       });
-      return isDelistedProduct(product) ? 'delisted' : 'available';
+      return productAvailability(product);
     } catch (err) {
       if (err instanceof ApiError && err.status === 404 && err.code === 'PRODUCT_NOT_FOUND') {
         return 'missing';

@@ -41,8 +41,24 @@
 2. 每個退換貨品項：\( \text{abs}(Q) \le (Q_{\text{sold}} - Q_{\text{returned}}) \)（超額拋出 `RETURN_QTY_EXCEEDED`）
 3. 會員點數折抵：\( \text{usedPoints} \le \text{customer.rewardPoints} \)（不足拋出 `INSUFFICIENT_POINTS`）
 4. 支付總額：\( \sum \text{PaymentAmount} \ge \text{TotalOrderAmount} \)（不足拋出 `PAYMENT_INSUFFICIENT`）
+5. 門市商品清單：登入門市為清單模式時，每個正數品項必須在該門市清單內（不在拋出 `PRODUCT_NOT_IN_STORE`，HTTP 409）。退貨（負數品項）不檢查。
 
 任一條件不滿足 → 拋出業務錯誤，UI 以 Toast 顯示，**不寫入任何資料 (Rollback)**。
+
+---
+
+### 1.4 門市商品清單規則
+
+| 情境 | 規則 |
+| :--- | :--- |
+| 販售範圍 | `store_branch.productScope`：`all`（預設）或 `list`，任何業務帳號都能切換 |
+| 搜尋 / 庫存列表 | 清單模式門市只回清單內商品；任何業務帳號可帶 `allProducts=true` 看全部；沒有登入門市的管理員看全部 |
+| 單一商品 | `GET /products/{id}` 不過濾，但回 `soldInLoginStore`，前端據此把購物車品項標為 `notInStore` |
+| 結帳 | 正數品項不在清單 → `PRODUCT_NOT_IN_STORE`；退貨允許 |
+| 編輯清單 | 勾選暫存在畫面上，按「存檔」以 `POST .../products/batch` 一次送出，同一交易；任一加入的商品不存在或已刪除則整批不寫入 |
+| 新增商品 | 只會自動加入「登入中的清單模式門市」 |
+| 調撥 / 調整 / 進貨 | 只過濾畫面上的商品選單，API 不擋 |
+| 刪除商品 | 留在清單但不顯示、不計入清單商品數 |
 
 ---
 

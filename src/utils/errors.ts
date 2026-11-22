@@ -13,6 +13,7 @@ export type BusinessErrorCode =
   | 'INVALID_PAYMENT'
   | 'PRODUCT_NOT_FOUND'
   | 'PRODUCT_SKU_DUPLICATE'
+  | 'PRODUCT_NOT_IN_STORE'
   | 'CUSTOMER_NOT_FOUND'
   | 'CUSTOMER_PHONE_DUPLICATE'
   | 'CUSTOMER_EMAIL_DUPLICATE'
@@ -30,7 +31,9 @@ export type BusinessErrorCode =
   | 'ACCOUNT_ROLE_INVALID'
   | 'ACCOUNT_LAST_ADMIN'
   | 'ACCOUNT_SELF_PROTECTED'
-  | 'ACCOUNT_NAME_REQUIRED';
+  | 'ACCOUNT_NAME_REQUIRED'
+  /** Mock 用：對應後端 422 請求格式錯誤。 */
+  | 'VALIDATION_ERROR';
 
 export class BusinessError extends Error {
   constructor(

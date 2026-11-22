@@ -15,6 +15,8 @@ export interface ProductListOptions {
    * 不在已載入結果裡的會顯示在最前面。
    */
   keepVisible?: Product[];
+  /** 僅管理員：不套用登入門市的商品清單。 */
+  allProducts?: boolean;
 }
 
 /** 庫存頁商品清單：關鍵字、品牌與庫存狀況都在後端篩選，分頁載入。 */
@@ -26,7 +28,12 @@ export function useProductList(options: ProductListOptions = {}) {
   const storeName = useSessionStore((state) => state.storeName);
   const stockKey = JSON.stringify(options.stockFilters ?? {});
   const paged = usePagedProducts(
-    { keyword: searchKeyword, brand, ...(JSON.parse(stockKey) as ProductSearchParams) },
+    {
+      keyword: searchKeyword,
+      brand,
+      ...(JSON.parse(stockKey) as ProductSearchParams),
+      ...(options.allProducts ? { allProducts: true } : {}),
+    },
     { enabled: options.enabled, refreshKey: storeName }
   );
 

@@ -220,6 +220,29 @@ describe('useCheckoutWorkflow idempotency key', () => {
     expect(useCartStore.getState().items).toHaveLength(1);
     expect(sessionStorage.getItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY)).toBeNull();
   });
+
+  it('treats PRODUCT_NOT_IN_STORE the same way and asks the page to re-check the cart', async () => {
+    const notSold = new ApiError(
+      '本門市未販售此商品：SKU-1 (ID: prod-1)',
+      409,
+      'Conflict',
+      '/checkout/orders',
+      { code: 'PRODUCT_NOT_IN_STORE', message: '本門市未販售此商品：SKU-1 (ID: prod-1)' },
+      'PRODUCT_NOT_IN_STORE'
+    );
+    createCheckoutOrder.mockRejectedValueOnce(notSold);
+    const onProductNotFound = vi.fn();
+    const { result } = renderHook(() => useCheckoutWorkflow({ onProductNotFound }));
+
+    await act(async () => {
+      expect(await result.current.submitCheckout(cash)).toBeNull();
+    });
+
+    expect(createCheckoutOrder).toHaveBeenCalledTimes(1);
+    expect(onProductNotFound).toHaveBeenCalledTimes(1);
+    expect(toasts()[0]).toContain('本門市未販售');
+    expect(sessionStorage.getItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY)).toBeNull();
+  });
 });
 
 /** 只清掉模組內的記憶體副本，保留 sessionStorage，等同於頁面重新載入。 */

@@ -7,14 +7,30 @@ import type {
   OAuthAccountDto,
   CreateOAuthAccountRequest,
   UpdateOAuthAccountRequest,
+  StoreProductScope,
+  StoreProductQuery,
+  StoreProductPage,
+  StoreProductBatchRequest,
+  StoreProductChangeResult,
+  CopyStoreProductsRequest,
+  StoreProductItem,
 } from '@/types/system';
+import { STORE_PRODUCT_BATCH_MAX, storeProductScope } from '@/types/system';
+import { isDelistedProduct } from '@/types/product';
+import { isSkuMatch } from '@/utils/skuNormalizer';
 import {
   accountGuardMessage,
   deletionBlock,
   demotionBlock,
   normalizeRole,
 } from '@/auth/permissions';
-import { simulateDelay, getStoredStores, setStoredStores } from './storageHelper';
+import { simulateDelay, getProducts, getStoredStores, setStoredStores } from './storageHelper';
+import {
+  addListedProducts,
+  deleteStoreList,
+  readStoreProducts,
+  removeListedProducts,
+} from './storeProductCatalog';
 import { defaultLocationRows, LOCATIONS_STORAGE_KEY, withSystemLocations } from './inventoryCatalog';
 import type { InventoryLocationDto } from '@/types/inventory';
 import { BusinessError } from '@/utils/errors';
@@ -58,6 +74,7 @@ export class MockSystemService implements ISystemService {
       returnedInventoryLocationName: returned.name,
       preorderInventoryLocationId: preorder.id,
       preorderInventoryLocationName: preorder.name,
+      productScope: request.productScope ?? 'all',
     };
 
     setStoredStores([...current, newStore]);
@@ -109,10 +126,130 @@ export class MockSystemService implements ISystemService {
 
     const updated = current.filter((s) => s.name !== storeName);
     setStoredStores(updated);
+    deleteStoreList(storeName);
     return {
       success: true,
       deletedStore: storeName,
     };
+  }
+
+  async listStoreChoices(): Promise<StoreDto[]> {
+    await simulateDelay(20, 60);
+    return getStoredStores().map((store) => ({ ...store, productScope: storeProductScope(store) }));
+  }
+
+  async setStoreProductScope(storeName: string, productScope: StoreProductScope): Promise<StoreDto> {
+    // 一般店員也可以切換（跟後端一致）。
+    await simulateDelay(30, 80);
+    const current = getStoredStores();
+    const idx = current.findIndex((store) => store.name === storeName);
+    if (idx === -1) throw new BusinessError('LOCATION_NOT_FOUND', '找不到門市');
+    const updated: StoreDto = { ...current[idx], productScope };
+    const next = [...current];
+    next[idx] = updated;
+    setStoredStores(next);
+    return updated;
+  }
+
+  async listStoreProducts(storeName: string, query: StoreProductQuery): Promise<StoreProductPage> {
+    await simulateDelay(30, 80);
+    const store = requireStore(storeName);
+    const rows = new Map((readStoreProducts()[store.name] ?? []).map((row) => [row.productId, row]));
+    const keyword = query.keyword?.trim() ?? '';
+    const lower = keyword.toLowerCase();
+    const visible = getProducts()
+      .filter((product) => !isDelistedProduct(product))
+      .sort((a, b) => a.sku.localeCompare(b.sku) || a.id.localeCompare(b.id));
+    const matched = visible.filter((product) => {
+      if (
+        keyword &&
+        !isSkuMatch(keyword, product.sku, product.barcode) &&
+        !product.name.toLowerCase().includes(lower) &&
+        !product.brand.toLowerCase().includes(lower)
+      ) {
+        return false;
+      }
+      if (query.inList === true) return rows.has(product.id);
+      if (query.inList === false) return !rows.has(product.id);
+      return true;
+    });
+    const start = (query.page - 1) * query.pageSize;
+    const items: StoreProductItem[] = matched.slice(start, start + query.pageSize).map((product) => {
+      const row = rows.get(product.id);
+      return {
+        productId: product.id,
+        sku: product.sku,
+        barcode: product.barcode,
+        brand: product.brand,
+        name: product.name,
+        scale: product.scale ?? null,
+        listPrice: product.listPrice,
+        imageUrl: product.imageUrl ?? null,
+        inList: Boolean(row),
+        addedAt: row?.createdAt ?? null,
+        addedBy: row?.createdBy ?? null,
+      };
+    });
+    return {
+      storeName: store.name,
+      productScope: storeProductScope(store),
+      listedTotal: visible.filter((product) => rows.has(product.id)).length,
+      items,
+      page: query.page,
+      pageSize: query.pageSize,
+      total: matched.length,
+    };
+  }
+
+  async saveStoreProducts(storeName: string, request: StoreProductBatchRequest): Promise<StoreProductChangeResult> {
+    await simulateDelay(30, 80);
+    const store = requireStore(storeName);
+    const add = uniqueIds(request.add);
+    const remove = uniqueIds(request.remove);
+    if (add.length === 0 && remove.length === 0) {
+      throw new BusinessError('VALIDATION_ERROR', 'add 與 remove 至少要有一個商品');
+    }
+    if (add.length + remove.length > STORE_PRODUCT_BATCH_MAX) {
+      throw new BusinessError('VALIDATION_ERROR', `一次最多變更 ${STORE_PRODUCT_BATCH_MAX} 個商品`);
+    }
+    const removeSet = new Set(remove);
+    const both = add.find((id) => removeSet.has(id));
+    if (both) throw new BusinessError('VALIDATION_ERROR', `同一個商品不能同時加入又移出 (ID: ${both})`);
+    const products = new Map(getProducts().map((product) => [product.id, product]));
+    const missing = add.find((id) => {
+      const product = products.get(id);
+      return !product || isDelistedProduct(product);
+    });
+    // 跟後端一樣整批不寫入。
+    if (missing) throw new BusinessError('PRODUCT_NOT_FOUND', `找不到商品或商品已刪除 (ID: ${missing})`);
+    const removed = removeListedProducts(store.name, remove);
+    const added = addListedProducts(store.name, add, await readMockActorName());
+    return changeResult(store, added, removed);
+  }
+
+  async copyStoreProducts(storeName: string, request: CopyStoreProductsRequest): Promise<StoreProductChangeResult> {
+    await simulateDelay(40, 100);
+    const store = requireStore(storeName);
+    const source = requireStore(request.sourceStoreName.trim());
+    if (source.name === store.name) return changeResult(store, 0, 0);
+    const products = new Map(getProducts().map((product) => [product.id, product]));
+    const sourceIds = (readStoreProducts()[source.name] ?? [])
+      .map((row) => row.productId)
+      .filter((id) => {
+        const product = products.get(id);
+        return product && !isDelistedProduct(product);
+      });
+    let removed = 0;
+    if (request.replace) {
+      const keep = new Set(sourceIds);
+      const current = (readStoreProducts()[store.name] ?? []).map((row) => row.productId);
+      removed = removeListedProducts(
+        store.name,
+        current.filter((id) => !keep.has(id))
+      );
+    }
+    const added = addListedProducts(store.name, sourceIds, await readMockActorName());
+    return changeResult(store, added, removed);
   }
 
   async listAccounts(): Promise<OAuthAccountDto[]> {
@@ -248,6 +385,37 @@ function systemLocation(role: 'company' | 'preorder' | 'defective'): InventoryLo
   const found = mockLocations().find((location) => location.systemRole === role);
   if (!found) throw new BusinessError('LOCATION_NOT_FOUND', '找不到系統庫存點');
   return found;
+}
+
+function requireStore(storeName: string): StoreDto {
+  const store = getStoredStores().find((row) => row.name === storeName);
+  if (!store) throw new BusinessError('LOCATION_NOT_FOUND', '找不到門市');
+  return store;
+}
+
+function uniqueIds(ids: string[]): string[] {
+  return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean)));
+}
+
+function changeResult(store: StoreDto, added: number, removed: number): StoreProductChangeResult {
+  const products = new Map(getProducts().map((product) => [product.id, product]));
+  const listedTotal = (readStoreProducts()[store.name] ?? []).filter((row) => {
+    const product = products.get(row.productId);
+    return product && !isDelistedProduct(product);
+  }).length;
+  return {
+    storeName: store.name,
+    productScope: storeProductScope(store),
+    changed: added + removed,
+    added,
+    removed,
+    listedTotal,
+  };
+}
+
+async function readMockActorName(): Promise<string> {
+  const { useSessionStore } = await import('@/store/sessionStore');
+  return useSessionStore.getState().cashierName || '店長 Fred';
 }
 
 async function readMockActor(): Promise<{ email: string; role: string }> {
