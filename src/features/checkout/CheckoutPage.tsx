@@ -65,6 +65,14 @@ export function CheckoutPage() {
   const salesBreakdown = orderAmountBreakdown(salesItems);
   const returnBreakdown = orderAmountBreakdown(returnItems);
   const breakdown = orderAmountBreakdown(cart.items);
+
+  const salesSubtotal = salesBreakdown.finalTotal;
+  const salesQuantity = cart.getSalesItemsCount();
+  const returnQuantity = cart.getReturnItemsCount();
+
+  const formatQuantity = (quantity: number, lineCount: number) => {
+    return `${lineCount} 款 · 共 ${quantity} 件`;
+  };
   const totalAmount = cart.getTotalAmount();
 
   const focusBarcode = () => {
@@ -298,30 +306,57 @@ export function CheckoutPage() {
         </div>
       </section>
 
-      {/* 右欄：會員綁定、當前待結帳單、運費與結帳操作 (主要操作區) */}
+      {/* 右欄：當前待結帳單、會員綁定、運費與結帳操作 (主要操作區) */}
       <section className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-900/40 p-3.5 overflow-hidden">
-        <CustomerBindCard />
-
         {/* 購物車與退貨區塊 container */}
-        <div className="mt-2 flex-1 flex flex-col justify-between overflow-y-auto pr-1 space-y-2.5">
+        <div className="flex-1 min-h-0 flex flex-col justify-between overflow-y-auto pr-1 space-y-2.5">
           {/* 上半部：銷售商品清單與整體清單區塊 (點擊任意處退出退貨模式) */}
           <div
             onClick={() => {
               if (isReturnMode) setIsReturnMode(false);
             }}
-            className={`flex-1 space-y-1.5 rounded-xl p-2 transition-all cursor-pointer ${
-              isReturnMode
-                ? 'bg-zinc-950/40 border border-dashed border-zinc-700/60 opacity-85 hover:opacity-100'
-                : 'border border-transparent'
-            }`}
+            className={`flex-1 space-y-2 rounded-xl border p-2.5 transition-all cursor-pointer ${isReturnMode
+                ? 'bg-zinc-950/40 border-dashed border-zinc-700/60 opacity-85 hover:opacity-100'
+                : 'border-zinc-800 bg-zinc-950/60 hover:border-zinc-700'
+              }`}
             title={isReturnMode ? '點擊此區退出退貨模式' : undefined}
           >
+            {/* 待結清單 Header */}
+            <div className="flex items-center justify-between border-b border-zinc-800/80 pb-1.5 px-1">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${!isReturnMode ? 'bg-cyan-500/20 text-cyan-300' : 'bg-zinc-800 text-zinc-400'
+                    }`}
+                >
+                  🛒
+                </span>
+                <span className={`font-bold text-sm ${!isReturnMode ? 'text-zinc-100' : 'text-zinc-400'}`}>
+                  待結商品清單
+                </span>
+                <span className="text-xs text-cyan-400 font-mono font-semibold">
+                  ({formatQuantity(salesQuantity, salesItems.length)})
+                </span>
+              </div>
+
+              {salesItems.length > 0 ? (
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm font-bold text-cyan-300">
+                    小計 {formatCurrency(salesSubtotal)}
+                  </span>
+                </div>
+              ) : isReturnMode ? (
+                <span className="text-xs text-zinc-400 font-medium">
+                  點擊此區可切回銷售模式
+                </span>
+              ) : null}
+            </div>
+
             {salesItems.length === 0 && returnItems.length === 0 ? (
-              <div className="flex h-48 flex-col items-center justify-center text-center text-zinc-500 py-8">
+              <div className="flex h-36 flex-col items-center justify-center text-center text-zinc-500 py-6">
                 <p className="text-xs">目前無待結品項，請點擊左側商品或掃描條碼加入</p>
               </div>
             ) : salesItems.length === 0 ? (
-              <div className="p-4 text-center text-zinc-500 text-xs border border-dashed border-zinc-800 rounded-lg select-none">
+              <div className="p-4 text-center text-zinc-500 text-xs border border-dashed border-zinc-800/80 rounded-lg select-none">
                 （目前尚無售出商品，點擊此區可離開退貨模式並加入一般銷售品項）
               </div>
             ) : (
@@ -335,10 +370,10 @@ export function CheckoutPage() {
                   const pointsDisabledReason = isPointsLine
                     ? undefined
                     : !cart.attachedCustomer
-                    ? '需綁定會員'
-                    : productRedeemed
-                    ? '此商品已折抵'
-                    : undefined;
+                      ? '需綁定會員'
+                      : productRedeemed
+                        ? '此商品已折抵'
+                        : undefined;
 
                   return (
                     <UnavailableCartLine
@@ -381,28 +416,31 @@ export function CheckoutPage() {
               e.stopPropagation();
               if (!isReturnMode) setIsReturnMode(true);
             }}
-            className={`rounded-xl border p-2.5 space-y-2 transition-all cursor-pointer ${
-              isReturnMode
+            className={`rounded-xl border p-2.5 space-y-2 transition-all cursor-pointer ${isReturnMode
                 ? 'border-rose-500 bg-rose-950/40 ring-1 ring-rose-500/50 shadow-lg shadow-rose-950/50'
                 : 'border-zinc-800 bg-zinc-950/60 hover:border-rose-900/60'
-            }`}
+              }`}
           >
             {/* 退貨區塊 Header */}
             <div className="flex items-center justify-between border-b border-rose-900/40 pb-1.5 px-1">
               <div className="flex items-center gap-2">
                 <span
-                  className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${
-                    isReturnMode ? 'bg-rose-500 text-white animate-pulse' : 'bg-rose-500/20 text-rose-300'
-                  }`}
+                  className={`flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold ${isReturnMode ? 'bg-rose-500 text-white animate-pulse' : 'bg-rose-500/20 text-rose-300'
+                    }`}
                 >
                   ↩️
                 </span>
                 <span className="font-bold text-rose-200 text-sm">
-                  {isReturnMode ? '🔴 退貨模式中（加入商品將列為退貨）' : '瑕疵退貨 / 換貨折抵清單'}
+                  瑕疵退貨 / 換貨折抵清單
                 </span>
-                {returnItems.length > 0 && (
-                  <span className="text-xs text-rose-400 font-mono">({returnItems.length} 項)</span>
+                {isReturnMode && (
+                  <span className="rounded bg-rose-500/20 px-1.5 py-0.5 text-xs font-bold text-rose-300 animate-pulse border border-rose-500/40">
+                    🔴 退貨模式中
+                  </span>
                 )}
+                <span className="text-xs text-rose-400 font-mono font-semibold">
+                  ({formatQuantity(returnQuantity, returnItems.length)})
+                </span>
               </div>
 
               {returnItems.length > 0 ? (
@@ -469,6 +507,11 @@ export function CheckoutPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* 會員綁定卡片 (含搜尋框，移至退貨清單之後、商品小計之前) */}
+        <div className="mt-2.5">
+          <CustomerBindCard />
         </div>
 
         {/* 待結統計與按鈕 (依需求 10：傳遞銷售件數與退貨件數分開統計) */}
@@ -587,9 +630,9 @@ export function CheckoutPage() {
         onAddToCart={
           detailSource === 'catalog'
             ? (p) => {
-                handleAddProduct(p);
-                setDetailProduct(null);
-              }
+              handleAddProduct(p);
+              setDetailProduct(null);
+            }
             : undefined
         }
       />

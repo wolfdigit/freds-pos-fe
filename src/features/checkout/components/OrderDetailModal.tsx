@@ -174,11 +174,10 @@ export function OrderDetailModal({
               return (
                 <div
                   key={`${item.productId}-${idx}`}
-                  className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm border transition-all ${
-                    isCurrentReturn
+                  className={`flex items-center justify-between rounded-xl px-4 py-3 text-sm border transition-all ${isCurrentReturn
                       ? 'border-rose-500 bg-rose-950/30 ring-1 ring-rose-500/50 shadow-md'
                       : 'border-zinc-800 bg-zinc-950/60'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0 pr-3">
                     <span className="font-mono text-xs font-bold text-cyan-400 shrink-0 select-text">

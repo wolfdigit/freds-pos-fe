@@ -7,7 +7,11 @@ import { customerService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import type { Customer } from '@/types/customer';
 
-export function CustomerBindCard() {
+interface CustomerBindCardProps {
+  dropdownPosition?: 'top' | 'bottom';
+}
+
+export function CustomerBindCard({ dropdownPosition = 'bottom' }: CustomerBindCardProps = {}) {
   const { attachedCustomer, attachCustomer, items } = useCartStore();
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<Customer[]>([]);
@@ -15,6 +19,8 @@ export function CustomerBindCard() {
   const [isSearching, setIsSearching] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const showToast = useToastStore((s) => s.showToast);
+
+  const dropdownPlacementClass = dropdownPosition === 'bottom' ? 'bottom-full mb-1' : 'top-full mt-1';
 
   // 自動依輸入內容即時搜尋會員下拉選單
   useEffect(() => {
@@ -118,64 +124,73 @@ export function CustomerBindCard() {
 
   return (
     <div ref={containerRef} className="relative">
-      <div className="relative">
-        <input
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onFocus={() => query.trim() && suggestions.length > 0 && setIsDropdownOpen(true)}
-          placeholder="輸入電話、姓名或信箱查詢會員 (即時自動展開清單)"
-          className={`w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2.5 font-mono text-base text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
-            isSearching ? 'pr-16' : 'pr-10'
-          }`}
-        />
-        {isSearching && (
-          <span className="absolute right-10 top-1/2 -translate-y-1/2">
-            <Spinner size="sm" />
-          </span>
-        )}
-        {query && (
-          <button
-            type="button"
-            onClick={() => {
-              setQuery('');
-              setIsDropdownOpen(false);
-            }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 text-base"
-            title="清空會員搜尋"
-          >
-            ✕
-          </button>
-        )}
-      </div>
-
-      {isSearching && query.trim() && !isDropdownOpen && (
-        <div className="absolute left-0 right-0 top-full z-30 mt-1 flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-300 shadow-2xl">
-          <Spinner size="sm" />
-          <span>搜尋會員中...</span>
-        </div>
-      )}
-
-      {/* 自動彈出會員下拉列表 */}
-      {isDropdownOpen && suggestions.length > 0 && (
-        <div className="absolute left-0 right-0 top-full z-30 mt-1 max-h-64 overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-900 shadow-2xl backdrop-blur-md">
-          {suggestions.map((cust) => (
-            <div
-              key={cust.id}
-              onClick={() => handleSelectCustomer(cust)}
-              className="flex cursor-pointer items-center justify-between border-b border-zinc-800 px-4 py-3 text-base hover:bg-cyan-950/40 hover:text-cyan-200 transition-colors"
+      <div className="flex items-center gap-2.5">
+        <label
+          htmlFor="customer-search-input"
+          className="shrink-0 text-sm font-semibold text-zinc-300 select-none"
+        >
+          綁定會員
+        </label>
+        <div className="relative flex-1">
+          <input
+            id="customer-search-input"
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => query.trim() && suggestions.length > 0 && setIsDropdownOpen(true)}
+            placeholder="輸入電話、姓名或信箱查詢會員 (即時自動展開清單)"
+            className={`w-full rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2.5 font-mono text-base text-zinc-100 placeholder:text-zinc-500 focus:border-cyan-400 focus:outline-none focus:ring-2 focus:ring-cyan-400 ${
+              isSearching ? 'pr-16' : 'pr-10'
+            }`}
+          />
+          {isSearching && (
+            <span className="absolute right-10 top-1/2 -translate-y-1/2">
+              <Spinner size="sm" />
+            </span>
+          )}
+          {query && (
+            <button
+              type="button"
+              onClick={() => {
+                setQuery('');
+                setIsDropdownOpen(false);
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 text-base"
+              title="清空會員搜尋"
             >
-              <div className="flex items-center gap-3">
-                <span className="font-bold text-zinc-100">{cust.name}</span>
-                <span className="font-mono text-sm text-zinc-400">{cust.phone}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Badge color="cyan">{cust.vipTierName}</Badge>
-              </div>
+              ✕
+            </button>
+          )}
+
+          {isSearching && query.trim() && !isDropdownOpen && (
+            <div className={`absolute left-0 right-0 ${dropdownPlacementClass} z-30 flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-300 shadow-2xl`}>
+              <Spinner size="sm" />
+              <span>搜尋會員中...</span>
             </div>
-          ))}
+          )}
+
+          {/* 自動彈出會員下拉列表 */}
+          {isDropdownOpen && suggestions.length > 0 && (
+            <div className={`absolute left-0 right-0 ${dropdownPlacementClass} z-30 max-h-64 overflow-y-auto rounded-lg border border-zinc-700 bg-zinc-900 shadow-2xl backdrop-blur-md`}>
+              {suggestions.map((cust) => (
+                <div
+                  key={cust.id}
+                  onClick={() => handleSelectCustomer(cust)}
+                  className="flex cursor-pointer items-center justify-between border-b border-zinc-800 px-4 py-3 text-base hover:bg-cyan-950/40 hover:text-cyan-200 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="font-bold text-zinc-100">{cust.name}</span>
+                    <span className="font-mono text-sm text-zinc-400">{cust.phone}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge color="cyan">{cust.vipTierName}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }

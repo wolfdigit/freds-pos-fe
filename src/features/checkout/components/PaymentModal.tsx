@@ -23,16 +23,21 @@ interface PaymentModalProps {
   onConfirm: (payments: PaymentTender[]) => void;
 }
 
-// 依需求 11：7 種指定付款方式
-const PAYMENT_METHODS: { type: PaymentMethodType; label: string }[] = [
+// 付款方式分組：門市與官網
+const STORE_PAYMENT_METHODS: { type: PaymentMethodType; label: string }[] = [
   { type: 'cash', label: '現金' },
   { type: 'bank_transfer_ctbc', label: '轉帳(中信)' },
   { type: 'bank_transfer_ubot', label: '轉帳(聯邦)' },
-  { type: 'credit_card_physical', label: '信用卡(實體)' },
-  { type: 'credit_card_online', label: '信用卡(網路)' },
+  { type: 'credit_card_physical', label: '信用卡' },
   { type: 'line_pay', label: 'LINE Pay' },
-  { type: 'cod', label: '貨到付款' },
 ];
+
+const ONLINE_PAYMENT_METHODS: { type: PaymentMethodType; label: string }[] = [
+  { type: 'cod', label: '貨到付款' },
+  { type: 'credit_card_online', label: '官網刷卡' },
+];
+
+const PAYMENT_METHODS = [...STORE_PAYMENT_METHODS, ...ONLINE_PAYMENT_METHODS];
 
 export function PaymentModal({
   open,
@@ -97,30 +102,62 @@ export function PaymentModal({
           </p>
         </div>
 
-        {/* 支付方式選擇 (依需求 11：7 種指定付款方式) */}
-        <div>
-          <label className="mb-2 block text-xs font-bold text-zinc-400">請選擇結帳支付方式</label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
-            {PAYMENT_METHODS.map((m) => {
-              const isSelected = method === m.type;
-              return (
-                <button
-                  key={m.type}
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={() => setMethod(m.type)}
-                  className={`flex items-center justify-center gap-2 rounded-xl border py-3 px-2 text-sm font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 ${
-                    isSelected
-                      ? isNegative
-                        ? 'border-rose-500 bg-rose-500/20 text-rose-200 shadow-md shadow-rose-950/50 ring-2 ring-rose-500/60'
-                        : 'border-cyan-400 bg-cyan-500/20 text-cyan-300 shadow-md shadow-cyan-950/50 ring-2 ring-cyan-500/60'
-                      : 'border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-white'
-                  }`}
-                >
-                  <span>{isNegative ? `${m.label}退款` : m.label}</span>
-                </button>
-              );
-            })}
+        {/* 支付方式選擇 (上下兩排：門市 / 官網) */}
+        <div className="space-y-3">
+          <label className="block text-xs font-bold text-zinc-400">請選擇結帳支付方式</label>
+
+          {/* 門市付款方式 */}
+          <div className="flex items-center gap-2.5">
+            <span className="w-12 shrink-0 text-sm font-bold text-zinc-300">門市:</span>
+            <div className="grid flex-1 grid-cols-5 gap-2">
+              {STORE_PAYMENT_METHODS.map((m) => {
+                const isSelected = method === m.type;
+                return (
+                  <button
+                    key={m.type}
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => setMethod(m.type)}
+                    className={`flex items-center justify-center rounded-xl border py-3 px-1 text-sm font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap ${
+                      isSelected
+                        ? isNegative
+                          ? 'border-rose-500 bg-rose-500/20 text-rose-200 shadow-md shadow-rose-950/50 ring-2 ring-rose-500/60'
+                          : 'border-cyan-400 bg-cyan-500/20 text-cyan-300 shadow-md shadow-cyan-950/50 ring-2 ring-cyan-500/60'
+                        : 'border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                    }`}
+                  >
+                    <span>{isNegative ? `${m.label}退款` : m.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 官網付款方式 */}
+          <div className="flex items-center gap-2.5">
+            <span className="w-12 shrink-0 text-sm font-bold text-zinc-300">官網:</span>
+            <div className="grid flex-1 grid-cols-5 gap-2">
+              {ONLINE_PAYMENT_METHODS.map((m) => {
+                const isSelected = method === m.type;
+                return (
+                  <button
+                    key={m.type}
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => setMethod(m.type)}
+                    className={`flex items-center justify-center rounded-xl border py-3 px-1 text-sm font-bold transition-all disabled:cursor-not-allowed disabled:opacity-50 whitespace-nowrap ${
+                      isSelected
+                        ? isNegative
+                          ? 'border-rose-500 bg-rose-500/20 text-rose-200 shadow-md shadow-rose-950/50 ring-2 ring-rose-500/60'
+                          : 'border-cyan-400 bg-cyan-500/20 text-cyan-300 shadow-md shadow-cyan-950/50 ring-2 ring-cyan-500/60'
+                        : 'border-zinc-800 bg-zinc-900/80 text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                    }`}
+                  >
+                    <span>{isNegative ? `${m.label}退款` : m.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 

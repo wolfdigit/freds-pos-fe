@@ -111,7 +111,7 @@ describe('useDailyReport', () => {
     const byType = Object.fromEntries(s.paymentStats.map((p) => [p.type, p]));
     expect(byType.cash.totalAmount).toBe(400);
     expect(byType.line_pay.label).toBe('LINE Pay');
-    expect(byType.credit_card_online.label).toBe('信用卡(網路)');
+    expect(byType.credit_card_online.label).toBe('官網刷卡');
     // 佔比分母只算正數收款（600+300+100），退款不會讓加總超過 100%。
     expect(byType.cash.percentage).toBeCloseTo(40);
     expect(byType.line_pay.percentage).toBeCloseTo(30);
@@ -127,7 +127,7 @@ describe('payment method labels', () => {
     }
     // 舊資料或後端帶的 name 不同時，仍顯示統一名稱。
     expect(paymentMethodLabel('line_pay', 'LinePay')).toBe('LINE Pay');
-    expect(paymentMethodLabel('credit_card_online', '信用卡(線上)')).toBe('信用卡(網路)');
+    expect(paymentMethodLabel('credit_card_online', '信用卡(線上)')).toBe('官網刷卡');
     expect(paymentMethodLabel('gift_card', '禮券')).toBe('禮券');
     expect(paymentMethodLabel('gift_card')).toBe('gift_card');
   });

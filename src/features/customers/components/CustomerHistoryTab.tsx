@@ -175,9 +175,9 @@ export function CustomerHistoryTab({ customerId }: CustomerHistoryTabProps) {
       case 'bank_transfer_ubot':
         return <Badge color="purple">轉帳(聯邦)</Badge>;
       case 'credit_card_physical':
-        return <Badge color="cyan">信用卡(實體)</Badge>;
+        return <Badge color="cyan">信用卡</Badge>;
       case 'credit_card_online':
-        return <Badge color="cyan">信用卡(網路)</Badge>;
+        return <Badge color="cyan">官網刷卡</Badge>;
       case 'line_pay':
         return <Badge color="amber">LINE Pay</Badge>;
       case 'cod':

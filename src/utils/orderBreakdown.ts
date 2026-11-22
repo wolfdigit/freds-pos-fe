@@ -14,6 +14,8 @@ export interface OrderAmountBreakdown {
   priceAdjustment: number;
   /** 點數折抵 = 有點數旗標的列 Σ（原價 − 成交單價）× 數量，整個差額都算點數（與後端相同）。退貨為負。 */
   pointsDiscount: number;
+  /** 成交小計 = Σ 成交單價 × 數量 = originalTotal + priceAdjustment − pointsDiscount。 */
+  finalTotal: number;
 }
 
 function lineDifference(line: BreakdownLine): number {
@@ -34,5 +36,6 @@ export function orderAmountBreakdown(lines: readonly BreakdownLine[]): OrderAmou
     originalTotal: safeAdd(charged, -priceAdjustment, pointsDiscount),
     priceAdjustment,
     pointsDiscount,
+    finalTotal: charged,
   };
 }
