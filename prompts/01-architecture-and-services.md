@@ -17,22 +17,21 @@ src/
 │   └── feedback/            # Toast 提示、Loading Spinner、確認對話框
 ├── features/                # 業務功能模組 (按核心領域劃分)
 │   ├── checkout/            # 出單 / 結帳櫃檯
-│   │   ├── components/      # 購物車清單、改價彈窗、帶入預購抽屜、組合支付面板
+│   │   ├── components/      # 購物車清單、改價彈窗、組合支付面板
 │   │   └── hooks/           # useCart, useCheckout, useBarcodeScanner
 │   ├── inventory/           # 商品及庫存管理
 │   │   ├── components/      # 商品表格、多地點庫存檢視、調撥彈窗、商品建檔表單
 │   │   └── hooks/           # useProductList, useStockTransfer
 │   └── customers/           # 客戶會員
-│       ├── components/      # 客戶詳情卡、未結預購單表格、消費歷史紀錄
+│       ├── components/      # 客戶詳情卡、消費歷史紀錄
 │       └── hooks/           # useCustomerSearch
 ├── services/                # 領域服務層 (DDD Service Layer)
 │   ├── interfaces/          # 核心 Service 介面定義 (IProductService 等)
 │   ├── mock/                # Mock 實作 (LocalStorage 驅動，未來抽換為 HTTP)
-│   │   ├── mockDataSeed.ts  # 初始示範資料種子 (商品、預訂單、客戶、歷史結帳單)
+│   │   ├── mockDataSeed.ts  # 初始示範資料種子 (商品、客戶、歷史結帳單)
 │   │   ├── storageHelper.ts # LocalStorage 讀寫與版本控管工具
 │   │   ├── mockProductService.ts
 │   │   ├── mockCheckoutService.ts
-│   │   ├── mockPreOrderService.ts
 │   │   └── mockCustomerService.ts
 │   └── index.ts             # 服務注入點 (統一導出單例 Service 實例)
 ├── store/                   # 全域狀態管理 (Zustand)
@@ -42,7 +41,6 @@ src/
 ├── types/                   # 領域模型型別定義 (對應 02 號文件)
 │   ├── product.ts
 │   ├── inventory.ts         # 庫存調撥請求等跨實體型別
-│   ├── preorder.ts
 │   ├── checkout.ts
 │   └── customer.ts
 └── utils/                   # 工具函式
@@ -81,7 +79,7 @@ export interface IProductService {
   /** 依 ID 取得單一商品 */
   getProductById(id: string): Promise<Product | null>;
   /** 新增商品建檔 */
-  createProduct(product: Omit<Product, 'id' | 'totalStock' | 'preOrderPendingCount' | 'normalizedSku'> & { status?: ProductStatus }): Promise<Product>;
+  createProduct(product: Omit<Product, 'id' | 'totalStock' | 'normalizedSku'> & { status?: ProductStatus }): Promise<Product>;
   /** 跨據點庫存調撥 (門市/倉庫/公司) */
   transferStock(request: InventoryTransferRequest): Promise<boolean>;
   /** 手動單一調整庫存數量 */
@@ -104,28 +102,12 @@ import {
 } from '@/types/checkout';
 
 export interface ICheckoutService {
-  /** 建立結帳單（含購買、瑕疵換貨、退貨），並原子執行扣減/回補庫存、沖銷預購單、累計會員點數 */
+  /** 建立結帳單（含購買、瑕疵換貨、退貨），並原子執行扣減/回補庫存、累計會員點數 */
   createCheckoutOrder(payload: CreateOrderPayload, idempotencyKey?: string): Promise<CheckoutReceipt>;
   /** 查詢歷史結帳單 (支援會員 ID、單號、商品 ID、關鍵字、日期範圍) */
   getOrderHistory(params?: OrderSearchParams | string): Promise<CheckoutOrder[]>;
   /** 依 ID 取得單一結帳單（補印收據 / 查看退貨狀態用） */
   getOrderById(orderId: string): Promise<CheckoutOrder | null>;
-}
-```
-
-```typescript
-// src/services/interfaces/IPreOrderService.ts
-import { PreOrder } from '@/types/preorder';
-
-export interface IPreOrderService {
-  /** 依客戶電話或單號搜尋未結預購單 */
-  getPendingPreOrders(query: string): Promise<PreOrder[]>;
-  /** 沖銷預購單數量 (在結帳完成時調用) */
-  fulfillPreOrderItems(preOrderId: string, fulfilledItems: { productId: string; qty: number }[]): Promise<boolean>;
-  /** 建立新預購單 */
-  createPreOrder(preOrder: Partial<PreOrder>): Promise<PreOrder>;
-  /** [Phase 2] 標記預購品項到貨數量（更新 qtyArrived） */
-  markItemsArrived?(preOrderId: string, arrivedItems: { productId: string; qty: number }[]): Promise<boolean>;
 }
 ```
 
@@ -159,14 +141,13 @@ export interface ICustomerService {
    - 提供全域 `resetDemoData()` 函式，清除 LocalStorage 並重新寫入預設示範資料。
 3. **資料一致性 (Transactional Emulation)**：
    - 當 `createCheckoutOrder` 執行時，必須在 Mock 內部**同步扣減對應商品的庫存**。
-   - 若該品項關聯 `preOrderId`，必須**同步扣減預購單的未取數量**，並將預購單狀態依情況更新為 `partially_completed` 或 `completed`。
    - 這能確保業主在結帳完畢後，切換到「商品及庫存」或「客戶會員」頁面時，能親眼看見數據已被即時更新！
 
 ### 3.1 狀態持久化策略 (Persistence Strategy)
 
 | 資料類型 | 持久化方式 | localStorage Key 範例 | 備註 |
 | :--- | :--- | :--- | :--- |
-| 商品、預購單、客戶、歷史結帳單 | Service → `storageHelper` | `FREDS_POS_PRODUCTS`、`FREDS_POS_ORDERS` 等 | 首次啟動寫入 seed |
+| 商品、客戶、歷史結帳單 | Service → `storageHelper` | `FREDS_POS_PRODUCTS`、`FREDS_POS_ORDERS` 等 | 首次啟動寫入 seed |
 | 購物車 (`cartStore`) | Zustand `persist` middleware | `FREDS_POS_CART` | refresh 後購物車不遺失 |
 | 門市 / 店員 (`sessionStore`) | Zustand `persist` middleware | `FREDS_POS_SESSION` | 固定示範用店員資訊 |
 | UI 暫態 (`uiStore`) | **不持久化** | — | Modal 開合、當前編輯品項等 |
@@ -212,8 +193,6 @@ interface CartItem {
   isManualPrice: boolean;   // 是否手動改價過
   priceChangeReason?: string;
   quantity: number;         // 購買數量 (支援負數退貨，如 -1)
-  preOrderId?: string;      // 若來自預購單取貨，記錄預購單號
-  preOrderItemId?: string;
 }
 
 interface CartStore {
@@ -223,7 +202,6 @@ interface CartStore {
   orderNote: string;
   // 操作方法
   addItem: (product: Product, qty?: number) => void;
-  importPreOrderItem: (preOrder: PreOrder, item: PreOrderItem, qty: number) => void;
   updateItemQuantity: (productId: string, newQty: number) => void;
   updateItemPrice: (productId: string, newPrice: number, reason?: string) => void;
   removeItem: (productId: string) => void;
@@ -239,7 +217,6 @@ interface CartStore {
 
 ### 4.2 `uiStore`（介面互動狀態）
 - `activeTab`: `'checkout' | 'inventory' | 'customers'`
-- `isPreOrderDrawerOpen`: boolean
 - `isManualPriceModalOpen`: boolean
 - `isPaymentModalOpen`: boolean
 - `isStockTransferModalOpen`: boolean
@@ -253,13 +230,11 @@ interface CartStore {
 ```typescript
 import { MockProductService } from './mock/mockProductService';
 import { MockCheckoutService } from './mock/mockCheckoutService';
-import { MockPreOrderService } from './mock/mockPreOrderService';
 import { MockCustomerService } from './mock/mockCustomerService';
 
 // 目前使用 Mock 實作，未來只需在此替換為 HttpProductService
 export const productService = new MockProductService();
 export const checkoutService = new MockCheckoutService();
-export const preOrderService = new MockPreOrderService();
 export const customerService = new MockCustomerService();
 ```
 這樣設計保證了所有 UI 元件只需要 `import { checkoutService } from '@/services'`，將實現徹底封裝。

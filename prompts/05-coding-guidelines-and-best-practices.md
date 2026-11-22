@@ -40,7 +40,6 @@ features/checkout/
 │   ├── CartTable.tsx           # 純展示：接收 items, onUpdateQty, onRemove
 │   ├── CartItemRow.tsx         # 單列呈現：商品資訊、改價徽章、按鈕
 │   ├── PriceOverrideModal.tsx  # 改價專用輕量彈窗
-│   ├── PreOrderImportDrawer.tsx# 預購抽屜專用面板
 │   └── PaymentModal.tsx        # 組合支付與找零彈窗
 ├── hooks/
 │   ├── useCartOperations.ts    # 封裝購物車計算與改價邏輯
@@ -100,7 +99,6 @@ export function calculateChange(tendered: number, totalDue: number): {
 
 ### 4.1 全域快速鍵規範 (`src/features/checkout/hooks/useKeyboardShortcuts.ts`)
 - **`F2` 或 `/`**：將游標自動聚焦至商品搜尋輸入框，並全選內容。
-- **`F4`**：直接開啟「快速帶入未結預購單」抽屜。
 - **`F9` 或 `Space` (在購物車非輸入狀態下)**：直接開啟「付款與結帳」視窗。
 - **`ESC`**：關閉目前任何開啟的彈窗或抽屜，返回主結帳畫面。
 - **`Enter`**：在搜尋下拉列表中選中第一個匹配商品並加入購物車。
@@ -121,7 +119,7 @@ USB / 藍芽條碼槍實質上為鍵盤模擬輸入設備（快速輸入一串�
 3. **資料重置確認**：
    - 點擊「重置示範資料」時，必須彈出二次確認對話框，避免展示時不小心誤觸清除。
 4. **Service 業務錯誤**：
-   - 統一使用 `BusinessError`（見 `04` §7），以 Toast 元件呈現，**禁止** `alert()` 或 `console.error` 代替使用者提示。
+   - 統一使用 `BusinessError`（見 `04` §6），以 Toast 元件呈現，**禁止** `alert()` 或 `console.error` 代替使用者提示。
 5. **localStorage 損壞**：
    - `storageHelper` 讀取失敗時自動呼叫 `resetDemoData()`，並 Toast 提示「示範資料已自動還原」。
 
@@ -141,16 +139,6 @@ USB / 藍芽條碼槍實質上為鍵盤模擬輸入設備（快速輸入一串�
 5. 確認結帳 → 檢視收據預覽（應找零 $1,000）
 ```
 
-### 情境 B — 預購客戶部分取貨
-
-```
-1. F4 開啟預購抽屜
-2. 輸入電話「0912345678」→ 帶出陳冠宇
-3. 展開 PO-202607-0019 → R34 本次領取 1 台 → [帶入結帳清單]
-4. 確認購物車顯示 [預購取貨] 徽章，單價 $6,900
-5. 刷卡結帳 → 完成後至客戶會員頁確認預購單狀態變為 partially_completed
-```
-
 ### 情境 C — 庫存調撥後結帳
 
 ```
@@ -164,7 +152,7 @@ USB / 藍芽條碼槍實質上為鍵盤模擬輸入設備（快速輸入一串�
 
 ```
 1. 切換至「客戶會員」
-2. 選擇「極速模型工作室」→ 分頁 B「歷史結帳紀錄」
+2. 選擇「極速模型工作室」→「歷史結帳紀錄」
 3. 點擊 SO-20260818-0063 → [補印收據] → 檢視組合支付明細
 ```
 
@@ -172,9 +160,6 @@ USB / 藍芽條碼槍實質上為鍵盤模擬輸入設備（快速輸入一串�
 
 | 用途 | 電話 / 貨號 / 單號 |
 | :--- | :--- |
-| 部分到貨預購客戶 | 電話 `0912345678`（陳冠宇） |
-| 未到貨預購客戶 | 電話 `0988765432`（林俊宏） |
-| 已部分領取預購客戶 | 電話 `0933112233`（極速模型工作室） |
 | 門市缺貨需調撥 | 貨號 `MC-155021020` |
 | 去 Dash 搜尋測試 | 輸入 `AA79121` 應匹配 `AA-79121` |
 
@@ -183,8 +168,8 @@ USB / 藍芽條碼槍實質上為鍵盤模擬輸入設備（快速輸入一串�
 ## 7. 命名規範補充 (Naming Conventions)
 
 - UI 中文文案與程式碼識別符對照，以 `04` §0 命名對照表為準。
-- Store action 使用動詞開頭：`addItem`、`importPreOrderItem`、`attachCustomer`。
-- Modal / Drawer 元件以功能命名：`PaymentModal`、`PreOrderImportDrawer`（不用 `Modal1`、`Drawer2`）。
+- Store action 使用動詞開頭：`addItem`、`attachCustomer`。
+- Modal / Drawer 元件以功能命名：`PaymentModal`、`PriceOverrideModal`（不用 `Modal1`、`Modal2`）。
 - Service 方法回傳 `Promise`，命名用 `get*` / `create*` / `search*` 前綴。
 - `PaymentMethodType` 的 `'cod'` 保留於型別但不實作 UI，避免與結帳櫃檯的 `createCheckoutOrder` 混淆。
 
