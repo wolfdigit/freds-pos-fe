@@ -105,28 +105,28 @@ function writeMovement(movement: InventoryMovement): void {
   localStorage.setItem(MOVEMENTS_STORAGE_KEY, JSON.stringify([movement, ...current]));
 }
 
+async function matchingProducts(params: ProductSearchParams): Promise<Product[]> {
+  const products = await presentAll(await scopedProducts(getProducts(), params.allProducts));
+  const keyword = params.keyword?.trim() ?? '';
+
+  return products.filter((product) => {
+    if (keyword) {
+      const matchesSku = isSkuMatch(keyword, product.sku, product.barcode);
+      const matchesName = product.name.toLowerCase().includes(keyword.toLowerCase());
+      const matchesBrand = product.brand.toLowerCase().includes(keyword.toLowerCase());
+      if (!matchesSku && !matchesName && !matchesBrand) return false;
+    }
+    if (params.scale && params.scale !== 'ALL' && product.scale !== params.scale) return false;
+    if (params.brand && params.brand !== 'ALL' && product.brand !== params.brand) return false;
+    if (params.inInventoryOnly && product.totalInventory <= 0) return false;
+    return matchesStockFilters(product, params);
+  });
+}
+
 export class MockProductService implements IProductService {
-  async searchProducts(params: ProductSearchParams): Promise<Product[]> {
-    await simulateDelay();
-    const products = await presentAll(await scopedProducts(getProducts(), params.allProducts));
-    const keyword = params.keyword?.trim() ?? '';
-
-    return products.filter((product) => {
-      if (keyword) {
-        const matchesSku = isSkuMatch(keyword, product.sku, product.barcode);
-        const matchesName = product.name.toLowerCase().includes(keyword.toLowerCase());
-        const matchesBrand = product.brand.toLowerCase().includes(keyword.toLowerCase());
-        if (!matchesSku && !matchesName && !matchesBrand) return false;
-      }
-      if (params.scale && params.scale !== 'ALL' && product.scale !== params.scale) return false;
-      if (params.brand && params.brand !== 'ALL' && product.brand !== params.brand) return false;
-      if (params.inInventoryOnly && product.totalInventory <= 0) return false;
-      return matchesStockFilters(product, params);
-    });
-  }
-
   async searchProductPage(params: ProductPageParams): Promise<ProductPage> {
-    const all = (await this.searchProducts(params)).sort((a, b) => a.sku.localeCompare(b.sku));
+    await simulateDelay();
+    const all = (await matchingProducts(params)).sort((a, b) => a.sku.localeCompare(b.sku));
     const start = (params.page - 1) * params.pageSize;
     return {
       items: all.slice(start, start + params.pageSize),

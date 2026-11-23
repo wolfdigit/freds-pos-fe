@@ -4,12 +4,10 @@ import type { Product, ProductPage, ProductPageParams } from '@/types/product';
 
 const searchProductPage = vi.fn();
 const getProductsByBarcode = vi.fn();
-const searchProducts = vi.fn();
 vi.mock('@/services', () => ({
   productService: {
     searchProductPage: (...args: unknown[]) => searchProductPage(...args),
     getProductsByBarcode: (...args: unknown[]) => getProductsByBarcode(...args),
-    searchProducts: (...args: unknown[]) => searchProducts(...args),
   },
 }));
 vi.mock('../hooks/useLocations', () => ({ useLocations: () => ({ locations: [] }) }));
@@ -81,8 +79,6 @@ describe('RestockModal 商品搜尋', () => {
     fireEvent.click(screen.getByRole('button', { name: '載入更多' }));
     expect(await screen.findByText('已顯示 100 / 共 120 項')).toBeInTheDocument();
     expect(searchProductPage).toHaveBeenLastCalledWith({ keyword: 'QA', page: 2, pageSize: 50 });
-    // 不再一次載入全部商品。
-    expect(searchProducts).not.toHaveBeenCalled();
   });
 
   it('skips the store product list only when the inventory page shows all products', async () => {

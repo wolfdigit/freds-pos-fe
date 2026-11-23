@@ -33,7 +33,7 @@ describe('shared GET requests', () => {
         if (url.pathname.endsWith('/system/stores') && (init?.method ?? 'GET') === 'GET') return json([store]);
         if (url.pathname.includes('/system/stores')) return json(store);
         if (url.pathname.includes('/inventory/locations')) return json({ deleted: true });
-        return json([{ id: 'p1', inventories: [], loginStoreQuantity: 1 }]);
+        return json({ items: [{ id: 'p1', inventories: [], loginStoreQuantity: 1 }], page: 1, pageSize: 50, total: 1 });
       })
     );
   });
@@ -46,22 +46,28 @@ describe('shared GET requests', () => {
   it('merges identical product searches that are in flight at the same time', async () => {
     const service = new HttpProductService();
     const [a, b] = await Promise.all([
-      service.searchProducts({}),
-      service.searchProducts({ keyword: '', brand: 'ALL' }),
+      service.searchProductPage({ page: 1, pageSize: 50 }),
+      service.searchProductPage({ keyword: '', brand: 'ALL', page: 1, pageSize: 50 }),
     ]);
-    expect(calls).toEqual(['GET /api/v1/products']);
+    expect(calls).toEqual(['GET /api/v1/products?page=1&pageSize=50']);
     expect(a).toEqual(b);
     expect(a).not.toBe(b);
 
     // 只合併進行中的請求，結束後再查會重新打 API，庫存不會是舊的。
-    await service.searchProducts({});
+    await service.searchProductPage({ page: 1, pageSize: 50 });
     expect(calls).toHaveLength(2);
   });
 
   it('does not merge different keywords', async () => {
     const service = new HttpProductService();
-    await Promise.all([service.searchProducts({ keyword: 'Q' }), service.searchProducts({ keyword: 'QA' })]);
-    expect(calls).toEqual(['GET /api/v1/products?keyword=Q', 'GET /api/v1/products?keyword=QA']);
+    await Promise.all([
+      service.searchProductPage({ keyword: 'Q', page: 1, pageSize: 50 }),
+      service.searchProductPage({ keyword: 'QA', page: 1, pageSize: 50 }),
+    ]);
+    expect(calls).toEqual([
+      'GET /api/v1/products?keyword=Q&page=1&pageSize=50',
+      'GET /api/v1/products?keyword=QA&page=1&pageSize=50',
+    ]);
   });
 
   it('shares /system/stores between pages for a short time', async () => {

@@ -58,21 +58,24 @@ describe('paged product and stock summary requests', () => {
     expect(result.items.map((p) => p.id)).toEqual(['p3']);
   });
 
-  it('slices the page itself when an older backend ignores paging and returns the whole array', async () => {
-    handler = () => json([row('a'), row('b'), row('c'), row('d'), row('e')]);
-    const result = await new HttpProductService().searchProductPage({ page: 2, pageSize: 2 });
-    expect(result).toMatchObject({ page: 2, pageSize: 2, total: 5 });
-    expect(result.items.map((p) => p.id)).toEqual(['c', 'd']);
+  it('rejects a bare array instead of paging it on the client', async () => {
+    handler = () => json([row('a'), row('b'), row('c')]);
+    await expect(new HttpProductService().searchProductPage({ page: 1, pageSize: 50 })).rejects.toThrow(
+      '商品列表回應不是分頁物件'
+    );
   });
 
-  it('sends stock filters and applies them itself when an older backend returns the whole array', async () => {
+  it('sends stock filters with the page request and keeps the paged body', async () => {
     handler = () =>
-      json([
-        { ...row('a'), loginStoreQuantity: 0, totalInventory: 4 },
-        { ...row('b'), loginStoreQuantity: 3, totalInventory: 3 },
-        { ...row('c'), loginStoreQuantity: 2, totalInventory: 0 },
-        { ...row('d'), loginStoreQuantity: null, totalInventory: 0 },
-      ]);
+      json({
+        items: [
+          { ...row('a'), loginStoreQuantity: 0, totalInventory: 4 },
+          { ...row('c'), loginStoreQuantity: 2, totalInventory: 0 },
+        ],
+        page: 1,
+        pageSize: 50,
+        total: 2,
+      });
     const result = await new HttpProductService().searchProductPage({
       loginStoreQuantityMax: 2,
       page: 1,
@@ -94,8 +97,8 @@ describe('paged product and stock summary requests', () => {
     expect(a).toEqual(b);
   });
 
-  it('looks up same-barcode products by exact barcode and still filters an old full-list reply', async () => {
-    handler = () => json([row('p1', '4710001'), row('p2', '47100012'), row('p3', '4710001')]);
+  it('looks up same-barcode products with an exact barcode query', async () => {
+    handler = () => json([row('p1', '4710001'), row('p3', '4710001')]);
     const result = await new HttpProductService().getProductsByBarcode(' 4710001 ');
     expect(calls).toEqual(['GET /api/v1/products?barcode=4710001']);
     expect(result.map((p) => p.id)).toEqual(['p1', 'p3']);
@@ -110,32 +113,12 @@ describe('paged product and stock summary requests', () => {
     expect(calls).toEqual(['GET /api/v1/inventory/locations/summary']);
   });
 
-  it('falls back to summing /products when the backend has no summary endpoint yet', async () => {
-    handler = (url) => {
-      if (url.pathname.endsWith('/inventory/locations/summary')) return json({ detail: 'Method Not Allowed' }, 405);
-      if (url.pathname.endsWith('/inventory/locations')) {
-        return json([
-          { id: 'loc-1', name: '門市', displayOrder: 1 },
-          { id: 'loc-2', name: '倉庫', displayOrder: 2 },
-        ]);
-      }
-      return json([
-        row('a', 'a', [
-          { location: 'loc-1', locationName: '門市', quantity: 5 },
-          { location: 'loc-2', locationName: '倉庫', quantity: -1 },
-        ]),
-        row('b', 'b', [{ location: 'loc-1', locationName: '門市', quantity: 0 }]),
-      ]);
-    };
-    const result = await new HttpLocationService().getStockSummary();
-    expect(result).toEqual([
-      { locationId: 'loc-1', locationName: '門市', totalQuantity: 5, productCount: 1, hasNonZeroStock: true },
-      { locationId: 'loc-2', locationName: '倉庫', totalQuantity: -1, productCount: 1, hasNonZeroStock: true },
-    ]);
-    expect(calls).toContain('GET /api/v1/products');
-  });
+  it('propagates summary errors, including a missing endpoint', async () => {
+    handler = () => json({ detail: 'Method Not Allowed' }, 405);
+    await expect(new HttpLocationService().getStockSummary()).rejects.toMatchObject({ status: 405 });
+    expect(calls).toEqual(['GET /api/v1/inventory/locations/summary']);
 
-  it('does not hide other summary errors behind the fallback', async () => {
+    calls.length = 0;
     handler = () => json({ detail: 'boom' }, 500);
     await expect(new HttpLocationService().getStockSummary()).rejects.toMatchObject({ status: 500 });
     expect(calls).toEqual(['GET /api/v1/inventory/locations/summary']);
