@@ -1,5 +1,5 @@
 import type { IProductService } from '@/services/interfaces/IProductService';
-import { STOCK_FILTER_KEYS, productAvailability } from '@/types/product';
+import { MAX_PRODUCT_PAGE_SIZE, STOCK_FILTER_KEYS, productAvailability } from '@/types/product';
 import type {
   CartProductAvailability,
   Product,
@@ -98,12 +98,15 @@ export class HttpProductService implements IProductService {
     return readProductPage(await sharedProductGet<unknown>(productsEndpoint(query)), params);
   }
 
-  async getProductsByBarcode(barcode: string): Promise<Product[]> {
+  async getProductsByBarcode(barcode: string, options?: { allProducts?: boolean }): Promise<Product[]> {
     const code = barcode.trim();
     if (!code) return [];
-    const query = new URLSearchParams({ barcode: code });
-    const rows = await sharedProductGet<Product[]>(productsEndpoint(query));
-    return (rows || []).map(mapProduct);
+    const params = { page: 1, pageSize: MAX_PRODUCT_PAGE_SIZE, ...(options?.allProducts ? { allProducts: true } : {}) };
+    const query = filterQuery(params);
+    query.set('barcode', code);
+    query.set('page', String(params.page));
+    query.set('pageSize', String(params.pageSize));
+    return readProductPage(await sharedProductGet<unknown>(productsEndpoint(query)), params).items;
   }
 
   async getProductById(id: string): Promise<Product | null> {

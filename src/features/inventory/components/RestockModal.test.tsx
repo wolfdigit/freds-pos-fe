@@ -96,7 +96,7 @@ describe('RestockModal 商品搜尋', () => {
     fireEvent.change(input(), { target: { value: '4710000000028' } });
     fireEvent.keyDown(input(), { key: 'Enter' });
     await waitFor(() => expect(toasts()).toContain('已加入進貨: NEW-2 (1台)'));
-    expect(getProductsByBarcode).toHaveBeenCalledWith('4710000000028');
+    expect(getProductsByBarcode).toHaveBeenCalledWith('4710000000028', undefined);
     expect(screen.getByText('待入庫進貨批次清單 (1 項)')).toBeInTheDocument();
     expect(input()).toHaveValue('');
   });

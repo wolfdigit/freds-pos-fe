@@ -93,7 +93,7 @@ describe('checkout search Enter', () => {
       outcome = await result.current.resolve();
     });
     expect(outcome).toEqual({ query: '4710000000028', product: expect.objectContaining({ sku: 'NEW-2' }) });
-    expect(barcodeSpy).toHaveBeenCalledWith('4710000000028');
+    expect(barcodeSpy).toHaveBeenCalledWith('4710000000028', undefined);
   });
 
   it('looks up a typed SKU with a fresh search when results are still loading', async () => {

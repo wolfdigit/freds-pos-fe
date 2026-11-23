@@ -68,6 +68,7 @@ describe('mock store product list', () => {
     login(POPUP);
     expect(skus((await products.searchProductPage({ page: 1, pageSize: 50 })).items)).toEqual(['A', 'B', 'D']);
     expect(skus(await products.getProductsByBarcode('BAR-C'))).toEqual([]);
+    expect(skus(await products.getProductsByBarcode('BAR-C', { allProducts: true }))).toEqual(['C']);
     expect((await products.getProductById('prod-C'))?.soldInLoginStore).toBe(false);
     expect(await products.checkProductAvailability('prod-C')).toBe('notInStore');
     expect(await products.checkProductAvailability('prod-A')).toBe('available');

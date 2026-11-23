@@ -136,11 +136,13 @@ export class MockProductService implements IProductService {
     };
   }
 
-  async getProductsByBarcode(barcode: string): Promise<Product[]> {
+  async getProductsByBarcode(barcode: string, options?: { allProducts?: boolean }): Promise<Product[]> {
     const code = barcode.trim();
     if (!code) return [];
     await simulateDelay();
-    return presentAll(await scopedProducts(getProducts().filter((product) => product.barcode === code)));
+    return presentAll(
+      await scopedProducts(getProducts().filter((product) => product.barcode === code), options?.allProducts)
+    );
   }
 
   async getProductById(id: string): Promise<Product | null> {

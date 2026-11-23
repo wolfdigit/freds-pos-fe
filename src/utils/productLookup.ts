@@ -29,20 +29,20 @@ export interface ExactLookupResult {
  * 掃條碼 / 輸入貨號的完全比對。**不套用任何品牌、比例篩選**，只跟著登入門市的商品清單
  * （後端 GET /products 已處理；allProducts 時略過清單）。
  *
- * 1. 先用條碼查（GET /products?barcode=，最便宜）。
+ * 1. 先用條碼查（GET /products?barcode=&page=&pageSize=，最便宜；allProducts 時一併帶上）。
  * 2. 查不到再用關鍵字搜尋第一頁（最多 MAX_PRODUCT_PAGE_SIZE 筆），挑條碼或貨號完全相符的。
  */
 export async function findExactProduct(query: string, options: ExactLookupOptions = {}): Promise<ExactLookupResult> {
   const code = query.trim();
   if (!code) return { exact: null, page: null };
   const isExact = exactProductMatcher(code);
-  if (!options.allProducts) {
-    try {
-      const byBarcode = (await productService.getProductsByBarcode(code)).find(isExact);
-      if (byBarcode) return { exact: byBarcode, page: null };
-    } catch {
-      // 條碼查詢失敗就繼續用關鍵字找。
-    }
+  try {
+    const byBarcode = (
+      await productService.getProductsByBarcode(code, options.allProducts ? { allProducts: true } : undefined)
+    ).find(isExact);
+    if (byBarcode) return { exact: byBarcode, page: null };
+  } catch {
+    // 條碼查詢失敗就繼續用關鍵字找。
   }
   try {
     const page = await productService.searchProductPage({

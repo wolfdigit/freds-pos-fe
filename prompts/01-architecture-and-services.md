@@ -77,7 +77,7 @@ export interface IProductService {
   /** 分頁搜尋商品（支援條碼、貨號無 dash 比對、車型名稱） */
   searchProductPage(params: ProductPageParams): Promise<ProductPage>;
   /** 條碼完全相符的商品（同條碼的其他貨號） */
-  getProductsByBarcode(barcode: string): Promise<Product[]>;
+  getProductsByBarcode(barcode: string, options?: { allProducts?: boolean }): Promise<Product[]>;
   /** 依 ID 取得單一商品 */
   getProductById(id: string): Promise<Product | null>;
   /** 新增商品建檔 */

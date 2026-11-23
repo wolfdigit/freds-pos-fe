@@ -97,13 +97,20 @@ describe('paged product and stock summary requests', () => {
     expect(a).toEqual(b);
   });
 
-  it('looks up same-barcode products with an exact barcode query', async () => {
-    handler = () => json([row('p1', '4710001'), row('p3', '4710001')]);
+  it('looks up same-barcode products with a paged exact barcode query', async () => {
+    handler = () => json({ items: [row('p1', '4710001'), row('p3', '4710001')], page: 1, pageSize: 200, total: 2 });
     const result = await new HttpProductService().getProductsByBarcode(' 4710001 ');
-    expect(calls).toEqual(['GET /api/v1/products?barcode=4710001']);
+    expect(calls).toEqual(['GET /api/v1/products?barcode=4710001&page=1&pageSize=200']);
     expect(result.map((p) => p.id)).toEqual(['p1', 'p3']);
     expect(await new HttpProductService().getProductsByBarcode('  ')).toEqual([]);
     expect(calls).toHaveLength(1);
+  });
+
+  it('sends allProducts with the paged barcode query when asked', async () => {
+    handler = () => json({ items: [row('p9', '4710001')], page: 1, pageSize: 200, total: 1 });
+    const result = await new HttpProductService().getProductsByBarcode('4710001', { allProducts: true });
+    expect(calls).toEqual(['GET /api/v1/products?allProducts=true&barcode=4710001&page=1&pageSize=200']);
+    expect(result.map((p) => p.id)).toEqual(['p9']);
   });
 
   it('reads the per-location summary without fetching products', async () => {
