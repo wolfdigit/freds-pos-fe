@@ -497,7 +497,8 @@ export function SettingsPage() {
 
         {/* 2. 門市基本設定模組 (僅增刪門市清單) */}
         {activeSection === 'store_info' && canManageStores && (
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-6 max-w-2xl">
+          <div data-testid="store-info-scroll" className="flex-1 min-h-0 overflow-y-auto pr-1 pb-2">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-6 space-y-6 max-w-2xl">
             <div>
               <h3 className="text-lg font-bold text-zinc-100 flex items-center gap-2">
                 <span>門市清單管理</span>
@@ -665,14 +666,19 @@ export function SettingsPage() {
               })}
             </div>
           </div>
+          </div>
         )}
 
         {activeSection === 'store_products' && (
-          <StoreProductListPanel currentStoreName={storeName} />
+          <div data-testid="store-products-scroll" className="flex-1 min-h-0 overflow-y-auto pr-1 pb-2">
+            <StoreProductListPanel currentStoreName={storeName} />
+          </div>
         )}
 
         {activeSection === 'security' && canManageWhitelist && (
-          <WhitelistAccountsPanel actorEmail={oauthUser.email || ''} actorRole={userRole} />
+          <div data-testid="security-accounts-scroll" className="flex-1 min-h-0 overflow-y-auto pr-1 pb-2">
+            <WhitelistAccountsPanel actorEmail={oauthUser.email || ''} actorRole={userRole} />
+          </div>
         )}
       </div>
 
