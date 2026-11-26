@@ -45,7 +45,8 @@ export function ProductDetailModal({
   zIndexClassName,
 }: ProductDetailModalProps) {
   const storeName = useSessionStore((s) => s.storeName);
-  const { locations } = useLocations();
+  // 結帳頁一直掛著這個視窗；打開時才讀庫存地點，不在每次進結帳頁時多打一次 API。
+  const { locations } = useLocations({ enabled: open });
   const [activeProduct, setActiveProduct] = useState<Product | null>(product);
   const [siblingProducts, setSiblingProducts] = useState<Product[]>([]);
   const [siblingsLoading, setSiblingsLoading] = useState(false);

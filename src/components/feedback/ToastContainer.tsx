@@ -16,6 +16,8 @@ export function ToastContainer() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
+          // 點提示關閉時不要讓輸入框失焦（例如結帳頁的條碼輸入框）。
+          onMouseDown={(event) => event.preventDefault()}
           onClick={() => dismissToast(toast.id)}
           className={cn(
             'cursor-pointer rounded-lg border px-4 py-3 text-sm shadow-lg',

@@ -110,4 +110,16 @@ describe('ProductDetailModal inventory breakdown', () => {
     expect(screen.queryByText('門市現貨 4')).not.toBeInTheDocument();
     expect(screen.queryByText('公司總倉 10')).not.toBeInTheDocument();
   });
+
+  it('does not load locations while closed, and loads them once opened', async () => {
+    const getLocations = vi.mocked(locationService.getLocations);
+    const { rerender } = render(<ProductDetailModal open={false} product={null} onClose={vi.fn()} />);
+    rerender(<ProductDetailModal open={false} product={SAMPLE_PRODUCT} onClose={vi.fn()} />);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(getLocations).not.toHaveBeenCalled();
+
+    rerender(<ProductDetailModal open product={SAMPLE_PRODUCT} onClose={vi.fn()} />);
+    await waitFor(() => expect(getLocations).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText('門市預購保留・系統預購保留')).toBeInTheDocument();
+  });
 });
