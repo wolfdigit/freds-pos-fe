@@ -97,9 +97,13 @@ describe('useProductList', () => {
   });
 
   it('keeps a newly created product visible even when it is not on a loaded page', async () => {
-    vi.spyOn(productService, 'searchProductPage').mockImplementation(async (params) => pageOf(params));
-    const created = product('zzz-new');
-    vi.spyOn(productService, 'getProductById').mockResolvedValue({ ...created, name: 'fresh' } as Product);
+    const created = { ...product('zzz-new'), barcode: 'BC-NEW' } as Product;
+    const paged = vi.spyOn(productService, 'searchProductPage').mockImplementation(async (params) =>
+      params.keyword === 'zzz-new'
+        ? { items: [{ ...created, name: 'fresh' } as Product], page: 1, pageSize: params.pageSize, total: 1 }
+        : pageOf(params)
+    );
+    const byId = vi.spyOn(productService, 'getProductById');
     const { result } = renderHook(() => useProductList());
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
@@ -111,5 +115,51 @@ describe('useProductList', () => {
     });
     expect(result.current.products[0]).toMatchObject({ id: 'zzz-new', name: 'fresh' });
     expect(result.current.products).toHaveLength(51);
+    // 用列表 API 重讀（登入門市不帶 storeName），不用 GET /products/{id}。
+    expect(paged).toHaveBeenCalledWith({ keyword: 'zzz-new', allProducts: true, page: 1, pageSize: 200 });
+    expect(byId).not.toHaveBeenCalled();
+  });
+
+  it('refreshes pinned products with the selected store, falling back to the barcode, unlisted included', async () => {
+    const created = { ...product('zzz-new'), barcode: 'BC-NEW', name: 'created' } as Product;
+    const paged = vi.spyOn(productService, 'searchProductPage').mockImplementation(async (params) =>
+      params.keyword === 'zzz-new' ? { items: [], page: 1, pageSize: params.pageSize, total: 0 } : pageOf(params)
+    );
+    const byBarcode = vi
+      .spyOn(productService, 'getProductsByBarcode')
+      .mockResolvedValue([{ ...created, name: 'popup', soldInLoginStore: false } as Product]);
+    const { result } = renderHook(() => useProductList({ scope: { storeName: '台南快閃店' } }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => result.current.pinProduct(created));
+    // 建立後馬上改用所選門市的資料（不在清單也留著，標示未販售）。
+    await waitFor(() => expect(result.current.products[0]).toMatchObject({ name: 'popup', soldInLoginStore: false }));
+    expect(paged).toHaveBeenCalledWith({
+      keyword: 'zzz-new',
+      storeName: '台南快閃店',
+      allProducts: true,
+      page: 1,
+      pageSize: 200,
+    });
+    expect(byBarcode).toHaveBeenCalledWith('BC-NEW', { storeName: '台南快閃店', allProducts: true });
+  });
+
+  it('drops a pinned product that is gone, but keeps it when the refresh fails', async () => {
+    const gone = { ...product('zzz-gone'), barcode: '' } as Product;
+    const flaky = { ...product('zzz-flaky'), barcode: '' } as Product;
+    vi.spyOn(productService, 'searchProductPage').mockImplementation(async (params) => {
+      if (params.keyword === 'zzz-gone') return { items: [], page: 1, pageSize: params.pageSize, total: 0 };
+      if (params.keyword === 'zzz-flaky') throw new Error('offline');
+      return pageOf(params);
+    });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const { result } = renderHook(() => useProductList({ scope: { allProducts: true } }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    act(() => {
+      result.current.pinProduct(gone);
+      result.current.pinProduct(flaky);
+    });
+    await waitFor(() => expect(result.current.products.some((row) => row.id === 'zzz-gone')).toBe(false));
+    expect(result.current.products[0].id).toBe('zzz-flaky');
   });
 });

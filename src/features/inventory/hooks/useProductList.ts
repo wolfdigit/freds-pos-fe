@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { storeScopeParams, type Product, type ProductSearchParams, type ProductStoreScope } from '@/types/product';
+import {
+  MAX_PRODUCT_PAGE_SIZE,
+  storeScopeParams,
+  type Product,
+  type ProductSearchParams,
+  type ProductStoreScope,
+} from '@/types/product';
 import { productService } from '@/services';
 import { useSessionStore } from '@/store/sessionStore';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -17,6 +23,27 @@ export interface ProductListOptions {
   keepVisible?: Product[];
   /** 看哪間門市的商品清單：storeName（不帶 = 登入門市）或 allProducts（全部商品）。 */
   scope?: ProductStoreScope;
+}
+
+/**
+ * 重新讀一筆固定顯示的商品，數字跟頁面同一間門市：用列表 API（storeName 跟頁面一樣），
+ * 一律帶 allProducts，所以不在所選門市清單的新商品也讀得到，並標示「未販售」。
+ * 先用貨號關鍵字找，找不到再用條碼完全比對，最後用 id 對回同一筆。
+ * 回 null：商品已不在列表（例如已刪除）；查詢失敗時丟出錯誤，呼叫端保留原本那筆。
+ */
+export async function refreshPinnedProduct(product: Product, scope: ProductStoreScope): Promise<Product | null> {
+  const lookup: ProductStoreScope = { ...storeScopeParams({ storeName: scope.storeName }), allProducts: true };
+  const page = await productService.searchProductPage({
+    keyword: product.sku,
+    ...lookup,
+    page: 1,
+    pageSize: MAX_PRODUCT_PAGE_SIZE,
+  });
+  const bySku = page.items.find((row) => row.id === product.id);
+  if (bySku) return bySku;
+  if (!product.barcode) return null;
+  const byBarcode = await productService.getProductsByBarcode(product.barcode, lookup);
+  return byBarcode.find((row) => row.id === product.id) ?? null;
 }
 
 /** 庫存頁商品清單：關鍵字、門市清單與庫存狀況都在後端篩選，分頁載入。 */
@@ -42,21 +69,45 @@ export function useProductList(options: ProductListOptions = {}) {
     setPinned([]);
   }, [searchKeyword, stockKey, scopeKey]);
 
-  const pinProduct = useCallback((product: Product) => {
-    setPinned((current) => [product, ...current.filter((row) => row.id !== product.id)]);
-  }, []);
+  const refreshOne = useCallback(
+    async (product: Product): Promise<Product | null> => {
+      try {
+        return await refreshPinnedProduct(product, JSON.parse(scopeKey) as ProductStoreScope);
+      } catch (err) {
+        console.error('Failed to refresh pinned product:', err);
+        return product;
+      }
+    },
+    [scopeKey]
+  );
+
+  // 剛建立的商品先用建立回應顯示，再改用所選門市的數字（建立回應是登入門市的）。
+  const pinProduct = useCallback(
+    (product: Product) => {
+      setPinned((current) => [product, ...current.filter((row) => row.id !== product.id)]);
+      void refreshOne(product).then((fresh) => {
+        setPinned((current) => {
+          if (!current.some((row) => row.id === product.id)) return current;
+          return fresh
+            ? current.map((row) => (row.id === product.id ? fresh : row))
+            : current.filter((row) => row.id !== product.id);
+        });
+      });
+    },
+    [refreshOne]
+  );
 
   const { reload: reloadPages } = paged;
   const reload = useCallback(async () => {
     try {
-      const refreshPinned = Promise.all(pinned.map((product) => productService.getProductById(product.id)));
+      const refreshPinned = Promise.all(pinned.map((product) => refreshOne(product)));
       await reloadPages();
       const fresh = await refreshPinned;
       setPinned(fresh.filter((product): product is Product => product !== null));
     } catch (err) {
       console.error('Failed to load products:', err);
     }
-  }, [pinned, reloadPages]);
+  }, [pinned, reloadPages, refreshOne]);
 
   const keepVisible = options.keepVisible;
   const products = useMemo(() => {
