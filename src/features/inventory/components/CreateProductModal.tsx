@@ -1,10 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import type { ModelScale, Product, StockLocation, CreateProductRequest } from '@/types/product';
 import { useLocations } from '../hooks/useLocations';
+import {
+  CREATE_PRODUCT_LOCATION_ROLES,
+  formatFeaturedLocationRoles,
+  resolveFeaturedLocations,
+  type FeaturedLocationRole,
+} from '../featuredLocations';
 import { productService } from '@/services';
+import { useSessionStore } from '@/store/sessionStore';
 import { useToastStore } from '@/components/feedback/toastStore';
 import { BusinessError } from '@/utils/errors';
 import { ApiError } from '@/services/api/httpClient';
@@ -18,9 +25,24 @@ interface CreateProductModalProps {
 
 const SCALE_OPTIONS: ModelScale[] = ['1:18', '1:43', '1:64', '1:24', '1:12', '配件周邊'];
 
+const CREATE_ROLE_LABELS: Record<FeaturedLocationRole, string> = {
+  storeSale: '門市出貨',
+  storePreorder: '門市預購保留',
+  storeReturned: '門市退貨',
+  systemCompany: '系統總倉',
+  systemPreorder: '系統預購保留',
+  systemReturned: '系統退貨',
+};
+
 export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = '' }: CreateProductModalProps) {
   const showToast = useToastStore((s) => s.showToast);
-  const { locations } = useLocations();
+  const storeName = useSessionStore((s) => s.storeName);
+  const { locations, isLoading: locationsLoading } = useLocations();
+
+  const featuredLocations = useMemo(
+    () => resolveFeaturedLocations(locations, storeName, CREATE_PRODUCT_LOCATION_ROLES),
+    [locations, storeName]
+  );
 
   const [brand, setBrand] = useState('AutoArt');
   const [sku, setSku] = useState('');
@@ -31,10 +53,8 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
   const [listPrice, setListPrice] = useState('');
   const [note, setNote] = useState('');
 
-  // Initial stock quantities
-  const [storeStock, setStoreStock] = useState('0');
-  const [warehouseStock, setWarehouseStock] = useState('0');
-  const [companyStock, setCompanyStock] = useState('0');
+  // Initial stock quantities keyed by location id
+  const [initialStocks, setInitialStocks] = useState<Record<string, string>>({});
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -52,9 +72,7 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
       setSpec('');
       setListPrice('');
       setNote('');
-      setStoreStock('0');
-      setWarehouseStock('0');
-      setCompanyStock('0');
+      setInitialStocks({});
       setErrors({});
     }
   }, [open, initialKeyword]);
@@ -73,10 +91,6 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
 
     setIsSubmitting(true);
     try {
-      const storeQty = Math.max(0, Number(storeStock) || 0);
-      const warehouseQty = Math.max(0, Number(warehouseStock) || 0);
-      const companyQty = Math.max(0, Number(companyStock) || 0);
-
       const payload: CreateProductRequest = {
         sku: sku.trim(),
         barcode: barcode.trim(),
@@ -90,16 +104,11 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
 
       const created = await productService.createProduct(payload);
 
-      const qtyByName: Record<string, number> = {
-        門市現貨: storeQty,
-        後方倉庫: warehouseQty,
-        公司總倉: companyQty,
-      };
       const initialDrafts: Record<StockLocation, number> = {};
-      locations.forEach((location) => {
-        const qty = qtyByName[location.name];
-        if (qty > 0) initialDrafts[location.id] = qty;
-      });
+      for (const entry of featuredLocations) {
+        const qty = Math.max(0, Number(initialStocks[entry.location.id]) || 0);
+        if (qty > 0) initialDrafts[entry.location.id] = qty;
+      }
       const hasInitialStocks = Object.keys(initialDrafts).length > 0;
 
       if (hasInitialStocks) {
@@ -238,41 +247,61 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
           <label className="mb-2 block text-sm font-medium text-cyan-400">
             初始各地點進貨庫存數量 (建檔後寫入暫存草稿)
           </label>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-2.5">
-              <label htmlFor="create-product-stock-store" className="mb-1 block text-xs text-emerald-400">門市現貨</label>
-              <Input
-                id="create-product-stock-store"
-                monospace
-                type="number"
-                min={0}
-                value={storeStock}
-                onChange={(e) => setStoreStock(e.target.value)}
-              />
+          {featuredLocations.length > 0 ? (
+            <div
+              className={`grid gap-3 ${
+                featuredLocations.length === 3
+                  ? 'grid-cols-3'
+                  : featuredLocations.length === 1
+                    ? 'grid-cols-1'
+                    : 'grid-cols-2'
+              }`}
+            >
+              {featuredLocations.map((entry) => {
+                const isStoreSale = entry.roles.includes('storeSale');
+                const roleLabel = formatFeaturedLocationRoles(entry.roles, CREATE_ROLE_LABELS);
+                const inputId = `create-product-stock-${entry.location.id}`;
+                return (
+                  <div key={entry.location.id} className="rounded-lg border border-zinc-800 bg-zinc-900 p-2.5">
+                    <label
+                      htmlFor={inputId}
+                      className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5"
+                    >
+                      <span
+                        className={`truncate text-base font-bold ${isStoreSale ? 'text-emerald-300' : 'text-zinc-100'}`}
+                        title={entry.location.name}
+                      >
+                        {entry.location.name}
+                      </span>
+                      <span
+                        className={`truncate text-sm ${isStoreSale ? 'text-emerald-300/90' : 'text-zinc-400'}`}
+                        title={roleLabel}
+                      >
+                        {roleLabel}
+                      </span>
+                    </label>
+                    <Input
+                      id={inputId}
+                      monospace
+                      type="number"
+                      min={0}
+                      value={initialStocks[entry.location.id] ?? '0'}
+                      onChange={(e) =>
+                        setInitialStocks((prev) => ({
+                          ...prev,
+                          [entry.location.id]: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                );
+              })}
             </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-2.5">
-              <label htmlFor="create-product-stock-warehouse" className="mb-1 block text-xs text-zinc-400">後方倉庫</label>
-              <Input
-                id="create-product-stock-warehouse"
-                monospace
-                type="number"
-                min={0}
-                value={warehouseStock}
-                onChange={(e) => setWarehouseStock(e.target.value)}
-              />
-            </div>
-            <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-2.5">
-              <label htmlFor="create-product-stock-company" className="mb-1 block text-xs text-zinc-400">公司總倉</label>
-              <Input
-                id="create-product-stock-company"
-                monospace
-                type="number"
-                min={0}
-                value={companyStock}
-                onChange={(e) => setCompanyStock(e.target.value)}
-              />
-            </div>
-          </div>
+          ) : (
+            <p className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2 text-xs text-zinc-500">
+              {locationsLoading ? '載入庫存地點中...' : '尚無可用的庫存地點'}
+            </p>
+          )}
         </div>
 
         <div className="flex justify-end gap-3 pt-2">
