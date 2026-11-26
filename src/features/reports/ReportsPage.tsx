@@ -64,13 +64,13 @@ export function ReportsPage() {
         </div>
       </div>
 
-      {/* 篩選控制器：日期選擇與付款方式篩選 (緊湊設計) */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 shadow-md backdrop-blur-sm space-y-2.5 shrink-0">
+      {/* 篩選控制器：門市、日期與付款方式（按鈕較大，最小高度 40px；門市、付款列在窄螢幕橫向捲動） */}
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 shadow-md backdrop-blur-sm space-y-3 shrink-0">
         {/* 門市篩選列：登入門市、其他門市、所有門市總計（門市多時橫向捲動） */}
         <div className="border-b border-zinc-800/60 pb-2">
           <StoreFilterTabs
             testId="report-store-tabs"
-            size="sm"
+            size="lg"
             tabs={storeButtons}
             activeKey={reportStoreKey(storeFilter)}
             onSelect={(key) => {
@@ -83,19 +83,19 @@ export function ReportsPage() {
         {/* 日期篩選列 */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/60 pb-2.5">
           <div className="flex flex-wrap items-center gap-2.5">
-            <span className="text-xs font-semibold text-zinc-300 flex items-center gap-1">
+            <span className="text-sm font-semibold text-zinc-300 flex items-center gap-1 whitespace-nowrap">
 結算日期：
             </span>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
-              className="rounded-lg border border-zinc-700 bg-zinc-950 px-2.5 py-1 text-xs font-mono text-zinc-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              className="min-h-10 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-base font-mono text-zinc-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
             />
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={() => setQuickDate('today')}
-                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                className={`min-h-10 rounded-lg px-4 py-2 text-base font-medium transition-colors ${
                   isToday
                     ? 'bg-cyan-500 text-zinc-950 font-bold'
                     : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
@@ -105,13 +105,13 @@ export function ReportsPage() {
               </button>
               <button
                 onClick={() => setQuickDate('yesterday')}
-                className="rounded-md bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors"
+                className="min-h-10 rounded-lg bg-zinc-800 px-4 py-2 text-base font-medium text-zinc-300 hover:bg-zinc-700 transition-colors"
               >
                 昨天
               </button>
               <button
                 onClick={() => setQuickDate('beforeYesterday')}
-                className="rounded-md bg-zinc-800 px-2.5 py-1 text-xs font-medium text-zinc-300 hover:bg-zinc-700 transition-colors"
+                className="min-h-10 rounded-lg bg-zinc-800 px-4 py-2 text-base font-medium text-zinc-300 hover:bg-zinc-700 transition-colors"
               >
                 前天
               </button>
@@ -120,14 +120,14 @@ export function ReportsPage() {
 
           {/* 示範資料快捷日期 */}
           {availableDatesWithOrders.length > 0 && (
-            <div className="flex items-center gap-1.5 text-xs text-zinc-400">
-              <span className="text-[11px]">有紀錄：</span>
-              <div className="flex flex-wrap gap-1">
+            <div className="flex items-center gap-2 text-sm text-zinc-400 min-w-0">
+              <span className="whitespace-nowrap shrink-0">有紀錄：</span>
+              <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
                 {availableDatesWithOrders.slice(0, 3).map((d) => (
                   <button
                     key={d}
                     onClick={() => setSelectedDate(d)}
-                    className={`rounded px-1.5 py-0.5 font-mono text-[11px] transition-colors ${
+                    className={`min-h-10 shrink-0 whitespace-nowrap rounded-lg px-3 py-2 font-mono text-sm transition-colors ${
                       selectedDate === d
                         ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
                         : 'bg-zinc-800/80 text-zinc-400 hover:text-zinc-200 border border-zinc-700/60'
@@ -142,18 +142,18 @@ export function ReportsPage() {
         </div>
 
         {/* 付款方式篩選列 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-semibold text-zinc-400 shrink-0 flex items-center gap-1">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none" data-testid="report-payment-tabs">
+          <span className="text-sm font-semibold text-zinc-400 shrink-0 whitespace-nowrap flex items-center gap-1">
 付款篩選：
           </span>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex gap-1.5">
             {PAYMENT_METHOD_OPTIONS.map((option) => {
               const isSelected = selectedPaymentMethod === option.type;
               return (
                 <button
                   key={option.type}
                   onClick={() => setSelectedPaymentMethod(option.type)}
-                  className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition-all ${
+                  className={`flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-lg px-4 py-2 text-base font-medium transition-all ${
                     isSelected
                       ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/50 shadow-sm font-semibold'
                       : 'bg-zinc-950/80 text-zinc-400 border border-zinc-800 hover:border-zinc-700 hover:text-zinc-200'

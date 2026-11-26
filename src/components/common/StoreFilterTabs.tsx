@@ -10,15 +10,17 @@ interface StoreFilterTabsProps {
   /** 按鈕前的標題，例如「門市篩選：」。 */
   title?: string;
   testId?: string;
-  size?: 'md' | 'sm';
+  /** md：庫存頁（預設）。lg：日報表，字與點擊範圍較大（最小高度 40px）。 */
+  size?: 'md' | 'lg';
 }
 
 /** 一排門市按鈕（庫存頁、日報表共用）。門市多時橫向捲動，不換行。 */
 export function StoreFilterTabs({ tabs, activeKey, onSelect, title = '門市篩選：', testId, size = 'md' }: StoreFilterTabsProps) {
-  const sizing = size === 'sm' ? 'px-2.5 py-1 text-xs' : 'px-3.5 py-1.5 text-sm';
+  const sizing = size === 'lg' ? 'min-h-10 px-4 py-2 text-base' : 'px-3.5 py-1.5 text-sm';
+  const titleSizing = size === 'lg' ? 'text-sm' : 'text-xs';
   return (
     <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none" data-testid={testId}>
-      <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap mr-1 shrink-0">
+      <span className={`${titleSizing} font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap mr-1 shrink-0`}>
         {title}
       </span>
       {tabs.map((tab) => {

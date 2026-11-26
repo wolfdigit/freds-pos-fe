@@ -218,6 +218,7 @@
 * 選門市時，當日訂單（`getOrderHistory`）與「有紀錄」日期捷徑（`getRecentOrders`）都帶 `storeName`，只算在該門市結帳的訂單（後端比對 `branchId`）；退貨單算處理退貨的門市。所有門市總計不帶 `storeName`。
 * 已刪除的門市沒有按鈕，舊的 `branch-store` / `branch-online` 訂單也不改資料：它們只在所有門市總計出現。
 * 所有門市總計只顯示合計（沒有各門市分列表），訂單列表多一欄「門市」。
+* 上方篩選按鈕（門市、今天/昨天/前天、有紀錄日期、付款方式）比其他頁大：字 16px、最小高度 40px，方便點選；門市、有紀錄、付款列在窄螢幕橫向捲動。庫存頁門市按鈕維持原尺寸（`StoreFilterTabs` 的 `size`，預設 `md`，日報表用 `lg`）。
 * 換日期、付款篩選時保留所選門市；重新載入頁面或換登入門市時回到登入門市。換門市讀取失敗時清空畫面上的訂單，不留著前一間門市的數字。
 * 門市名稱以 `branchId` 對 `GET /auth/stores` 的門市名稱（後端 `branch_id` 存的就是 `store_branch.name`）：對得到才顯示；舊的 `branch-store` / `branch-online` 或已刪除門市一律留空，不退回 `branchName` / `branchId`。
 * 日報表的訂單詳情彈窗（`OrderDetailModal` 的 `storeName`）顯示同樣對過的門市名稱，對不到時不顯示門市。結帳頁的同一個彈窗不帶 `storeName`，不顯示門市。
