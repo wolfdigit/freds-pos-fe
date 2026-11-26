@@ -52,7 +52,7 @@
 | 情境 | 規則 |
 | :--- | :--- |
 | 販售範圍 | `store_branch.productScope`：`all`（預設）或 `list`，任何業務帳號都能切換 |
-| 搜尋 / 庫存列表 | 清單模式門市只回清單內商品；任何業務帳號可帶 `allProducts=true` 看全部；沒有登入門市的管理員看全部 |
+| 搜尋 / 庫存列表 | 清單模式門市只回清單內商品；任何業務帳號可帶 `allProducts=true` 看全部，或帶 `storeName` 改看其他門市的清單；沒有登入門市的管理員看全部 |
 | 單一商品 | `GET /products/{id}` 不過濾，但回 `soldInLoginStore`，前端據此把購物車品項標為 `notInStore` |
 | 結帳 | 正數品項不在清單 → `PRODUCT_NOT_IN_STORE`；退貨允許 |
 | 編輯清單 | 勾選暫存在畫面上，按「存檔」以 `POST .../products/batch` 一次送出，同一交易；任一加入的商品不存在或已刪除則整批不寫入 |

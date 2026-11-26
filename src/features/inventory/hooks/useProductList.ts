@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Product, ProductSearchParams } from '@/types/product';
+import { storeScopeParams, type Product, type ProductSearchParams, type ProductStoreScope } from '@/types/product';
 import { productService } from '@/services';
 import { useSessionStore } from '@/store/sessionStore';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -15,24 +15,23 @@ export interface ProductListOptions {
    * 不在已載入結果裡的會顯示在最前面。
    */
   keepVisible?: Product[];
-  /** 僅管理員：不套用登入門市的商品清單。 */
-  allProducts?: boolean;
+  /** 看哪間門市的商品清單：storeName（不帶 = 登入門市）或 allProducts（全部商品）。 */
+  scope?: ProductStoreScope;
 }
 
-/** 庫存頁商品清單：關鍵字、品牌與庫存狀況都在後端篩選，分頁載入。 */
+/** 庫存頁商品清單：關鍵字、門市清單與庫存狀況都在後端篩選，分頁載入。 */
 export function useProductList(options: ProductListOptions = {}) {
   const [keyword, setKeyword] = useState('');
-  const [brand, setBrand] = useState<string | 'ALL'>('ALL');
-  // 停止輸入 300ms 後才查詢；品牌切換立即生效。
+  // 停止輸入 300ms 後才查詢；切換門市立即生效。
   const searchKeyword = useDebouncedValue(keyword);
   const storeName = useSessionStore((state) => state.storeName);
   const stockKey = JSON.stringify(options.stockFilters ?? {});
+  const scopeKey = JSON.stringify(storeScopeParams(options.scope));
   const paged = usePagedProducts(
     {
       keyword: searchKeyword,
-      brand,
       ...(JSON.parse(stockKey) as ProductSearchParams),
-      ...(options.allProducts ? { allProducts: true } : {}),
+      ...(JSON.parse(scopeKey) as ProductStoreScope),
     },
     { enabled: options.enabled, refreshKey: storeName }
   );
@@ -41,7 +40,7 @@ export function useProductList(options: ProductListOptions = {}) {
   const [pinned, setPinned] = useState<Product[]>([]);
   useEffect(() => {
     setPinned([]);
-  }, [searchKeyword, brand, stockKey]);
+  }, [searchKeyword, stockKey, scopeKey]);
 
   const pinProduct = useCallback((product: Product) => {
     setPinned((current) => [product, ...current.filter((row) => row.id !== product.id)]);
@@ -75,8 +74,6 @@ export function useProductList(options: ProductListOptions = {}) {
   return {
     keyword,
     setKeyword,
-    brand,
-    setBrand,
     products,
     total: paged.total,
     hasMore: paged.hasMore,

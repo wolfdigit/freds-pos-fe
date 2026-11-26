@@ -44,6 +44,22 @@ describe('paged product and stock summary requests', () => {
     vi.unstubAllGlobals();
   });
 
+  it('sends storeName and allProducts for the inventory store filter, barcode lookups included', async () => {
+    handler = () => json({ items: [], page: 1, pageSize: 50, total: 0 });
+    const service = new HttpProductService();
+    await service.searchProductPage({ storeName: ' 台南快閃店 ', page: 1, pageSize: 50 });
+    await service.searchProductPage({ storeName: '  ', page: 1, pageSize: 50 });
+    await service.getProductsByBarcode('471', { storeName: '台南快閃店' });
+    await service.getProductsByBarcode('472', { allProducts: true });
+    const store = encodeURIComponent('台南快閃店');
+    expect(calls).toEqual([
+      `GET /api/v1/products?storeName=${store}&page=1&pageSize=50`,
+      'GET /api/v1/products?page=1&pageSize=50',
+      `GET /api/v1/products?storeName=${store}&barcode=471&page=1&pageSize=200`,
+      'GET /api/v1/products?allProducts=true&barcode=472&page=1&pageSize=200',
+    ]);
+  });
+
   it('sends page and pageSize with the filters and reads the paged body', async () => {
     handler = () => json({ items: [row('p3')], page: 2, pageSize: 2, total: 3 });
     const result = await new HttpProductService().searchProductPage({

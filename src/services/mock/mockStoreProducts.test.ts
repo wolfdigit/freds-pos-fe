@@ -78,6 +78,21 @@ describe('mock store product list', () => {
     expect(skus((await products.searchProductPage({ allProducts: true, page: 1, pageSize: 50 })).items)).toHaveLength(5);
   });
 
+  it('looks at another store with storeName, like the backend', async () => {
+    login(MAIN);
+    const popup = await products.searchProductPage({ storeName: POPUP, page: 1, pageSize: 50 });
+    expect(skus(popup.items)).toEqual(['A', 'B', 'D']);
+    expect(popup.items.every((item) => item.soldInLoginStore === true)).toBe(true);
+    expect(skus(await products.getProductsByBarcode('BAR-C', { storeName: POPUP }))).toEqual([]);
+    const everything = await products.searchProductPage({ storeName: POPUP, allProducts: true, page: 1, pageSize: 50 });
+    expect(everything.items.find((item) => item.sku === 'C')?.soldInLoginStore).toBe(false);
+    login(POPUP);
+    expect(skus((await products.searchProductPage({ storeName: MAIN, page: 1, pageSize: 50 })).items)).toHaveLength(5);
+    await expect(products.searchProductPage({ storeName: '不存在', page: 1, pageSize: 50 })).rejects.toMatchObject({
+      code: 'STORE_NOT_FOUND',
+    });
+  });
+
   it('adds a product created in a list store to that store only', async () => {
     login(POPUP);
     const created = await products.createProduct({ sku: 'NEW', barcode: 'NEW', brand: 'B', name: 'QA-NEW', listPrice: 1 });

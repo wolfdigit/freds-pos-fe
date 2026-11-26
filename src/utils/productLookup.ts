@@ -1,5 +1,11 @@
 import { productService } from '@/services';
-import { MAX_PRODUCT_PAGE_SIZE, type Product, type ProductPage } from '@/types/product';
+import {
+  MAX_PRODUCT_PAGE_SIZE,
+  storeScopeParams,
+  type Product,
+  type ProductPage,
+  type ProductStoreScope,
+} from '@/types/product';
 import { normalizeSku } from './skuNormalizer';
 
 /** 條碼完全相同，或貨號（含去 dash 規格化後）完全相同。 */
@@ -13,10 +19,8 @@ export function exactProductMatcher(query: string) {
     (normalized !== '' && (p.normalizedSku || normalizeSku(p.sku)) === normalized);
 }
 
-export interface ExactLookupOptions {
-  /** 不套用登入門市的商品清單（庫存頁勾了「顯示全部商品」時）。 */
-  allProducts?: boolean;
-}
+/** 看哪間門市的商品清單：storeName（預設登入門市）；allProducts 不套清單（庫存頁選「全部商品」）。 */
+export type ExactLookupOptions = ProductStoreScope;
 
 export interface ExactLookupResult {
   /** 條碼或貨號完全相符的商品；沒有時為 null。 */
@@ -26,19 +30,20 @@ export interface ExactLookupResult {
 }
 
 /**
- * 掃條碼 / 輸入貨號的完全比對。**不套用任何品牌、比例篩選**，只跟著登入門市的商品清單
- * （後端 GET /products 已處理；allProducts 時略過清單）。
+ * 掃條碼 / 輸入貨號的完全比對。**不套用任何品牌、比例篩選**，只跟著門市商品清單
+ * （後端 GET /products 已處理；storeName 指定門市，allProducts 時略過清單）。
  *
- * 1. 先用條碼查（GET /products?barcode=&page=&pageSize=，最便宜；allProducts 時一併帶上）。
+ * 1. 先用條碼查（GET /products?barcode=&page=&pageSize=，最便宜；storeName / allProducts 一併帶上）。
  * 2. 查不到再用關鍵字搜尋第一頁（最多 MAX_PRODUCT_PAGE_SIZE 筆），挑條碼或貨號完全相符的。
  */
 export async function findExactProduct(query: string, options: ExactLookupOptions = {}): Promise<ExactLookupResult> {
   const code = query.trim();
   if (!code) return { exact: null, page: null };
   const isExact = exactProductMatcher(code);
+  const scope = storeScopeParams(options);
   try {
     const byBarcode = (
-      await productService.getProductsByBarcode(code, options.allProducts ? { allProducts: true } : undefined)
+      await productService.getProductsByBarcode(code, Object.keys(scope).length > 0 ? scope : undefined)
     ).find(isExact);
     if (byBarcode) return { exact: byBarcode, page: null };
   } catch {
@@ -48,7 +53,7 @@ export async function findExactProduct(query: string, options: ExactLookupOption
     const page = await productService.searchProductPage({
       keyword: code,
       brand: 'ALL',
-      ...(options.allProducts ? { allProducts: true } : {}),
+      ...scope,
       page: 1,
       pageSize: MAX_PRODUCT_PAGE_SIZE,
     });
