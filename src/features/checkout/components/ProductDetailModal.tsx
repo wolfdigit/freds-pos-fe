@@ -1,10 +1,27 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Spinner } from '@/components/feedback/Spinner';
 import { formatCurrency } from '@/utils/currency';
-import { formatLoginStoreQuantity, type Product } from '@/types/product';
+import { formatLoginStoreQuantity, inventoryQuantity, type Product } from '@/types/product';
 import { productService } from '@/services';
+import { useLocations } from '@/features/inventory/hooks/useLocations';
+import {
+  PRODUCT_DETAIL_LOCATION_ROLES,
+  formatFeaturedLocationRoles,
+  resolveFeaturedLocations,
+  type FeaturedLocationRole,
+} from '@/features/inventory/featuredLocations';
+import { useSessionStore } from '@/store/sessionStore';
+
+const DETAIL_ROLE_LABELS: Record<FeaturedLocationRole, string> = {
+  storeSale: '門市可售',
+  storePreorder: '門市預購保留',
+  storeReturned: '門市退貨',
+  systemCompany: '系統總倉',
+  systemPreorder: '系統預購保留',
+  systemReturned: '系統退貨',
+};
 
 interface ProductDetailModalProps {
   open: boolean;
@@ -27,9 +44,21 @@ export function ProductDetailModal({
   showAddToCart = true,
   zIndexClassName,
 }: ProductDetailModalProps) {
+  const storeName = useSessionStore((s) => s.storeName);
+  // 結帳頁一直掛著這個視窗；打開時才讀庫存地點，不在每次進結帳頁時多打一次 API。
+  const { locations, isLoading: locationsLoading } = useLocations({ enabled: open });
   const [activeProduct, setActiveProduct] = useState<Product | null>(product);
   const [siblingProducts, setSiblingProducts] = useState<Product[]>([]);
   const [siblingsLoading, setSiblingsLoading] = useState(false);
+
+  const featuredLocations = useMemo(
+    () => resolveFeaturedLocations(locations, storeName, PRODUCT_DETAIL_LOCATION_ROLES),
+    [locations, storeName]
+  );
+  const featuredIds = useMemo(
+    () => new Set(featuredLocations.map((entry) => entry.location.id)),
+    [featuredLocations]
+  );
 
   useEffect(() => {
     setActiveProduct(product);
@@ -85,9 +114,17 @@ export function ProductDetailModal({
 
   const currentProduct = activeProduct;
   const sellable = currentProduct.loginStoreQuantity;
+  const preorderQty = currentProduct.loginStorePreorderQuantity;
   const returnedQty = currentProduct.loginStoreReturnedQuantity;
   const sellableKnown = typeof sellable === 'number';
   const hasMultipleSkus = siblingProducts.length > 1;
+  const otherInventories = currentProduct.inventories.filter((row) => !featuredIds.has(row.location));
+  const featuredGridClass =
+    featuredLocations.length === 1
+      ? 'grid-cols-1'
+      : featuredLocations.length === 2 || featuredLocations.length === 4
+        ? 'grid-cols-2'
+        : 'grid-cols-2 sm:grid-cols-3';
 
   return (
     <Modal
@@ -182,28 +219,84 @@ export function ProductDetailModal({
         <div className="space-y-2.5">
           <div className="flex items-center justify-between">
             <h4 className="text-sm font-bold text-zinc-300">庫存狀況與位置分佈</h4>
+            <span className="text-xs font-mono text-zinc-400">
+              全據點合計 <strong className="text-zinc-200">{currentProduct.totalInventory} 台</strong>
+            </span>
           </div>
 
-          {/* 主要資訊：各位置數量 + 可現售數量 */}
-          <div className="grid grid-cols-3 gap-2.5 text-center font-mono">
-            <div className="rounded-xl border border-emerald-800/80 bg-emerald-950/30 p-3 ring-1 ring-emerald-500/30">
-              <span className="text-xs text-emerald-300 font-bold block mb-1">本門市可售</span>
-              <span className={`text-2xl font-extrabold ${sellableKnown && sellable > 0 ? 'text-emerald-300' : sellableKnown ? 'text-amber-400' : 'text-zinc-400'}`}>
-                {sellableKnown ? `${sellable} 台` : '—'}
-              </span>
+          {/* 主要資訊：門市綁定與系統預設地點（重疊合併）。讀取庫存地點時先顯示讀取中，不閃舊版面。 */}
+          {locationsLoading && featuredLocations.length === 0 ? (
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-sm text-zinc-400">
+              <Spinner size="sm" />
+              讀取中
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-              <span className="text-xs text-zinc-400 block mb-1">本門市退貨</span>
-              <span className="text-2xl font-bold text-zinc-200">{formatLoginStoreQuantity(returnedQty)}{typeof returnedQty === 'number' ? ' 台' : ''}</span>
+          ) : featuredLocations.length > 0 ? (
+            <div className={`grid ${featuredGridClass} gap-2.5 text-center font-mono`}>
+              {featuredLocations.map((entry) => {
+                const isStoreSale = entry.roles.includes('storeSale');
+                const roleLabel = formatFeaturedLocationRoles(entry.roles, DETAIL_ROLE_LABELS);
+                const qty = inventoryQuantity(currentProduct, entry.location.id);
+                return (
+                  <div
+                    key={entry.location.id}
+                    className={
+                      isStoreSale
+                        ? 'min-w-0 rounded-xl border border-emerald-800/80 bg-emerald-950/30 p-3 ring-1 ring-emerald-500/30'
+                        : 'min-w-0 rounded-xl border border-zinc-800 bg-zinc-950 p-3'
+                    }
+                  >
+                    <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-left">
+                      <span
+                        className={`min-w-0 max-w-full truncate text-base font-bold ${isStoreSale ? 'text-emerald-200' : 'text-zinc-100'}`}
+                        title={entry.location.name}
+                      >
+                        {entry.location.name}
+                      </span>
+                      <span
+                        className={`min-w-0 max-w-full truncate text-sm ${isStoreSale ? 'text-emerald-300/90' : 'text-zinc-400'}`}
+                        title={roleLabel}
+                      >
+                        {roleLabel}
+                      </span>
+                    </div>
+                    <span
+                      className={`text-2xl font-extrabold ${
+                        isStoreSale ? (qty > 0 ? 'text-emerald-300' : 'text-amber-400') : 'text-zinc-200'
+                      }`}
+                    >
+                      {qty} 台
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-              <span className="text-xs text-zinc-400 block mb-1">全據點合計</span>
-              <span className="text-2xl font-bold text-zinc-200">{currentProduct.totalInventory} 台</span>
+          ) : (
+            <div className="grid grid-cols-3 gap-2.5 text-center font-mono">
+              <div className="rounded-xl border border-emerald-800/80 bg-emerald-950/30 p-3 ring-1 ring-emerald-500/30">
+                <span className="text-xs text-emerald-300 font-bold block mb-1">門市可售</span>
+                <span className={`text-2xl font-extrabold ${sellableKnown && sellable > 0 ? 'text-emerald-300' : sellableKnown ? 'text-amber-400' : 'text-zinc-400'}`}>
+                  {sellableKnown ? `${sellable} 台` : '—'}
+                </span>
+              </div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+                <span className="text-xs text-zinc-400 block mb-1">門市預購保留</span>
+                <span className="text-2xl font-bold text-zinc-200">
+                  {formatLoginStoreQuantity(preorderQty)}{typeof preorderQty === 'number' ? ' 台' : ''}
+                </span>
+              </div>
+              <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+                <span className="text-xs text-zinc-400 block mb-1">門市退貨</span>
+                <span className="text-2xl font-bold text-zinc-200">
+                  {formatLoginStoreQuantity(returnedQty)}{typeof returnedQty === 'number' ? ' 台' : ''}
+                </span>
+              </div>
             </div>
-          </div>
-          {currentProduct.inventories.length > 0 && (
+          )}
+
+          {/* 其他地點保留小字列出 */}
+          {otherInventories.length > 0 && (
             <div className="flex flex-wrap gap-2 text-xs font-mono text-zinc-400">
-              {currentProduct.inventories.map((row) => (
+              {otherInventories.map((row) => (
                 <span key={row.location} className="rounded border border-zinc-800 bg-zinc-950 px-2 py-1">
                   {row.locationName} {row.quantity}
                 </span>

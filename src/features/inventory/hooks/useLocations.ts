@@ -4,9 +4,14 @@ import type { InventoryLocationDto } from '@/types/inventory';
 import { locationService } from '@/services';
 import { subscribeLocationCatalog } from '../locationCatalog';
 
-export function useLocations() {
+/**
+ * enabled 為 false 時不打 /inventory/locations、也不訂閱變更通知（例如視窗還沒打開）。
+ * 變成 true 時才讀取。
+ */
+export function useLocations(options?: { enabled?: boolean }) {
+  const enabled = options?.enabled !== false;
   const [locations, setLocations] = useState<InventoryLocationDto[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
   /**
@@ -35,15 +40,17 @@ export function useLocations() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     void reloadLocations({ fresh: false });
-  }, [reloadLocations]);
+  }, [enabled, reloadLocations]);
 
   useEffect(() => {
+    if (!enabled) return;
     return subscribeLocationCatalog(() => {
       // invalidateLocationCatalog 已先作廢共用結果，第一個元件重抓，其餘共用同一次請求。
       void reloadLocations({ silent: true, fresh: false });
     });
-  }, [reloadLocations]);
+  }, [enabled, reloadLocations]);
 
   return { locations, isLoading, error, reloadLocations };
 }
