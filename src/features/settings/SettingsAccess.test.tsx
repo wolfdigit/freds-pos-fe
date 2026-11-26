@@ -55,4 +55,22 @@ describe('settings access', () => {
     expect(result.ok).toBe(true);
     expect(useSessionStore.getState().storeName).toBe('官網');
   });
+
+  it('renders scrollable containers for store info, store products, and user management tabs', async () => {
+    const user = userEvent.setup();
+    useSessionStore.setState({ userRole: 'admin', oauthUser: admin });
+    render(<SettingsPage />);
+
+    await user.click(await screen.findByRole('button', { name: '門市清單管理' }));
+    const storeInfoScroll = screen.getByTestId('store-info-scroll');
+    expect(storeInfoScroll).toHaveClass('flex-1', 'min-h-0', 'overflow-y-auto');
+
+    await user.click(screen.getByRole('button', { name: '門市商品清單' }));
+    const storeProductsScroll = screen.getByTestId('store-products-scroll');
+    expect(storeProductsScroll).toHaveClass('flex-1', 'min-h-0', 'overflow-y-auto');
+
+    await user.click(screen.getByRole('button', { name: '使用者管理' }));
+    const securityScroll = screen.getByTestId('security-accounts-scroll');
+    expect(securityScroll).toHaveClass('flex-1', 'min-h-0', 'overflow-y-auto');
+  });
 });

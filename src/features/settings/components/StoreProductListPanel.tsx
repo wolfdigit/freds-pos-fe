@@ -382,7 +382,7 @@ export function StoreProductListPanel({
         </p>
       )}
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950 overflow-x-auto">
         {loading && items.length === 0 ? (
           <div className="flex justify-center py-8">
             <Spinner />
