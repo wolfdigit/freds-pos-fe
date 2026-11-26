@@ -1,5 +1,5 @@
 import type { IProductService } from '@/services/interfaces/IProductService';
-import { STOCK_FILTER_KEYS, hasStockFilters, matchesStockFilters, productAvailability } from '@/types/product';
+import { MAX_PRODUCT_PAGE_SIZE, STOCK_FILTER_KEYS, productAvailability } from '@/types/product';
 import type {
   CartProductAvailability,
   Product,
@@ -74,44 +74,39 @@ function productsEndpoint(query: URLSearchParams): string {
   return `/products${qs ? `?${qs}` : ''}`;
 }
 
-export class HttpProductService implements IProductService {
-  async searchProducts(params: ProductSearchParams): Promise<Product[]> {
-    const rows = await sharedProductGet<Product[]>(productsEndpoint(filterQuery(params)));
-    return (rows || []).map(mapProduct);
+function readProductPage(body: unknown, params: ProductPageParams): ProductPage {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new TypeError('商品列表回應不是分頁物件');
   }
+  const page = body as Partial<ProductPage>;
+  if (!Array.isArray(page.items) || typeof page.total !== 'number' || !Number.isFinite(page.total)) {
+    throw new TypeError('商品列表回應不是分頁物件');
+  }
+  return {
+    items: page.items.map(mapProduct),
+    page: typeof page.page === 'number' ? page.page : params.page,
+    pageSize: typeof page.pageSize === 'number' ? page.pageSize : params.pageSize,
+    total: page.total,
+  };
+}
 
+export class HttpProductService implements IProductService {
   async searchProductPage(params: ProductPageParams): Promise<ProductPage> {
     const query = filterQuery(params);
     query.set('page', String(params.page));
     query.set('pageSize', String(params.pageSize));
-    const body = await sharedProductGet<ProductPage | Product[]>(productsEndpoint(query));
-    if (Array.isArray(body)) {
-      // 後端還沒部署分頁版時會忽略 page/pageSize（和數量篩選）、回傳全部；在這裡篩選並切出同一頁。
-      const rows = body.map(mapProduct);
-      const matched = hasStockFilters(params) ? rows.filter((product) => matchesStockFilters(product, params)) : rows;
-      const start = (params.page - 1) * params.pageSize;
-      return {
-        items: matched.slice(start, start + params.pageSize),
-        page: params.page,
-        pageSize: params.pageSize,
-        total: matched.length,
-      };
-    }
-    return {
-      items: (body?.items || []).map(mapProduct),
-      page: body?.page ?? params.page,
-      pageSize: body?.pageSize ?? params.pageSize,
-      total: body?.total ?? 0,
-    };
+    return readProductPage(await sharedProductGet<unknown>(productsEndpoint(query)), params);
   }
 
-  async getProductsByBarcode(barcode: string): Promise<Product[]> {
+  async getProductsByBarcode(barcode: string, options?: { allProducts?: boolean }): Promise<Product[]> {
     const code = barcode.trim();
     if (!code) return [];
-    const query = new URLSearchParams({ barcode: code });
-    const rows = await sharedProductGet<Product[]>(productsEndpoint(query));
-    // 舊版後端不認得 barcode 參數會回傳全部商品，所以一律在這裡再比對一次。
-    return (rows || []).filter((product) => product.barcode === code).map(mapProduct);
+    const params = { page: 1, pageSize: MAX_PRODUCT_PAGE_SIZE, ...(options?.allProducts ? { allProducts: true } : {}) };
+    const query = filterQuery(params);
+    query.set('barcode', code);
+    query.set('page', String(params.page));
+    query.set('pageSize', String(params.pageSize));
+    return readProductPage(await sharedProductGet<unknown>(productsEndpoint(query)), params).items;
   }
 
   async getProductById(id: string): Promise<Product | null> {

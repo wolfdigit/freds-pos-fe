@@ -27,7 +27,6 @@ describe('settings page requests', () => {
     const getLocations = vi.spyOn(locationService, 'getLocations');
     const getStores = vi.spyOn(systemService, 'getStores');
     const getStockSummary = vi.spyOn(locationService, 'getStockSummary').mockResolvedValue([]);
-    const searchProducts = vi.spyOn(productService, 'searchProducts');
     const searchProductPage = vi.spyOn(productService, 'searchProductPage');
 
     render(<SettingsPage />);
@@ -41,7 +40,6 @@ describe('settings page requests', () => {
     expect(getLocations).toHaveBeenCalledTimes(1);
     expect(getStores).toHaveBeenCalledTimes(1);
     expect(getStockSummary).toHaveBeenCalledTimes(1);
-    expect(searchProducts).not.toHaveBeenCalled();
     expect(searchProductPage).not.toHaveBeenCalled();
   });
 

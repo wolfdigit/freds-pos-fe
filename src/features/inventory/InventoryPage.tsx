@@ -426,6 +426,7 @@ export function InventoryPage() {
       {/* 快速條碼進貨彈窗 */}
       <RestockModal
         open={isRestockModalOpen}
+        allProducts={allProducts}
         onClose={() => setIsRestockModalOpen(false)}
         onSuccess={handleRestockSuccess}
       />

@@ -64,17 +64,18 @@ describe('mock store product list', () => {
 
   it('lists only listed products in a list store and marks soldInLoginStore', async () => {
     login(MAIN);
-    expect(skus(await products.searchProducts({}))).toEqual(['A', 'B', 'C', 'D', 'E']);
+    expect(skus((await products.searchProductPage({ page: 1, pageSize: 50 })).items)).toEqual(['A', 'B', 'C', 'D', 'E']);
     login(POPUP);
-    expect(skus(await products.searchProducts({}))).toEqual(['A', 'B', 'D']);
+    expect(skus((await products.searchProductPage({ page: 1, pageSize: 50 })).items)).toEqual(['A', 'B', 'D']);
     expect(skus(await products.getProductsByBarcode('BAR-C'))).toEqual([]);
+    expect(skus(await products.getProductsByBarcode('BAR-C', { allProducts: true }))).toEqual(['C']);
     expect((await products.getProductById('prod-C'))?.soldInLoginStore).toBe(false);
     expect(await products.checkProductAvailability('prod-C')).toBe('notInStore');
     expect(await products.checkProductAvailability('prod-A')).toBe('available');
     // 一般店員也可以看全部商品。
-    expect(skus(await products.searchProducts({ allProducts: true }))).toHaveLength(5);
+    expect(skus((await products.searchProductPage({ allProducts: true, page: 1, pageSize: 50 })).items)).toHaveLength(5);
     login(POPUP, 'admin');
-    expect(skus(await products.searchProducts({ allProducts: true }))).toHaveLength(5);
+    expect(skus((await products.searchProductPage({ allProducts: true, page: 1, pageSize: 50 })).items)).toHaveLength(5);
   });
 
   it('adds a product created in a list store to that store only', async () => {

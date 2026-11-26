@@ -35,7 +35,6 @@ describe('useProductSearch', () => {
 
   it('waits 300ms after the last keystroke and sends one paged request, never the full list', async () => {
     const search = vi.spyOn(productService, 'searchProductPage').mockResolvedValue(page([], 0));
-    const full = vi.spyOn(productService, 'searchProducts');
     const { result } = renderHook(() => useProductSearch());
     await act(async () => {});
     expect(search).toHaveBeenCalledTimes(1);
@@ -54,7 +53,6 @@ describe('useProductSearch', () => {
     });
     expect(search).toHaveBeenCalledTimes(2);
     expect(search).toHaveBeenLastCalledWith(firstPage('QA-'));
-    expect(full).not.toHaveBeenCalled();
   });
 
   it('clears the keyword immediately and changes brand without waiting', async () => {

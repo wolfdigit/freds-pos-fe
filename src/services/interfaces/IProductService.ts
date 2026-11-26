@@ -3,7 +3,6 @@ import type {
   Product,
   ProductPage,
   ProductPageParams,
-  ProductSearchParams,
   CreateProductRequest,
   UpdateProductRequest,
 } from '@/types/product';
@@ -22,12 +21,10 @@ import type {
 } from '@/types/inventory';
 
 export interface IProductService {
-  /** 一次回傳全部符合的商品。清單畫面請改用 searchProductPage。 */
-  searchProducts(params: ProductSearchParams): Promise<Product[]>;
   /** 分頁查詢，回傳一頁與總筆數。 */
   searchProductPage(params: ProductPageParams): Promise<ProductPage>;
-  /** 條碼完全相符的商品（同條碼的其他貨號）。 */
-  getProductsByBarcode(barcode: string): Promise<Product[]>;
+  /** 條碼完全相符的商品（同條碼的其他貨號）。走分頁查詢；allProducts 略過登入門市清單。 */
+  getProductsByBarcode(barcode: string, options?: { allProducts?: boolean }): Promise<Product[]>;
   getProductById(id: string): Promise<Product | null>;
   /** 結帳前重新確認購物車商品還在。不跳 Toast；查不到結果時回 unknown。 */
   checkProductAvailability(id: string): Promise<CartProductAvailability>;

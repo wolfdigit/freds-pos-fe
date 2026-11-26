@@ -3,7 +3,7 @@ import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Spinner } from '@/components/feedback/Spinner';
-import type { Product, StockLocation } from '@/types/product';
+import { PRODUCT_PAGE_SIZE, type Product, type StockLocation } from '@/types/product';
 import type { InventoryReceipt } from '@/types/inventory';
 import { errorMessage } from '@/auth/businessError';
 import { productService } from '@/services';
@@ -11,11 +11,27 @@ import { useToastStore } from '@/components/feedback/toastStore';
 import { useLocations } from '../hooks/useLocations';
 import { SEARCH_DEBOUNCE_MS } from '@/hooks/useDebouncedValue';
 import { useBarcodeSiblings } from '@/hooks/useBarcodeSiblings';
+import { LoadMoreFooter } from '@/components/common/LoadMoreFooter';
+import { exactProductMatcher, findExactProduct } from '@/utils/productLookup';
 
 interface RestockModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess: (receipts: InventoryReceipt[]) => void;
+  /**
+   * 不套用登入門市的商品清單（庫存頁勾了「顯示全部商品」時）。
+   * 預設跟其他畫面一樣：只販售清單商品的門市只搜得到清單內商品。
+   */
+  allProducts?: boolean;
+}
+
+function groupKeyOf(product: Product): string {
+  return product.barcode ? `barcode-${product.barcode}` : `id-${product.id}`;
+}
+
+function mergeById(current: Product[], next: Product[]): Product[] {
+  const seen = new Set(current.map((product) => product.id));
+  return [...current, ...next.filter((product) => !seen.has(product.id))];
 }
 
 interface RestockItem {
@@ -32,12 +48,19 @@ interface ProductGroup {
   items: Product[];
 }
 
-export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
+export function RestockModal({ open, onClose, onSuccess, allProducts = false }: RestockModalProps) {
   const showToast = useToastStore((s) => s.showToast);
   const { locations: apiLocations } = useLocations();
 
   const [barcodeInput, setBarcodeInput] = useState('');
   const [matchedProducts, setMatchedProducts] = useState<Product[]>([]);
+  // 搜尋結果分頁：伺服器端搜尋，一次一頁，「載入更多」接下一頁。
+  const [matchedTotal, setMatchedTotal] = useState(0);
+  const [matchedPage, setMatchedPage] = useState(0);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  // matchedProducts 是用哪個關鍵字查出來的；跟目前輸入不同時代表結果是舊的，Enter 不能用。
+  const [matchedQuery, setMatchedQuery] = useState<string | null>(null);
+  const barcodeInputRef = useRef('');
   const [selectedGroupKey, setSelectedGroupKey] = useState<string>('');
   const [selectedProductMap, setSelectedProductMap] = useState<Record<string, string>>({});
 
@@ -63,7 +86,7 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
     const map = new Map<string, ProductGroup>();
 
     for (const p of matchedProducts) {
-      const key = p.barcode ? `barcode-${p.barcode}` : `id-${p.id}`;
+      const key = groupKeyOf(p);
       if (!map.has(key)) {
         const newGroup: ProductGroup = {
           groupKey: key,
@@ -132,7 +155,8 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
       searchReqIdRef.current += 1;
       setIsSearching(false);
       setBarcodeInput('');
-      setMatchedProducts([]);
+      barcodeInputRef.current = '';
+      clearMatches();
       setSelectedGroupKey('');
       setSelectedProductMap({});
       setRestockBatch([]);
@@ -166,13 +190,31 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
     []
   );
 
+  function clearMatches() {
+    setMatchedProducts([]);
+    setMatchedTotal(0);
+    setMatchedPage(0);
+    setMatchedQuery(null);
+    setIsLoadingMore(false);
+  }
+
+  /** 搜尋結果出來時，若有條碼 / 貨號完全相符的商品，預先選它（掃條碼時不必再點）。 */
+  function selectExact(products: Product[], query: string) {
+    const exact = products.find(exactProductMatcher(query));
+    if (!exact) return;
+    const key = groupKeyOf(exact);
+    setSelectedGroupKey(key);
+    setSelectedProductMap((prev) => ({ ...prev, [key]: exact.id }));
+  }
+
   // 停止輸入 300ms 後才查詢；序號讓較舊的回應不會蓋掉最新結果。
   const handleBarcodeSearch = (val: string) => {
     setBarcodeInput(val);
+    barcodeInputRef.current = val;
     const query = val.trim();
     cancelPendingSearch();
     if (!query) {
-      setMatchedProducts([]);
+      clearMatches();
       setIsSearching(false);
       return;
     }
@@ -185,16 +227,52 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
     }, SEARCH_DEBOUNCE_MS);
   };
 
+  // 伺服器端分頁搜尋（GET /products page/pageSize），跟著登入門市的商品清單；不再一次載入全部商品。
   const runBarcodeSearch = async (query: string, reqId: number) => {
     try {
-      const results = await productService.searchProducts({ keyword: query });
+      const page = await productService.searchProductPage({
+        keyword: query,
+        ...(allProducts ? { allProducts: true } : {}),
+        page: 1,
+        pageSize: PRODUCT_PAGE_SIZE,
+      });
       if (reqId === searchReqIdRef.current) {
-        setMatchedProducts(results);
+        setMatchedProducts(page.items);
+        setMatchedTotal(page.total);
+        setMatchedPage(1);
+        setMatchedQuery(query);
+        selectExact(page.items, query);
       }
     } catch {
-      if (reqId === searchReqIdRef.current) setMatchedProducts([]);
+      if (reqId === searchReqIdRef.current) clearMatches();
     } finally {
       if (reqId === searchReqIdRef.current) setIsSearching(false);
+    }
+  };
+
+  const hasMoreMatches = matchedQuery !== null && matchedProducts.length < matchedTotal;
+
+  const loadMoreMatches = async () => {
+    if (!hasMoreMatches || isLoadingMore || matchedQuery === null) return;
+    const reqId = searchReqIdRef.current;
+    const query = matchedQuery;
+    const nextPage = matchedPage + 1;
+    setIsLoadingMore(true);
+    try {
+      const page = await productService.searchProductPage({
+        keyword: query,
+        ...(allProducts ? { allProducts: true } : {}),
+        page: nextPage,
+        pageSize: PRODUCT_PAGE_SIZE,
+      });
+      if (reqId !== searchReqIdRef.current) return;
+      setMatchedProducts((current) => mergeById(current, page.items));
+      setMatchedTotal(page.total);
+      setMatchedPage(nextPage);
+    } catch {
+      if (reqId === searchReqIdRef.current) showToast('載入更多商品失敗，請重試', 'error');
+    } finally {
+      if (reqId === searchReqIdRef.current) setIsLoadingMore(false);
     }
   };
 
@@ -212,7 +290,9 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
       return;
     }
 
-    let targetProduct: Product | undefined = selectedProduct ?? undefined;
+    // 畫面上的結果是目前這串文字查出來的才沿用選取的商品；還在等查詢或是上一次的結果時重新查。
+    const resultsCurrent = !query || (matchedQuery === query && !isSearching);
+    let targetProduct: Product | undefined = resultsCurrent ? (selectedProduct ?? undefined) : undefined;
     addingRef.current = true;
     setIsAdding(true);
     try {
@@ -221,18 +301,32 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
         // 條碼槍直接送出 Enter：取消還在等待的打字查詢，改用這次的即時查詢結果。
         cancelPendingSearch();
         setIsSearching(false);
-        try {
-          const results = await productService.searchProducts({ keyword: query });
-          if (results.length === 0) {
-            showToast(`找不到條碼/貨號「${query}」對應的商品`, 'error');
+        // 條碼 / 貨號完全相符優先（不分品牌）；沒有時才用關鍵字搜尋的第一筆。
+        const lookup = await findExactProduct(query, { allProducts });
+        let found = lookup.exact ?? undefined;
+        if (!found) {
+          try {
+            const page =
+              lookup.page ??
+              (await productService.searchProductPage({
+                keyword: query,
+                ...(allProducts ? { allProducts: true } : {}),
+                page: 1,
+                pageSize: PRODUCT_PAGE_SIZE,
+              }));
+            found = page.items[0];
+          } catch {
+            showToast('搜尋商品失敗，請重試', 'error');
             return;
           }
-          setMatchedProducts(results);
-          targetProduct = results[0];
-        } catch {
-          showToast('搜尋商品失敗，請重試', 'error');
+        }
+        // 查詢途中輸入框已經改了：這次結果屬於舊文字，不加入。
+        if (directQuery === undefined && barcodeInputRef.current.trim() !== query) return;
+        if (!found) {
+          showToast(`找不到條碼/貨號「${query}」對應的商品`, 'error');
           return;
         }
+        targetProduct = found;
       }
 
       if (!targetProduct) {
@@ -255,7 +349,8 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
 
       showToast(`已加入進貨: ${targetProduct.sku} (${qty}台)`, 'success');
       setBarcodeInput('');
-      setMatchedProducts([]);
+      barcodeInputRef.current = '';
+      clearMatches();
       setQuantity('1');
       setTimeout(() => inputRef.current?.focus(), 50);
     } finally {
@@ -525,6 +620,13 @@ export function RestockModal({ open, onClose, onSuccess }: RestockModalProps) {
                     );
                   })}
                 </div>
+                <LoadMoreFooter
+                  shown={matchedProducts.length}
+                  total={matchedTotal}
+                  hasMore={hasMoreMatches}
+                  isLoadingMore={isLoadingMore}
+                  onLoadMore={() => void loadMoreMatches()}
+                />
               </div>
             )}
           </div>

@@ -5,10 +5,11 @@ import type { Product, ProductPage, ProductPageParams } from '@/types/product';
 import { useProductSearch } from './useProductSearch';
 import { useSearchEnter } from './useSearchEnter';
 
-function product(sku: string, barcode = `BAR-${sku}`): Product {
+function product(sku: string, barcode = `BAR-${sku}`, brand = sku.startsWith('OLD') ? 'TOMICA' : 'MINIGT'): Product {
   return {
     id: `prod-${sku}`,
     sku,
+    brand,
     normalizedSku: sku.replace(/[^A-Za-z0-9]/g, '').toUpperCase(),
     barcode,
     name: `QA-${sku}`,
@@ -43,9 +44,11 @@ function useCheckoutSearch() {
   return { ...search, resolve };
 }
 
-function fuzzy(keyword: string) {
+function fuzzy(keyword: string, brand?: string) {
   const q = keyword.trim().toUpperCase();
-  return CATALOG.filter((p) => !q || p.sku.includes(q) || p.barcode.includes(q));
+  return CATALOG.filter(
+    (p) => (!brand || brand === 'ALL' || p.brand === brand) && (!q || p.sku.includes(q) || p.barcode.includes(q))
+  );
 }
 
 describe('checkout search Enter', () => {
@@ -56,7 +59,7 @@ describe('checkout search Enter', () => {
     vi.useFakeTimers();
     searchSpy = vi
       .spyOn(productService, 'searchProductPage')
-      .mockImplementation(async (params: ProductPageParams) => page(fuzzy(params.keyword ?? '')));
+      .mockImplementation(async (params: ProductPageParams) => page(fuzzy(params.keyword ?? '', params.brand)));
     barcodeSpy = vi
       .spyOn(productService, 'getProductsByBarcode')
       .mockImplementation(async (code: string) => CATALOG.filter((p) => p.barcode === code.trim()));
@@ -90,7 +93,7 @@ describe('checkout search Enter', () => {
       outcome = await result.current.resolve();
     });
     expect(outcome).toEqual({ query: '4710000000028', product: expect.objectContaining({ sku: 'NEW-2' }) });
-    expect(barcodeSpy).toHaveBeenCalledWith('4710000000028');
+    expect(barcodeSpy).toHaveBeenCalledWith('4710000000028', undefined);
   });
 
   it('looks up a typed SKU with a fresh search when results are still loading', async () => {
@@ -203,5 +206,63 @@ describe('checkout search Enter', () => {
       slow.resolve([CATALOG[1]]);
     });
     expect(await pending).toBeNull();
+  });
+
+  describe('brand tab never filters exact barcode / SKU matches', () => {
+    async function pressEnter(result: { current: ReturnType<typeof useCheckoutSearch> }) {
+      let outcome: Awaited<ReturnType<typeof result.current.resolve>> = null;
+      await act(async () => {
+        outcome = await result.current.resolve();
+      });
+      return outcome;
+    }
+
+    it('finds another brand by barcode when the settled results are brand-filtered', async () => {
+      const { result } = renderHook(() => useCheckoutSearch());
+      await act(async () => {});
+      act(() => result.current.setBrand('TOMICA'));
+      await settle(result, '4710000000028');
+      // 畫面上是 TOMICA 的結果，沒有這個 MINIGT 條碼。
+      expect(result.current.resultsMatch('4710000000028')).toBe(true);
+      expect(result.current.results).toEqual([]);
+      expect(await pressEnter(result)).toEqual({
+        query: '4710000000028',
+        product: expect.objectContaining({ sku: 'NEW-2', brand: 'MINIGT' }),
+      });
+    });
+
+    it('finds another brand by SKU when the settled results are brand-filtered', async () => {
+      const { result } = renderHook(() => useCheckoutSearch());
+      await act(async () => {});
+      act(() => result.current.setBrand('TOMICA'));
+      await settle(result, 'new-22');
+      expect(result.current.results).toEqual([]);
+      expect(await pressEnter(result)).toEqual({ query: 'new-22', product: expect.objectContaining({ sku: 'NEW-22' }) });
+      expect(searchSpy).toHaveBeenLastCalledWith(expect.objectContaining({ keyword: 'new-22', brand: 'ALL' }));
+    });
+
+    it('finds another brand by barcode and SKU when Enter beats the debounce', async () => {
+      const { result } = renderHook(() => useCheckoutSearch());
+      await act(async () => {});
+      act(() => result.current.setBrand('TOMICA'));
+      await settle(result, 'OLD-1');
+
+      act(() => result.current.setKeyword('4710000000028'));
+      expect(await pressEnter(result)).toEqual({ query: '4710000000028', product: expect.objectContaining({ sku: 'NEW-2' }) });
+
+      act(() => result.current.setKeyword('NEW-22'));
+      expect(await pressEnter(result)).toEqual({ query: 'NEW-22', product: expect.objectContaining({ sku: 'NEW-22' }) });
+    });
+
+    it('keeps the brand for the free-text fallback', async () => {
+      const { result } = renderHook(() => useCheckoutSearch());
+      await act(async () => {});
+      act(() => result.current.setBrand('TOMICA'));
+      await settle(result, 'OLD-1');
+      // 「NEW」不是完整條碼或貨號：模糊比對維持目前品牌，TOMICA 底下沒有。
+      act(() => result.current.setKeyword('NEW'));
+      expect(await pressEnter(result)).toEqual({ query: 'NEW', product: null });
+      expect(searchSpy).toHaveBeenLastCalledWith(expect.objectContaining({ keyword: 'NEW', brand: 'TOMICA' }));
+    });
   });
 });

@@ -22,7 +22,6 @@ afterEach(() => {
 describe('useProductList', () => {
   it('loads one page at a time instead of the whole catalog', async () => {
     const paged = vi.spyOn(productService, 'searchProductPage').mockImplementation(async (params) => pageOf(params));
-    const full = vi.spyOn(productService, 'searchProducts');
     const { result } = renderHook(() => useProductList());
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.products).toHaveLength(50);
@@ -34,7 +33,6 @@ describe('useProductList', () => {
     });
     expect(result.current.products).toHaveLength(100);
     expect(paged).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, pageSize: 50 }));
-    expect(full).not.toHaveBeenCalled();
   });
 
   it('reloads everything already shown in one request instead of jumping back to page one', async () => {
@@ -57,7 +55,6 @@ describe('useProductList', () => {
 
   it('sends stock filters to the backend and still pages', async () => {
     const paged = vi.spyOn(productService, 'searchProductPage').mockImplementation(async (params) => pageOf(params));
-    const full = vi.spyOn(productService, 'searchProducts');
     const { result, rerender } = renderHook(({ stockFilters }) => useProductList({ stockFilters }), {
       initialProps: { stockFilters: { loginStoreQuantityMax: 2 } as Record<string, unknown> },
     });
@@ -77,7 +74,6 @@ describe('useProductList', () => {
       expect(paged).toHaveBeenLastCalledWith(expect.objectContaining({ inInventoryOnly: true, page: 1 }))
     );
     expect(paged.mock.calls.at(-1)?.[0]).not.toHaveProperty('loginStoreQuantityMax');
-    expect(full).not.toHaveBeenCalled();
   });
 
   it('does not query while disabled', async () => {

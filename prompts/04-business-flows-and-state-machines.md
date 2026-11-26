@@ -169,7 +169,7 @@ export function isSkuMatch(query: string, productSku: string, productBarcode?: s
 }
 ```
 
-此演算法必須內建於 `MockProductService.searchProducts` 中，確保收銀員無論輸入有無橫槓，皆能在 50ms 內得到精準結果。
+此演算法必須內建於 `MockProductService.searchProductPage` 中，確保收銀員無論輸入有無橫槓，皆能在 50ms 內得到精準結果。
 
 ---
 

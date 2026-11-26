@@ -1,6 +1,7 @@
 import { useCallback, useLayoutEffect, useRef } from 'react';
 import { productService } from '@/services';
 import { PRODUCT_PAGE_SIZE, type Product } from '@/types/product';
+import { exactProductMatcher, findExactProduct } from '@/utils/productLookup';
 
 export interface SearchEnterState {
   /** 搜尋框目前的文字（還沒 debounce 的）。 */
@@ -19,26 +20,16 @@ export interface SearchEnterOutcome {
   product: Product | null;
 }
 
-function exactMatcher(query: string) {
-  const lower = query.toLowerCase();
-  return (p: Product) =>
-    p.barcode === query || p.sku.toLowerCase() === lower || (p.normalizedSku ?? '').toLowerCase() === lower;
-}
-
-async function lookupByBarcode(query: string): Promise<Product | null> {
-  try {
-    return (await productService.getProductsByBarcode(query)).find(exactMatcher(query)) ?? null;
-  } catch {
-    return null;
-  }
-}
-
 /**
  * 結帳搜尋框按 Enter（或掃描槍送出）：永遠以「當下輸入框的文字」為準。
  *
- * - 畫面上的結果正好是這個關鍵字查出來的：沿用（完全相符優先，否則第一筆；只載入第一頁時再用條碼查一次）。
- * - 結果還是上一個關鍵字的（debounce 還沒到或查詢還沒回來）：不用舊結果，直接用目前文字查條碼，
- *   查不到再用同樣條件搜尋第一頁，規則跟等結果出來再按 Enter 一樣。
+ * 完全相符（條碼或貨號）的比對**不受品牌標籤影響**：畫面上的結果可能只有目前品牌，
+ * 在裡面找不到時一律用不分品牌的查詢再找一次（findExactProduct）。
+ *
+ * - 畫面上的結果正好是這個關鍵字查出來的：完全相符優先；沒有的話，若結果不完整（有選品牌或還有下一頁）
+ *   先做不分品牌的完全比對；都沒有才用畫面上第一筆（模糊比對，維持目前品牌篩選）。
+ * - 結果還是上一個關鍵字的（debounce 還沒到或查詢還沒回來）：不用舊結果，先做不分品牌的完全比對，
+ *   沒有的話用目前品牌搜尋第一頁取第一筆（模糊比對，跟等結果出來再按 Enter 一樣）。
  * - 查詢途中使用者又改了輸入框：這次結果過時，丟掉不加。
  * - 前一次還在查時再按 Enter 會被忽略，不會重複加入。
  *
@@ -57,26 +48,31 @@ export function useSearchEnter(state: SearchEnterState) {
     if (!query || busy.current) return null;
     busy.current = true;
     try {
-      const isExact = exactMatcher(query);
+      const isExact = exactProductMatcher(query);
       let product: Product | null = null;
       if (resultsMatch(query)) {
         product = results.find(isExact) ?? null;
-        // 結果只載入了第一頁：條碼完全相符的商品可能在後面的頁。
-        if (!product && hasMore) product = await lookupByBarcode(query);
+        // 畫面上的結果被品牌篩過或只載入第一頁：完全相符的商品可能不在裡面，用不分品牌的查詢再找。
+        if (!product && (brand !== 'ALL' || hasMore)) product = (await findExactProduct(query)).exact;
         if (!product) product = results[0] ?? null;
       } else {
-        product = await lookupByBarcode(query);
+        const lookup = await findExactProduct(query);
+        product = lookup.exact;
         if (!product) {
-          try {
-            const page = await productService.searchProductPage({
-              keyword: query,
-              brand,
-              page: 1,
-              pageSize: PRODUCT_PAGE_SIZE,
-            });
-            product = page.items.find(isExact) ?? page.items[0] ?? null;
-          } catch {
-            product = null;
+          if (brand === 'ALL' && lookup.page) {
+            product = lookup.page.items[0] ?? null;
+          } else {
+            try {
+              const page = await productService.searchProductPage({
+                keyword: query,
+                brand,
+                page: 1,
+                pageSize: PRODUCT_PAGE_SIZE,
+              });
+              product = page.items[0] ?? null;
+            } catch {
+              product = null;
+            }
           }
         }
       }

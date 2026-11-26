@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { locationService, productService } from '@/services';
+import { locationService } from '@/services';
 import { INITIAL_STORES } from '@/services/mock/mockDataSeed';
 import { setStoredStores } from '@/services/mock/storageHelper';
 import { useSessionStore } from '@/store/sessionStore';
@@ -20,7 +20,6 @@ describe('store binding refreshes locations', () => {
       stores: ['奇可門市', '線上網購'],
       oauthUser: { id: 'acct-admin', name: '管理員', email: 'owner@example.com', role: 'admin' },
     });
-    vi.spyOn(productService, 'searchProducts').mockResolvedValue([]);
   });
 
   afterEach(() => {

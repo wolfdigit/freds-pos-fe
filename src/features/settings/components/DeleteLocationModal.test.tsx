@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ApiError } from '@/services/api/httpClient';
-import { locationService, productService } from '@/services';
+import { locationService } from '@/services';
 import { useToastStore } from '@/components/feedback/toastStore';
 import type { InventoryLocationDto } from '@/types/inventory';
 import { DeleteLocationModal } from './DeleteLocationModal';
@@ -92,7 +92,6 @@ describe('delete location confirmation', () => {
       { locationId: stale.id, locationName: stale.name, totalQuantity: 0, productCount: 0, hasNonZeroStock: true },
       { locationId: other.id, locationName: other.name, totalQuantity: 0, productCount: 0, hasNonZeroStock: false },
     ]);
-    const searchProducts = vi.spyOn(productService, 'searchProducts');
     const deleteLocation = vi.spyOn(locationService, 'deleteLocation');
 
     render(<DeleteLocationModal location={stale} onClose={vi.fn()} onSuccess={vi.fn()} />);
@@ -100,7 +99,6 @@ describe('delete location confirmation', () => {
     expect(await screen.findByText(/這個地點還有數量/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '確認刪除' })).toBeDisabled();
     expect(deleteLocation).not.toHaveBeenCalled();
-    expect(searchProducts).not.toHaveBeenCalled();
   });
 
   it('shows the backend 400 message and refreshes after delete is refused', async () => {

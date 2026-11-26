@@ -17,7 +17,6 @@ describe('useBarcodeSiblings', () => {
     const byBarcode = vi
       .spyOn(productService, 'getProductsByBarcode')
       .mockImplementation(async (code) => [product(`${code}-1`, code), product(`${code}-2`, code)]);
-    const full = vi.spyOn(productService, 'searchProducts');
     const { result, rerender } = renderHook(({ codes }) => useBarcodeSiblings(codes), {
       initialProps: { codes: ['111', '', null, '111', '222'] as (string | null)[] },
     });
@@ -29,7 +28,6 @@ describe('useBarcodeSiblings', () => {
     rerender({ codes: ['222', '111', '333'] });
     await waitFor(() => expect(result.current['333']).toBeDefined());
     expect(byBarcode).toHaveBeenCalledTimes(3);
-    expect(full).not.toHaveBeenCalled();
   });
 
   it('treats a failed lookup as no siblings', async () => {
