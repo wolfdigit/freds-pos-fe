@@ -14,18 +14,18 @@ import type { InventoryItemAdjustment, InventoryLocationChange } from '@/types/i
 import { useLocations } from './hooks/useLocations';
 import { Button } from '@/components/common/Button';
 import { useUiStore } from '@/store/uiStore';
-import { useLoginStoreScope } from '@/hooks/useLoginStoreScope';
-
-const BRAND_TABS: string[] = [
-  'ALL',
-  'AutoArt',
-  'Spark',
-  'Inno64',
-  'Mini GT',
-  'TLV',
-  'Kyosho',
-  'Tarmac Works',
-];
+import { useSessionStore } from '@/store/sessionStore';
+import { useStoreChoices } from './hooks/useStoreChoices';
+import {
+  defaultStoreFilter,
+  findStore,
+  focusStoreName,
+  sameStoreFilter,
+  selectedStoreScope,
+  storeFilterButtons,
+  storeFilterScope,
+  type InventoryStoreFilter,
+} from './storeFilter';
 
 export type StockFilterType =
   | 'ALL'
@@ -86,16 +86,25 @@ export function InventoryPage() {
   );
   // 「後方倉庫低庫存」要等庫存點讀完；沒有後方倉庫時沒有商品符合（跟以前一樣）。
   const filterReady = stockFilter !== 'WAREHOUSE_LOW' || (!locationsLoading && Boolean(warehouseLocationId));
-  // 只販售清單商品的門市：後端只列清單內的商品。所有店員都可以切換成看全部商品。
-  const loginScope = useLoginStoreScope();
-  const [showAllProducts, setShowAllProducts] = useState(false);
-  const listStore = loginScope === 'list';
-  const allProducts = listStore && showAllProducts;
+  // 表頭門市按鈕：登入門市、全部商品、其他門市。所選門市決定商品清單、地點欄位順序、
+  // 可售／退貨欄位、未販售標示與門市低庫存篩選；全部商品時這些都看登入門市。所有店員都可以切換。
+  const loginStoreName = useSessionStore((state) => state.storeName).trim();
+  const { stores } = useStoreChoices();
+  const [storeFilter, setStoreFilter] = useState<InventoryStoreFilter>(() => defaultStoreFilter(loginStoreName));
+  useEffect(() => {
+    setStoreFilter(defaultStoreFilter(loginStoreName));
+  }, [loginStoreName]);
+  const storeButtons = useMemo(() => storeFilterButtons(stores, loginStoreName), [stores, loginStoreName]);
+  const productScope = useMemo(() => storeFilterScope(storeFilter, loginStoreName), [storeFilter, loginStoreName]);
+  const focusStore = focusStoreName(storeFilter, loginStoreName);
+  const selectedScope = selectedStoreScope(storeFilter, stores);
+  const otherStoreSelected = storeFilter.kind === 'store' && storeFilter.storeName !== loginStoreName;
+  const storeLabel = otherStoreSelected && focusStore ? `「${focusStore}」` : '本門市';
+  // 進貨預設進到所選門市（全部商品時是登入門市）的可售地點。
+  const restockStore = findStore(stores, focusStore);
   const {
     keyword,
     setKeyword,
-    brand,
-    setBrand,
     products,
     total,
     hasMore,
@@ -104,7 +113,7 @@ export function InventoryPage() {
     loadMore,
     reload,
     pinProduct,
-  } = useProductList({ stockFilters, enabled: filterReady, keepVisible: draftedProducts, allProducts });
+  } = useProductList({ stockFilters, enabled: filterReady, keepVisible: draftedProducts, scope: productScope });
 
   const [transferTarget, setTransferTarget] = useState<Product | null>(null);
   const [selectedDetailProduct, setSelectedDetailProduct] = useState<Product | null>(null);
@@ -339,43 +348,46 @@ export function InventoryPage() {
         </div>
       </div>
 
-      {listStore && (
-        <div
-          className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-100"
-          role="status"
-          data-testid="store-product-scope-hint"
-        >
-          <span className="font-bold">{allProducts ? '顯示全部商品（含本門市未販售）' : '僅顯示本門市商品'}</span>
-          <span className="text-xs text-amber-200/80">各據點欄位與總庫存仍是全部據點的數量。</span>
-          <label className="ml-auto flex items-center gap-2 text-xs font-semibold text-amber-200">
-            <input
-              type="checkbox"
-              checked={showAllProducts}
-              onChange={(event) => setShowAllProducts(event.target.checked)}
-            />
-            顯示全部商品
-          </label>
-        </div>
-      )}
-
-      {/* 品牌廠牌分類標籤 (Brand Tabs) */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+      {/* 門市篩選 (Store Tabs)：登入門市、全部商品、其他門市 */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none" data-testid="inventory-store-tabs">
         <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap mr-1">
-          廠牌篩選：
+          門市篩選：
         </span>
-        {BRAND_TABS.map((b) => (
-          <button
-            key={b}
-            onClick={() => setBrand(b)}
-            className={`rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-all whitespace-nowrap ${
-              brand === b
-                ? 'bg-cyan-500 text-zinc-950 shadow-sm font-bold scale-[1.02]'
-                : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:bg-zinc-800 hover:text-zinc-200'
-            }`}
-          >
-            {b === 'ALL' ? '全部品牌' : b}
-          </button>
-        ))}
+        {storeButtons.map((button) => {
+          const active = sameStoreFilter(button.filter, storeFilter);
+          return (
+            <button
+              key={button.key}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setStoreFilter(button.filter)}
+              className={`rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-all whitespace-nowrap ${
+                active
+                  ? 'bg-cyan-500 text-zinc-950 shadow-sm font-bold scale-[1.02]'
+                  : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:bg-zinc-800 hover:text-zinc-200'
+              }`}
+            >
+              {button.label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div
+        className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-100"
+        role="status"
+        data-testid="store-product-scope-hint"
+      >
+        <span className="font-bold">
+          {storeFilter.kind === 'all'
+            ? '顯示全部商品（含門市未販售）'
+            : selectedScope === 'all'
+              ? '此門市販售全部商品'
+              : selectedScope === 'list'
+                ? `僅顯示「${storeFilter.storeName}」的可售商品`
+                : `門市「${storeFilter.storeName}」的商品`}
+        </span>
+        <span className="text-xs text-amber-200/80">各據點欄位與總庫存仍是全部據點的數量。</span>
       </div>
 
       {/* 庫存列表表格 (支援各地點數量直編、顯示條碼與特大數字) */}
@@ -386,6 +398,8 @@ export function InventoryPage() {
         onStockChange={handleStockChange}
         onTransfer={setTransferTarget}
         onSelectProduct={setSelectedDetailProduct}
+        focusStoreName={focusStore}
+        storeLabel={storeLabel}
       />
       {!isLoading && (
         <LoadMoreFooter
@@ -426,7 +440,10 @@ export function InventoryPage() {
       {/* 快速條碼進貨彈窗 */}
       <RestockModal
         open={isRestockModalOpen}
-        allProducts={allProducts}
+        scope={productScope}
+        targetStoreName={storeFilter.kind === 'store' ? storeFilter.storeName : loginStoreName || null}
+        defaultLocationId={restockStore?.inventoryLocationId ?? null}
+        loginStoreName={loginStoreName}
         onClose={() => setIsRestockModalOpen(false)}
         onSuccess={handleRestockSuccess}
       />

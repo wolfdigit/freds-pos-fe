@@ -10,8 +10,15 @@ vi.mock('@/services', () => ({
     getProductsByBarcode: (...args: unknown[]) => getProductsByBarcode(...args),
   },
 }));
-vi.mock('../hooks/useLocations', () => ({ useLocations: () => ({ locations: [] }) }));
-vi.mock('@/hooks/useBarcodeSiblings', () => ({ useBarcodeSiblings: () => ({}) }));
+const mockLocations = vi.hoisted(() => ({ value: [] as Array<{ id: string; name: string }> }));
+vi.mock('../hooks/useLocations', () => ({ useLocations: () => ({ locations: mockLocations.value }) }));
+const mockSiblingScopes = vi.hoisted(() => ({ value: [] as unknown[] }));
+vi.mock('@/hooks/useBarcodeSiblings', () => ({
+  useBarcodeSiblings: (_codes: unknown, scope: unknown) => {
+    mockSiblingScopes.value.push(scope);
+    return {};
+  },
+}));
 
 import { useToastStore } from '@/components/feedback/toastStore';
 import { RestockModal } from './RestockModal';
@@ -63,6 +70,7 @@ describe('RestockModal 商品搜尋', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    mockLocations.value = [];
   });
 
   it('searches one server page at a time and loads more on demand', async () => {
@@ -82,9 +90,72 @@ describe('RestockModal 商品搜尋', () => {
   });
 
   it('skips the store product list only when the inventory page shows all products', async () => {
-    render(<RestockModal open onClose={vi.fn()} onSuccess={vi.fn()} allProducts />);
+    render(<RestockModal open onClose={vi.fn()} onSuccess={vi.fn()} scope={{ allProducts: true }} />);
     await typeAndSettle('NEW');
     expect(searchProductPage).toHaveBeenCalledWith({ keyword: 'NEW', allProducts: true, page: 1, pageSize: 50 });
+  });
+
+  it('searches and scans with the store picked on the inventory page', async () => {
+    render(
+      <RestockModal
+        open
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+        scope={{ storeName: '台南快閃店' }}
+        targetStoreName="台南快閃店"
+        loginStoreName="奇可門市"
+      />
+    );
+    await typeAndSettle('OLD');
+    expect(searchProductPage).toHaveBeenCalledWith({
+      keyword: 'OLD',
+      storeName: '台南快閃店',
+      page: 1,
+      pageSize: 50,
+    });
+    fireEvent.change(input(), { target: { value: '4710000000028' } });
+    fireEvent.keyDown(input(), { key: 'Enter' });
+    await waitFor(() => expect(toasts()).toContain('已加入進貨: NEW-2 (1台)'));
+    expect(getProductsByBarcode).toHaveBeenCalledWith('4710000000028', { storeName: '台南快閃店' });
+    // 批次清單的「同條碼其他貨號」也用同一間門市的清單。
+    expect(mockSiblingScopes.value.at(-1)).toEqual({ storeName: '台南快閃店' });
+  });
+
+  it('defaults to the target store sellable location and warns when it is not the login store', async () => {
+    mockLocations.value = [
+      { id: 'loc-main', name: '門市現貨' },
+      { id: 'loc-popup', name: '快閃店現貨' },
+    ];
+    const { rerender } = render(
+      <RestockModal
+        open
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+        scope={{ storeName: '台南快閃店' }}
+        targetStoreName="台南快閃店"
+        defaultLocationId="loc-popup"
+        loginStoreName="奇可門市"
+      />
+    );
+    expect(screen.getByRole('combobox')).toHaveValue('loc-popup');
+    expect(screen.getByTestId('restock-other-store-warning')).toHaveTextContent(
+      '注意：目前進貨門市「台南快閃店」不是登入門市「奇可門市」'
+    );
+    // 目標地點仍可以改。
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'loc-main' } });
+    expect(screen.getByRole('combobox')).toHaveValue('loc-main');
+
+    rerender(
+      <RestockModal
+        open
+        onClose={vi.fn()}
+        onSuccess={vi.fn()}
+        targetStoreName="奇可門市"
+        defaultLocationId="loc-main"
+        loginStoreName="奇可門市"
+      />
+    );
+    expect(screen.queryByTestId('restock-other-store-warning')).not.toBeInTheDocument();
   });
 
   it('adds the scanned barcode, not the stale results, when Enter beats the debounce', async () => {

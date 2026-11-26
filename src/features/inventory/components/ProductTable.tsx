@@ -4,6 +4,7 @@ import { Badge } from '@/components/common/Badge';
 import { formatCurrency } from '@/utils/currency';
 import { Spinner } from '@/components/feedback/Spinner';
 import { useLocations } from '../hooks/useLocations';
+import { orderLocationsForStore } from '../locationOrder';
 
 interface ProductTableProps {
   products: Product[];
@@ -12,6 +13,10 @@ interface ProductTableProps {
   onStockChange: (productId: string, location: StockLocation, newQty: number) => void;
   onTransfer: (product: Product) => void;
   onSelectProduct: (product: Product) => void;
+  /** 地點欄位依這間門市排序（所選門市；全部商品時是登入門市）。 */
+  focusStoreName?: string | null;
+  /** 「可售／退貨／未販售」欄位指的門市；登入門市時是「本門市」。 */
+  storeLabel?: string;
 }
 
 function getOrigStock(product: Product, location: StockLocation): number {
@@ -25,26 +30,32 @@ export function ProductTable({
   onStockChange,
   onTransfer,
   onSelectProduct,
+  focusStoreName = null,
+  storeLabel = '本門市',
 }: ProductTableProps) {
   const { locations: apiLocations } = useLocations();
 
-  // 動態彙整所有商品所擁有的庫存據點清單 (API 優先 + 商品 stocks 動態擴充據點)
+  // 庫存據點欄位：所選門市的可售、預購、退貨 → 系統地點 → 其他門市地點 → 沒有綁定的地點；
+  // 商品資料裡有、但庫存點清單沒有的地點排最後。
   const availableLocations = useMemo(() => {
-    const map = new Map<string, { name: string; order: number }>();
-    apiLocations.forEach((location, index) => {
-      map.set(location.id, { name: location.name, order: location.displayOrder ?? index });
-    });
+    const columns = orderLocationsForStore(apiLocations, focusStoreName).map((location) => ({
+      key: location.id,
+      name: location.name,
+    }));
+    const seen = new Set(columns.map((column) => column.key));
+    const extra = new Map<string, string>();
     products.forEach((product) => {
       product.inventories?.forEach((row) => {
-        if (row.location && !map.has(row.location)) {
-          map.set(row.location, { name: row.locationName || row.location, order: 999 });
+        if (row.location && !seen.has(row.location) && !extra.has(row.location)) {
+          extra.set(row.location, row.locationName || row.location);
         }
       });
     });
-    return Array.from(map.entries())
-      .sort((a, b) => a[1].order - b[1].order || a[0].localeCompare(b[0]))
-      .map(([key, value]) => ({ key, name: value.name }));
-  }, [apiLocations, products]);
+    const extraColumns = Array.from(extra.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([key, name]) => ({ key, name }));
+    return [...columns, ...extraColumns];
+  }, [apiLocations, products, focusStoreName]);
 
   if (isLoading) {
     return (
@@ -58,7 +69,7 @@ export function ProductTable({
     return (
       <div className="flex h-52 flex-col items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900/40 text-zinc-400">
         <p className="text-base font-medium">找不到符合條件的商品</p>
-        <p className="text-sm text-zinc-500 mt-1">請嘗試變更關鍵字或切換廠牌分類</p>
+        <p className="text-sm text-zinc-500 mt-1">請嘗試變更關鍵字或切換門市</p>
       </div>
     );
   }
@@ -76,8 +87,8 @@ export function ProductTable({
                 {loc.name}
               </th>
             ))}
-            <th className="px-4 py-3.5 text-center min-w-[110px] bg-zinc-900">本門市可售</th>
-            <th className="px-4 py-3.5 text-center min-w-[110px] bg-zinc-900">本門市退貨</th>
+            <th className="px-4 py-3.5 text-center min-w-[110px] bg-zinc-900">{storeLabel}可售</th>
+            <th className="px-4 py-3.5 text-center min-w-[110px] bg-zinc-900">{storeLabel}退貨</th>
             <th className="px-4 py-3.5 text-right font-bold bg-zinc-900">全據點合計</th>
             <th className="sticky right-0 z-20 min-w-[7.25rem] whitespace-nowrap bg-zinc-900 px-4 py-3.5 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.45)]">操作</th>
           </tr>
@@ -119,7 +130,7 @@ export function ProductTable({
                       {p.brand}
                     </span>
                     {p.scale && <Badge color="zinc">{p.scale}</Badge>}
-                    {p.soldInLoginStore === false && <Badge color="rose">本門市未販售</Badge>}
+                    {p.soldInLoginStore === false && <Badge color="rose">{storeLabel}未販售</Badge>}
                     {p.spec && <span className="text-xs text-zinc-400">{p.spec}</span>}
                   </div>
                 </td>

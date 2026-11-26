@@ -5,6 +5,7 @@ import type {
   ProductPage,
   ProductPageParams,
   ProductSearchParams,
+  ProductStoreScope,
   CreateProductRequest,
   UpdateProductRequest,
 } from '@/types/product';
@@ -72,8 +73,17 @@ async function loginStore(): Promise<StoreDto | null> {
   return loginStoreFrom(getStoredStores(), name);
 }
 
-async function presentAll(products: Product[]): Promise<Product[]> {
-  const store = await loginStore();
+/** 跟後端一樣：有帶 storeName 就看那間門市（找不到 404 STORE_NOT_FOUND），否則看登入門市。 */
+async function contextStore(storeName?: string): Promise<StoreDto | null> {
+  const name = storeName?.trim();
+  if (!name) return loginStore();
+  const found = getStoredStores().find((store) => store.name === name);
+  if (!found) throw new BusinessError('STORE_NOT_FOUND', '找不到門市');
+  return found;
+}
+
+async function presentAll(products: Product[], storeName?: string): Promise<Product[]> {
+  const store = await contextStore(storeName);
   const listed = store ? listedProductIds(store.name) : new Set<string>();
   return products.map((product) => ({
     ...withStoreQuantities(product, store),
@@ -82,9 +92,9 @@ async function presentAll(products: Product[]): Promise<Product[]> {
 }
 
 /** 跟後端 GET /products 一樣：list 門市只列清單商品；allProducts 任何人都可以帶。 */
-async function scopedProducts(products: Product[], allProducts?: boolean): Promise<Product[]> {
-  const store = await loginStore();
-  if (allProducts || !store || storeProductScope(store) !== 'list') return products;
+async function scopedProducts(products: Product[], scope: ProductStoreScope = {}): Promise<Product[]> {
+  const store = await contextStore(scope.storeName);
+  if (scope.allProducts || !store || storeProductScope(store) !== 'list') return products;
   const listed = listedProductIds(store.name);
   return products.filter((product) => listed.has(product.id));
 }
@@ -106,7 +116,7 @@ function writeMovement(movement: InventoryMovement): void {
 }
 
 async function matchingProducts(params: ProductSearchParams): Promise<Product[]> {
-  const products = await presentAll(await scopedProducts(getProducts(), params.allProducts));
+  const products = await presentAll(await scopedProducts(getProducts(), params), params.storeName);
   const keyword = params.keyword?.trim() ?? '';
 
   return products.filter((product) => {
@@ -136,12 +146,13 @@ export class MockProductService implements IProductService {
     };
   }
 
-  async getProductsByBarcode(barcode: string, options?: { allProducts?: boolean }): Promise<Product[]> {
+  async getProductsByBarcode(barcode: string, options?: ProductStoreScope): Promise<Product[]> {
     const code = barcode.trim();
     if (!code) return [];
     await simulateDelay();
     return presentAll(
-      await scopedProducts(getProducts().filter((product) => product.barcode === code), options?.allProducts)
+      await scopedProducts(getProducts().filter((product) => product.barcode === code), options),
+      options?.storeName
     );
   }
 

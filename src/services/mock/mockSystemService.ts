@@ -143,7 +143,7 @@ export class MockSystemService implements ISystemService {
     await simulateDelay(30, 80);
     const current = getStoredStores();
     const idx = current.findIndex((store) => store.name === storeName);
-    if (idx === -1) throw new BusinessError('LOCATION_NOT_FOUND', '找不到門市');
+    if (idx === -1) throw new BusinessError('STORE_NOT_FOUND', '找不到門市');
     const updated: StoreDto = { ...current[idx], productScope };
     const next = [...current];
     next[idx] = updated;
@@ -389,7 +389,7 @@ function systemLocation(role: 'company' | 'preorder' | 'defective'): InventoryLo
 
 function requireStore(storeName: string): StoreDto {
   const store = getStoredStores().find((row) => row.name === storeName);
-  if (!store) throw new BusinessError('LOCATION_NOT_FOUND', '找不到門市');
+  if (!store) throw new BusinessError('STORE_NOT_FOUND', '找不到門市');
   return store;
 }
 

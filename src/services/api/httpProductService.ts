@@ -1,11 +1,12 @@
 import type { IProductService } from '@/services/interfaces/IProductService';
-import { MAX_PRODUCT_PAGE_SIZE, STOCK_FILTER_KEYS, productAvailability } from '@/types/product';
+import { MAX_PRODUCT_PAGE_SIZE, STOCK_FILTER_KEYS, productAvailability, storeScopeParams } from '@/types/product';
 import type {
   CartProductAvailability,
   Product,
   ProductPage,
   ProductPageParams,
   ProductSearchParams,
+  ProductStoreScope,
   CreateProductRequest,
   UpdateProductRequest,
 } from '@/types/product';
@@ -62,6 +63,8 @@ function filterQuery(params: ProductSearchParams): URLSearchParams {
   if (params.brand && params.brand !== 'ALL') query.set('brand', params.brand);
   if (params.inInventoryOnly !== undefined) query.set('inInventoryOnly', String(params.inInventoryOnly));
   if (params.allProducts) query.set('allProducts', 'true');
+  const storeName = params.storeName?.trim();
+  if (storeName) query.set('storeName', storeName);
   for (const key of STOCK_FILTER_KEYS) {
     const value = params[key];
     if (value !== undefined && value !== '') query.set(key, String(value));
@@ -98,10 +101,10 @@ export class HttpProductService implements IProductService {
     return readProductPage(await sharedProductGet<unknown>(productsEndpoint(query)), params);
   }
 
-  async getProductsByBarcode(barcode: string, options?: { allProducts?: boolean }): Promise<Product[]> {
+  async getProductsByBarcode(barcode: string, options?: ProductStoreScope): Promise<Product[]> {
     const code = barcode.trim();
     if (!code) return [];
-    const params = { page: 1, pageSize: MAX_PRODUCT_PAGE_SIZE, ...(options?.allProducts ? { allProducts: true } : {}) };
+    const params = { page: 1, pageSize: MAX_PRODUCT_PAGE_SIZE, ...storeScopeParams(options) };
     const query = filterQuery(params);
     query.set('barcode', code);
     query.set('page', String(params.page));

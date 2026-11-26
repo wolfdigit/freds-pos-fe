@@ -77,7 +77,7 @@ export interface IProductService {
   /** 分頁搜尋商品（支援條碼、貨號無 dash 比對、車型名稱） */
   searchProductPage(params: ProductPageParams): Promise<ProductPage>;
   /** 條碼完全相符的商品（同條碼的其他貨號） */
-  getProductsByBarcode(barcode: string, options?: { allProducts?: boolean }): Promise<Product[]>;
+  getProductsByBarcode(barcode: string, options?: ProductStoreScope): Promise<Product[]>; // { allProducts?, storeName? }
   /** 依 ID 取得單一商品 */
   getProductById(id: string): Promise<Product | null>;
   /** 新增商品建檔 */
@@ -147,7 +147,7 @@ export interface ISystemService {
 }
 ```
 
-`IProductService.searchProductPage` 的 `ProductSearchParams.allProducts`（任何業務帳號）會帶 `allProducts=true`，略過登入門市的商品清單。Mock 端清單存在 localStorage `FREDS_POS_STORE_PRODUCTS`（`src/services/mock/storeProductCatalog.ts`），重設種子資料時一併清除。
+`IProductService.searchProductPage` 的 `ProductSearchParams.allProducts`（任何業務帳號）會帶 `allProducts=true`，略過門市商品清單；`storeName` 帶 `storeName=<門市>`，改看那間門市（清單、`loginStore*` 數量、`soldInLoginStore`、門市數量篩選），找不到門市回 `404 STORE_NOT_FOUND`。Mock 端清單存在 localStorage `FREDS_POS_STORE_PRODUCTS`（`src/services/mock/storeProductCatalog.ts`），重設種子資料時一併清除。
 
 未存檔變更守門（`src/utils/unsavedChanges.ts`、`src/hooks/useUnsavedChangesGuard.ts`）：畫面有未存檔變更時登記訊息；`uiStore.setActiveTab` / `navigateToCustomer` / `syncStateFromHash`（瀏覽器返回）、設定頁分頁切換與登出會先 `window.confirm`，取消就留在原頁並把網址改回；關閉或重新整理分頁由 `beforeunload` 提示。
 

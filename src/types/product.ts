@@ -88,8 +88,25 @@ export interface ProductSearchParams {
   /** totalInventory 下限／上限，含等號。 */
   totalInventoryMin?: number;
   totalInventoryMax?: number;
-  /** 不套用登入門市的商品清單，列出全部商品（任何業務帳號都可勾「顯示全部商品」）。 */
+  /** 不套用門市商品清單，列出全部商品（庫存頁選「全部商品」）。優先於 storeName 的清單。 */
   allProducts?: boolean;
+  /**
+   * 這次查詢改看這間門市（預設登入門市）：門市商品清單、loginStore* 數量、soldInLoginStore
+   * 與 loginStoreQuantityMin/Max 都以它為準。找不到門市時後端回 404 STORE_NOT_FOUND。
+   */
+  storeName?: string;
+}
+
+/** GET /products 看哪間門市的清單：storeName 指定門市（不帶 = 登入門市）；allProducts 不套清單。 */
+export type ProductStoreScope = Pick<ProductSearchParams, 'allProducts' | 'storeName'>;
+
+/** 只留有值的門市範圍參數（allProducts=false、空白 storeName 都不送）。 */
+export function storeScopeParams(scope?: ProductStoreScope): ProductStoreScope {
+  const params: ProductStoreScope = {};
+  if (scope?.allProducts) params.allProducts = true;
+  const storeName = scope?.storeName?.trim();
+  if (storeName) params.storeName = storeName;
+  return params;
 }
 
 /** 數量篩選的參數名稱（送給後端時照這個順序）。 */

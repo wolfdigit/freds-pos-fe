@@ -3,7 +3,13 @@ import { Modal } from '@/components/common/Modal';
 import { Button } from '@/components/common/Button';
 import { Input } from '@/components/common/Input';
 import { Spinner } from '@/components/feedback/Spinner';
-import { PRODUCT_PAGE_SIZE, type Product, type StockLocation } from '@/types/product';
+import {
+  PRODUCT_PAGE_SIZE,
+  storeScopeParams,
+  type Product,
+  type ProductStoreScope,
+  type StockLocation,
+} from '@/types/product';
 import type { InventoryReceipt } from '@/types/inventory';
 import { errorMessage } from '@/auth/businessError';
 import { productService } from '@/services';
@@ -19,10 +25,15 @@ interface RestockModalProps {
   onClose: () => void;
   onSuccess: (receipts: InventoryReceipt[]) => void;
   /**
-   * 不套用登入門市的商品清單（庫存頁勾了「顯示全部商品」時）。
-   * 預設跟其他畫面一樣：只販售清單商品的門市只搜得到清單內商品。
+   * 搜尋商品用哪間門市的清單：跟庫存頁所選的門市一樣（storeName），選「全部商品」時 allProducts。
+   * 不帶時跟其他畫面一樣看登入門市。
    */
-  allProducts?: boolean;
+  scope?: ProductStoreScope;
+  /** 這次進貨的門市（庫存頁所選門市；全部商品時是登入門市）。跟登入門市不同時顯示提醒。 */
+  targetStoreName?: string | null;
+  /** 預設進貨地點：進貨門市的可售地點。找不到時用第一個地點。仍可改選。 */
+  defaultLocationId?: string | null;
+  loginStoreName?: string;
 }
 
 function groupKeyOf(product: Product): string {
@@ -48,7 +59,23 @@ interface ProductGroup {
   items: Product[];
 }
 
-export function RestockModal({ open, onClose, onSuccess, allProducts = false }: RestockModalProps) {
+export function RestockModal({
+  open,
+  onClose,
+  onSuccess,
+  scope,
+  targetStoreName = null,
+  defaultLocationId = null,
+  loginStoreName = '',
+}: RestockModalProps) {
+  const scopeKey = JSON.stringify(storeScopeParams(scope));
+  const lookupScope = useMemo(() => JSON.parse(scopeKey) as ProductStoreScope, [scopeKey]);
+  const otherStoreWarning =
+    targetStoreName && targetStoreName !== loginStoreName.trim()
+      ? loginStoreName.trim()
+        ? `注意：目前進貨門市「${targetStoreName}」不是登入門市「${loginStoreName.trim()}」`
+        : `注意：目前進貨門市「${targetStoreName}」不是登入門市（尚未選擇登入門市）`
+      : null;
   const showToast = useToastStore((s) => s.showToast);
   const { locations: apiLocations } = useLocations();
 
@@ -64,12 +91,15 @@ export function RestockModal({ open, onClose, onSuccess, allProducts = false }: 
   const [selectedGroupKey, setSelectedGroupKey] = useState<string>('');
   const [selectedProductMap, setSelectedProductMap] = useState<Record<string, string>>({});
 
-  const [targetLocation, setTargetLocation] = useState<StockLocation>('warehouse');
+  const [targetLocation, setTargetLocation] = useState<StockLocation>(defaultLocationId ?? '');
   const [quantity, setQuantity] = useState('1');
 
   const [restockBatch, setRestockBatch] = useState<RestockItem[]>([]);
   // 待入庫清單比對同條碼其他貨號：只查清單裡出現的條碼，不再抓全部商品。
-  const siblingsByBarcode = useBarcodeSiblings(restockBatch.map((item) => item.product.barcode));
+  const siblingsByBarcode = useBarcodeSiblings(
+    restockBatch.map((item) => item.product.barcode),
+    lookupScope
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -164,6 +194,11 @@ export function RestockModal({ open, onClose, onSuccess, allProducts = false }: 
     }
   }, [open]);
 
+  // 開啟時（或進貨門市改變時）預設進到進貨門市的可售地點。
+  useEffect(() => {
+    if (open && defaultLocationId) setTargetLocation(defaultLocationId);
+  }, [open, defaultLocationId]);
+
   // 當切換商品時，若當前 targetLocation 不在該商品據點中，自動設為第一個據點
   useEffect(() => {
     if (dynamicLocationOptions.length > 0) {
@@ -227,12 +262,12 @@ export function RestockModal({ open, onClose, onSuccess, allProducts = false }: 
     }, SEARCH_DEBOUNCE_MS);
   };
 
-  // 伺服器端分頁搜尋（GET /products page/pageSize），跟著登入門市的商品清單；不再一次載入全部商品。
+  // 伺服器端分頁搜尋（GET /products page/pageSize），跟著所選門市的商品清單（lookupScope）；不再一次載入全部商品。
   const runBarcodeSearch = async (query: string, reqId: number) => {
     try {
       const page = await productService.searchProductPage({
         keyword: query,
-        ...(allProducts ? { allProducts: true } : {}),
+        ...lookupScope,
         page: 1,
         pageSize: PRODUCT_PAGE_SIZE,
       });
@@ -261,7 +296,7 @@ export function RestockModal({ open, onClose, onSuccess, allProducts = false }: 
     try {
       const page = await productService.searchProductPage({
         keyword: query,
-        ...(allProducts ? { allProducts: true } : {}),
+        ...lookupScope,
         page: nextPage,
         pageSize: PRODUCT_PAGE_SIZE,
       });
@@ -302,7 +337,7 @@ export function RestockModal({ open, onClose, onSuccess, allProducts = false }: 
         cancelPendingSearch();
         setIsSearching(false);
         // 條碼 / 貨號完全相符優先（不分品牌）；沒有時才用關鍵字搜尋的第一筆。
-        const lookup = await findExactProduct(query, { allProducts });
+        const lookup = await findExactProduct(query, lookupScope);
         let found = lookup.exact ?? undefined;
         if (!found) {
           try {
@@ -310,7 +345,7 @@ export function RestockModal({ open, onClose, onSuccess, allProducts = false }: 
               lookup.page ??
               (await productService.searchProductPage({
                 keyword: query,
-                ...(allProducts ? { allProducts: true } : {}),
+                ...lookupScope,
                 page: 1,
                 pageSize: PRODUCT_PAGE_SIZE,
               }));
@@ -430,6 +465,15 @@ export function RestockModal({ open, onClose, onSuccess, allProducts = false }: 
   return (
     <Modal open={open} onClose={onClose} title="快速條碼進貨模式" widthClassName="max-w-3xl">
       <div className="space-y-4 text-base">
+        {otherStoreWarning && (
+          <div
+            role="alert"
+            data-testid="restock-other-store-warning"
+            className="rounded-xl border-2 border-amber-400 bg-amber-400/15 px-4 py-2.5 text-base font-extrabold text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.35)]"
+          >
+            ⚠️ {otherStoreWarning}
+          </div>
+        )}
         {/* 條碼掃描與 SKU 選擇區 */}
         <div className="rounded-xl border border-cyan-800/40 bg-cyan-950/20 p-4 space-y-3">
           <div className="flex items-start gap-3">
