@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { locationService, productService } from '@/services';
 import { useSessionStore } from '@/store/sessionStore';
 import type { InventoryLocationDto } from '@/types/inventory';
@@ -109,6 +109,30 @@ describe('ProductDetailModal inventory breakdown', () => {
     expect(screen.getByText('後方倉庫 7')).toBeInTheDocument();
     expect(screen.queryByText('門市現貨 4')).not.toBeInTheDocument();
     expect(screen.queryByText('公司總倉 10')).not.toBeInTheDocument();
+  });
+
+  it('shows 讀取中 instead of the old 3-card layout while locations load', async () => {
+    let resolve: (rows: InventoryLocationDto[]) => void = () => {};
+    vi.mocked(locationService.getLocations).mockReturnValue(new Promise((r) => { resolve = r; }));
+    render(<ProductDetailModal open product={SAMPLE_PRODUCT} onClose={vi.fn()} />);
+
+    expect(screen.getByText('讀取中')).toBeInTheDocument();
+    expect(screen.queryByText('門市退貨')).toBeNull();
+    expect(screen.queryByText('門市預購保留')).toBeNull();
+
+    await act(async () => resolve(SAMPLE_LOCATIONS));
+    expect(await screen.findByText('門市預購保留・系統預購保留')).toBeInTheDocument();
+    expect(screen.queryByText('讀取中')).toBeNull();
+  });
+
+  it('lets long location names truncate inside the card', async () => {
+    const longName = '這是一個非常非常非常非常非常非常長的庫存地點名稱';
+    vi.mocked(locationService.getLocations).mockResolvedValue(
+      SAMPLE_LOCATIONS.map((row) => (row.id === 'loc-store' ? { ...row, name: longName } : row))
+    );
+    render(<ProductDetailModal open product={SAMPLE_PRODUCT} onClose={vi.fn()} />);
+    const name = await screen.findByTitle(longName);
+    expect(name).toHaveClass('min-w-0', 'max-w-full', 'truncate');
   });
 
   it('does not load locations while closed, and loads them once opened', async () => {

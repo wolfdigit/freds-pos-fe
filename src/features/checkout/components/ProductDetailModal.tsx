@@ -46,7 +46,7 @@ export function ProductDetailModal({
 }: ProductDetailModalProps) {
   const storeName = useSessionStore((s) => s.storeName);
   // 結帳頁一直掛著這個視窗；打開時才讀庫存地點，不在每次進結帳頁時多打一次 API。
-  const { locations } = useLocations({ enabled: open });
+  const { locations, isLoading: locationsLoading } = useLocations({ enabled: open });
   const [activeProduct, setActiveProduct] = useState<Product | null>(product);
   const [siblingProducts, setSiblingProducts] = useState<Product[]>([]);
   const [siblingsLoading, setSiblingsLoading] = useState(false);
@@ -54,6 +54,10 @@ export function ProductDetailModal({
   const featuredLocations = useMemo(
     () => resolveFeaturedLocations(locations, storeName, PRODUCT_DETAIL_LOCATION_ROLES),
     [locations, storeName]
+  );
+  const featuredIds = useMemo(
+    () => new Set(featuredLocations.map((entry) => entry.location.id)),
+    [featuredLocations]
   );
 
   useEffect(() => {
@@ -114,7 +118,6 @@ export function ProductDetailModal({
   const returnedQty = currentProduct.loginStoreReturnedQuantity;
   const sellableKnown = typeof sellable === 'number';
   const hasMultipleSkus = siblingProducts.length > 1;
-  const featuredIds = new Set(featuredLocations.map((entry) => entry.location.id));
   const otherInventories = currentProduct.inventories.filter((row) => !featuredIds.has(row.location));
   const featuredGridClass =
     featuredLocations.length === 1
@@ -221,8 +224,13 @@ export function ProductDetailModal({
             </span>
           </div>
 
-          {/* 主要資訊：門市綁定與系統預設地點（重疊合併） */}
-          {featuredLocations.length > 0 ? (
+          {/* 主要資訊：門市綁定與系統預設地點（重疊合併）。讀取庫存地點時先顯示讀取中，不閃舊版面。 */}
+          {locationsLoading && featuredLocations.length === 0 ? (
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-sm text-zinc-400">
+              <Spinner size="sm" />
+              讀取中
+            </div>
+          ) : featuredLocations.length > 0 ? (
             <div className={`grid ${featuredGridClass} gap-2.5 text-center font-mono`}>
               {featuredLocations.map((entry) => {
                 const isStoreSale = entry.roles.includes('storeSale');
@@ -233,19 +241,19 @@ export function ProductDetailModal({
                     key={entry.location.id}
                     className={
                       isStoreSale
-                        ? 'rounded-xl border border-emerald-800/80 bg-emerald-950/30 p-3 ring-1 ring-emerald-500/30'
-                        : 'rounded-xl border border-zinc-800 bg-zinc-950 p-3'
+                        ? 'min-w-0 rounded-xl border border-emerald-800/80 bg-emerald-950/30 p-3 ring-1 ring-emerald-500/30'
+                        : 'min-w-0 rounded-xl border border-zinc-800 bg-zinc-950 p-3'
                     }
                   >
                     <div className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-left">
                       <span
-                        className={`truncate text-base font-bold ${isStoreSale ? 'text-emerald-200' : 'text-zinc-100'}`}
+                        className={`min-w-0 max-w-full truncate text-base font-bold ${isStoreSale ? 'text-emerald-200' : 'text-zinc-100'}`}
                         title={entry.location.name}
                       >
                         {entry.location.name}
                       </span>
                       <span
-                        className={`truncate text-sm ${isStoreSale ? 'text-emerald-300/90' : 'text-zinc-400'}`}
+                        className={`min-w-0 max-w-full truncate text-sm ${isStoreSale ? 'text-emerald-300/90' : 'text-zinc-400'}`}
                         title={roleLabel}
                       >
                         {roleLabel}

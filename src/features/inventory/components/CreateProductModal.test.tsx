@@ -120,4 +120,15 @@ describe('CreateProductModal featured initial stock locations', () => {
     expect(screen.getByText('公司總倉')).toBeInTheDocument();
     expect(screen.getByText('預購保留')).toBeInTheDocument();
   });
+
+  it('lets long location names truncate inside the input card', async () => {
+    const longName = '這是一個非常非常非常非常非常非常長的庫存地點名稱';
+    vi.spyOn(locationService, 'getLocations').mockResolvedValue(
+      LOCATIONS_WITH_OVERLAP.map((l) => (l.id === 'loc-store' ? { ...l, name: longName } : l))
+    );
+    render(<CreateProductModal open onClose={vi.fn()} onSuccess={vi.fn()} />);
+    const name = await screen.findByTitle(longName);
+    expect(name).toHaveClass('min-w-0', 'max-w-full', 'truncate');
+    expect(name.closest('div')).toHaveClass('min-w-0');
+  });
 });

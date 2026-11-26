@@ -262,19 +262,19 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
                 const roleLabel = formatFeaturedLocationRoles(entry.roles, CREATE_ROLE_LABELS);
                 const inputId = `create-product-stock-${entry.location.id}`;
                 return (
-                  <div key={entry.location.id} className="rounded-lg border border-zinc-800 bg-zinc-900 p-2.5">
+                  <div key={entry.location.id} className="min-w-0 rounded-lg border border-zinc-800 bg-zinc-900 p-2.5">
                     <label
                       htmlFor={inputId}
                       className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5"
                     >
                       <span
-                        className={`truncate text-base font-bold ${isStoreSale ? 'text-emerald-300' : 'text-zinc-100'}`}
+                        className={`min-w-0 max-w-full truncate text-base font-bold ${isStoreSale ? 'text-emerald-300' : 'text-zinc-100'}`}
                         title={entry.location.name}
                       >
                         {entry.location.name}
                       </span>
                       <span
-                        className={`truncate text-sm ${isStoreSale ? 'text-emerald-300/90' : 'text-zinc-400'}`}
+                        className={`min-w-0 max-w-full truncate text-sm ${isStoreSale ? 'text-emerald-300/90' : 'text-zinc-400'}`}
                         title={roleLabel}
                       >
                         {roleLabel}
