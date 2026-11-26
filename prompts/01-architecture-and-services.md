@@ -101,13 +101,16 @@ import {
   CreateOrderPayload,
   CheckoutReceipt,
   OrderSearchParams,
+  RecentOrdersOptions,
 } from '@/types/checkout';
 
 export interface ICheckoutService {
   /** 建立結帳單（含購買、瑕疵換貨、退貨），並原子執行扣減/回補庫存、累計會員點數 */
   createCheckoutOrder(payload: CreateOrderPayload, idempotencyKey?: string): Promise<CheckoutReceipt>;
-  /** 查詢歷史結帳單 (支援會員 ID、單號、商品 ID、關鍵字、日期範圍) */
+  /** 查詢歷史結帳單 (支援會員 ID、單號、商品 ID、關鍵字、日期範圍；storeName 只看該門市結帳的單，不算限縮條件) */
   getOrderHistory(params?: OrderSearchParams | string): Promise<CheckoutOrder[]>;
+  /** 最近的結帳單（一頁）；options.storeName 只看該門市。日報「有紀錄」日期捷徑用。 */
+  getRecentOrders(limit: number, options?: RecentOrdersOptions): Promise<CheckoutOrder[]>;
   /** 依 ID 取得單一結帳單（補印收據 / 查看退貨狀態用） */
   getOrderById(orderId: string): Promise<CheckoutOrder | null>;
 }

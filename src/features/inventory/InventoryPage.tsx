@@ -15,7 +15,8 @@ import { useLocations } from './hooks/useLocations';
 import { Button } from '@/components/common/Button';
 import { useUiStore } from '@/store/uiStore';
 import { useSessionStore } from '@/store/sessionStore';
-import { useStoreChoices } from './hooks/useStoreChoices';
+import { useStoreChoices } from '@/hooks/useStoreChoices';
+import { StoreFilterTabs } from '@/components/common/StoreFilterTabs';
 import {
   defaultStoreFilter,
   findStore,
@@ -349,29 +350,15 @@ export function InventoryPage() {
       </div>
 
       {/* 門市篩選 (Store Tabs)：登入門市、全部商品、其他門市 */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none" data-testid="inventory-store-tabs">
-        <span className="text-xs font-semibold text-zinc-500 uppercase tracking-wider whitespace-nowrap mr-1">
-          門市篩選：
-        </span>
-        {storeButtons.map((button) => {
-          const active = sameStoreFilter(button.filter, storeFilter);
-          return (
-            <button
-              key={button.key}
-              type="button"
-              aria-pressed={active}
-              onClick={() => setStoreFilter(button.filter)}
-              className={`rounded-lg px-3.5 py-1.5 text-sm font-semibold transition-all whitespace-nowrap ${
-                active
-                  ? 'bg-cyan-500 text-zinc-950 shadow-sm font-bold scale-[1.02]'
-                  : 'bg-zinc-900 text-zinc-400 border border-zinc-800 hover:bg-zinc-800 hover:text-zinc-200'
-              }`}
-            >
-              {button.label}
-            </button>
-          );
-        })}
-      </div>
+      <StoreFilterTabs
+        testId="inventory-store-tabs"
+        tabs={storeButtons}
+        activeKey={storeButtons.find((button) => sameStoreFilter(button.filter, storeFilter))?.key ?? ''}
+        onSelect={(key) => {
+          const button = storeButtons.find((row) => row.key === key);
+          if (button) setStoreFilter(button.filter);
+        }}
+      />
 
       <div
         className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-sm text-amber-100"

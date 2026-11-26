@@ -5,6 +5,7 @@ import type {
   CheckoutOrderPage,
   OrderPageParams,
   OrderSearchParams,
+  RecentOrdersOptions,
 } from '@/types/checkout';
 
 export interface ICheckoutService {
@@ -15,8 +16,9 @@ export interface ICheckoutService {
   getOrderHistory(params?: OrderSearchParams | string): Promise<CheckoutOrder[]>;
   /** 只抓一頁歷史結帳單（新到舊）。退貨查原單用，篩選在伺服器端做。 */
   searchOrderPage(params: OrderPageParams): Promise<CheckoutOrderPage>;
-  /** 最近的結帳單（新到舊，只抓一頁，最多 100 筆）。日報的「有紀錄」日期捷徑用，不必抓全部歷史。 */
-  getRecentOrders(limit: number): Promise<CheckoutOrder[]>;
+  /** 最近的結帳單（新到舊，只抓一頁，最多 100 筆）。日報的「有紀錄」日期捷徑用，不必抓全部歷史。
+   * options.storeName 只看那間門市。 */
+  getRecentOrders(limit: number, options?: RecentOrdersOptions): Promise<CheckoutOrder[]>;
   /** 依 ID 取得單一結帳單（補印收據 / 查看退貨狀態用） */
   getOrderById(orderId: string): Promise<CheckoutOrder | null>;
 }

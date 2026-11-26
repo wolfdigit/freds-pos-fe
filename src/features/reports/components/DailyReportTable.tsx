@@ -7,6 +7,7 @@ import { Button } from '@/components/common/Button';
 import { formatCurrency } from '@/utils/currency';
 import { formatDateTime } from '@/utils/date';
 import { OrderDetailModal } from '@/features/checkout/components/OrderDetailModal';
+import { orderStoreName } from '../orderStore';
 
 interface DailyReportTableProps {
   orders: CheckoutOrder[];
@@ -15,7 +16,13 @@ interface DailyReportTableProps {
   selectedPaymentMethod: string;
   availableDates: string[];
   onSelectDate: (date: string) => void;
+  /** 所有門市總計時多一欄「門市」。 */
+  showStoreColumn?: boolean;
+  /** 現有門市名稱；訂單 branchId 對不到時門市留空。 */
+  storeNames?: ReadonlySet<string>;
 }
+
+const NO_STORES: ReadonlySet<string> = new Set();
 
 export function DailyReportTable({
   orders,
@@ -24,7 +31,11 @@ export function DailyReportTable({
   selectedPaymentMethod,
   availableDates,
   onSelectDate,
+  showStoreColumn = false,
+  storeNames = NO_STORES,
 }: DailyReportTableProps) {
+  // 底部加總列的說明欄跨到「品項摘要」為止；多一欄門市時多跨一欄。
+  const labelSpan = showStoreColumn ? 5 : 4;
   const [selectedOrder, setSelectedOrder] = useState<CheckoutOrder | null>(null);
 
   const renderStatusBadge = (status: CheckoutOrder['status']) => {
@@ -111,6 +122,7 @@ export function DailyReportTable({
             <thead className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950 text-xs font-semibold uppercase text-zinc-400 shadow-sm">
               <tr>
                 <th className="min-w-[7.25rem] py-2.5 px-3">單號 / 狀態</th>
+                {showStoreColumn && <th className="min-w-[5rem] whitespace-nowrap py-2.5 px-3">門市</th>}
                 <th className="min-w-[4.5rem] py-2.5 px-3">時間 / 收銀員</th>
                 <th className="min-w-[3rem] py-2.5 px-3">顧客 / 會員</th>
                 <th className="w-[17rem] py-2.5 px-3">品項摘要</th>
@@ -144,6 +156,12 @@ export function DailyReportTable({
                         )}
                       </div>
                     </td>
+
+                    {showStoreColumn && (
+                      <td className="py-3 px-3 whitespace-nowrap text-zinc-300" data-testid="report-order-store">
+                        {orderStoreName(order, storeNames)}
+                      </td>
+                    )}
 
                     {/* 時間與收銀員 */}
                     <td className="py-3 px-3">
@@ -267,7 +285,7 @@ export function DailyReportTable({
                 return (
                   <tr key={stat.type} className="bg-zinc-900 [&>td]:bg-zinc-900 [&>td]:shadow-[inset_0_-1px_0_theme(colors.zinc.800)]">
                     {/* 付款方式說明 (跨 4 欄) */}
-                    <td colSpan={4} className="py-2.5 px-3">
+                    <td colSpan={labelSpan} className="py-2.5 px-3">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-semibold text-zinc-200">
                           {stat.type === 'cash' ? '現金支付加總' : `${stat.label} 付款加總`}
@@ -324,7 +342,7 @@ export function DailyReportTable({
               {/* 2. 當日結算總計列 (Grand Total) */}
               <tr className="bg-zinc-950 font-bold [&>td]:bg-zinc-950 [&>td]:shadow-[inset_0_1px_0_theme(colors.zinc.700)]">
                 {/* 總計標籤與訂單筆數說明 (跨 4 欄) */}
-                <td colSpan={4} className="py-3 px-3">
+                <td colSpan={labelSpan} className="py-3 px-3">
                   <div className="flex items-center gap-2.5">
                     <span className="text-base font-extrabold text-zinc-100 tracking-wide flex items-center gap-1.5">
 當日結算總計
@@ -382,6 +400,7 @@ export function DailyReportTable({
       <OrderDetailModal
         open={selectedOrder !== null}
         order={selectedOrder}
+        storeName={selectedOrder ? orderStoreName(selectedOrder, storeNames) : undefined}
         onClose={() => setSelectedOrder(null)}
       />
     </div>

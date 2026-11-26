@@ -509,6 +509,8 @@ paths:
       description: |
         Maps to `ICheckoutService.getOrderHistory`. Supports searching by customer, order number,
         product ID (for finding original sales order during return), date range, or keyword.
+        `storeName` keeps only orders checked out at that store (`branchId`); a return counts toward the store that
+        processed it. Orders of deleted stores and old `branch-store` / `branch-online` orders only appear without it.
       parameters:
         - name: customerId
           in: query
@@ -547,6 +549,11 @@ paths:
           schema:
             type: string
             enum: [all, completed, partially_refunded, refunded]
+        - name: storeName
+          in: query
+          schema:
+            type: string
+          description: Only orders checked out at this store (`branchId`). Blank = not sent = all stores. Unknown store → `404` `STORE_NOT_FOUND`.
       responses:
         '200':
           description: Order list (newest-first)
@@ -556,6 +563,8 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/CheckoutOrder'
+        '404':
+          description: '`storeName` is not a store (`STORE_NOT_FOUND`)'
     post:
       tags: [checkout]
       operationId: createCheckoutOrder
@@ -1890,6 +1899,11 @@ components:
         customerName:
           type: string
         customerPhone:
+          type: string
+        branchId:
+          type: string
+          description: Checkout store name (`store_branch.name` of the login store at checkout; for a return, the store that processed it). Old orders may be `branch-store` / `branch-online` or a deleted store; the FE shows no store name for those.
+        branchName:
           type: string
         items:
           type: array

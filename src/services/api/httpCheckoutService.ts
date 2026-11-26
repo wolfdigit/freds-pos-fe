@@ -6,6 +6,7 @@ import type {
   CheckoutReceipt,
   OrderPageParams,
   OrderSearchParams,
+  RecentOrdersOptions,
 } from '@/types/checkout';
 import { hasOrderHistoryFilter, ORDER_HISTORY_FILTER_REQUIRED } from '@/types/checkout';
 import { httpClient } from './httpClient';
@@ -44,6 +45,7 @@ function orderHistoryQuery(params?: OrderSearchParams | string): URLSearchParams
   setAmount(query, 'minAmount', params.minAmount);
   setAmount(query, 'maxAmount', params.maxAmount);
   if (params.status && params.status !== 'all') query.set('status', params.status);
+  setText(query, 'storeName', params.storeName?.trim());
   return query;
 }
 
@@ -115,9 +117,10 @@ export class HttpCheckoutService implements ICheckoutService {
     return readOrderPage(await httpClient.get<unknown>(`/checkout/orders?${query.toString()}`));
   }
 
-  async getRecentOrders(limit: number): Promise<CheckoutOrder[]> {
+  async getRecentOrders(limit: number, options?: RecentOrdersOptions): Promise<CheckoutOrder[]> {
     const pageSize = Math.min(Math.max(1, Math.floor(limit)), ORDER_HISTORY_PAGE_SIZE);
     const query = new URLSearchParams({ page: '1', pageSize: String(pageSize) });
+    setText(query, 'storeName', options?.storeName?.trim());
     // 後端依建立時間新到舊排序，第一頁就是最近的訂單。
     return readOrderPage(await httpClient.get<unknown>(`/checkout/orders?${query.toString()}`)).items;
   }
