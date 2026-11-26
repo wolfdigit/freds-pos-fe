@@ -13,17 +13,17 @@ function order(extra: Partial<CheckoutOrder>): CheckoutOrder {
 }
 
 describe('OrderDetailModal 門市', () => {
-  it('shows the checkout store name, falling back to branchId', () => {
-    const { rerender } = render(
-      <OrderDetailModal open order={order({ branchId: '奇可門市', branchName: '奇可門市' })} onClose={vi.fn()} />
-    );
+  it('shows the store name the caller resolved', () => {
+    render(<OrderDetailModal open order={order({ branchId: '奇可門市' })} storeName="奇可門市" onClose={vi.fn()} />);
     expect(screen.getByTestId('order-detail-store')).toHaveTextContent('奇可門市');
-    rerender(<OrderDetailModal open order={order({ branchId: 'branch-store' })} onClose={vi.fn()} />);
-    expect(screen.getByTestId('order-detail-store')).toHaveTextContent('branch-store');
   });
 
-  it('shows no store line when the order has none', () => {
-    render(<OrderDetailModal open order={order({})} onClose={vi.fn()} />);
+  it('never falls back to branchName or branchId', () => {
+    const legacy = order({ branchId: 'branch-store', branchName: '台北旗艦店' });
+    const { rerender } = render(<OrderDetailModal open order={legacy} storeName="" onClose={vi.fn()} />);
+    expect(screen.queryByTestId('order-detail-store')).toBeNull();
+    expect(screen.queryByText(/台北旗艦店|branch-store/)).toBeNull();
+    rerender(<OrderDetailModal open order={legacy} onClose={vi.fn()} />);
     expect(screen.queryByTestId('order-detail-store')).toBeNull();
   });
 });

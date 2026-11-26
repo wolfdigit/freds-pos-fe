@@ -27,6 +27,7 @@ export function ReportsPage() {
 
   const isToday = selectedDate === formatDate(nowIso());
   const { stores } = useStoreChoices();
+  const storeNames = useMemo(() => new Set(stores.map((store) => store.name)), [stores]);
   const storeButtons = useMemo(() => reportStoreButtons(stores, loginStoreName), [stores, loginStoreName]);
   const allStores = storeFilter.kind === 'all';
 
@@ -183,6 +184,7 @@ export function ReportsPage() {
             availableDates={availableDatesWithOrders}
             onSelectDate={setSelectedDate}
             showStoreColumn={allStores}
+            storeNames={storeNames}
           />
         </div>
       )}

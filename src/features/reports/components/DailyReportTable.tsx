@@ -7,6 +7,7 @@ import { Button } from '@/components/common/Button';
 import { formatCurrency } from '@/utils/currency';
 import { formatDateTime } from '@/utils/date';
 import { OrderDetailModal } from '@/features/checkout/components/OrderDetailModal';
+import { orderStoreName } from '../orderStore';
 
 interface DailyReportTableProps {
   orders: CheckoutOrder[];
@@ -17,7 +18,11 @@ interface DailyReportTableProps {
   onSelectDate: (date: string) => void;
   /** 所有門市總計時多一欄「門市」。 */
   showStoreColumn?: boolean;
+  /** 現有門市名稱；訂單 branchId 對不到時門市留空。 */
+  storeNames?: ReadonlySet<string>;
 }
+
+const NO_STORES: ReadonlySet<string> = new Set();
 
 export function DailyReportTable({
   orders,
@@ -27,6 +32,7 @@ export function DailyReportTable({
   availableDates,
   onSelectDate,
   showStoreColumn = false,
+  storeNames = NO_STORES,
 }: DailyReportTableProps) {
   // 底部加總列的說明欄跨到「品項摘要」為止；多一欄門市時多跨一欄。
   const labelSpan = showStoreColumn ? 5 : 4;
@@ -153,7 +159,7 @@ export function DailyReportTable({
 
                     {showStoreColumn && (
                       <td className="py-3 px-3 whitespace-nowrap text-zinc-300" data-testid="report-order-store">
-                        {order.branchName || order.branchId || '—'}
+                        {orderStoreName(order, storeNames)}
                       </td>
                     )}
 
@@ -394,6 +400,7 @@ export function DailyReportTable({
       <OrderDetailModal
         open={selectedOrder !== null}
         order={selectedOrder}
+        storeName={selectedOrder ? orderStoreName(selectedOrder, storeNames) : undefined}
         onClose={() => setSelectedOrder(null)}
       />
     </div>

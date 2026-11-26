@@ -8,7 +8,7 @@ import { ReportsPage } from './ReportsPage';
 
 const store = (name: string) => ({ name }) as StoreDto;
 
-function order(id: string, branchName: string): CheckoutOrder {
+function order(id: string, branchName: string, branchId = branchName): CheckoutOrder {
   const createdAt = new Date().toISOString();
   return {
     id,
@@ -22,7 +22,7 @@ function order(id: string, branchName: string): CheckoutOrder {
     shippingFee: 0,
     totalAmount: 100,
     payments: [{ type: 'cash', name: '現金', amount: 100 }],
-    branchId: branchName,
+    branchId,
     branchName,
     createdAt,
     updatedAt: createdAt,
@@ -43,7 +43,7 @@ describe('ReportsPage store buttons', () => {
       .mockImplementation(async (params) =>
         typeof params === 'object' && params.storeName
           ? [order('a', params.storeName)]
-          : [order('a', '奇可門市'), order('b', '台南快閃店')]
+          : [order('a', '奇可門市'), order('b', '台南快閃店'), order('c', '台北旗艦店', 'branch-store')]
       );
     vi.spyOn(checkoutService, 'getRecentOrders').mockResolvedValue([]);
 
@@ -64,6 +64,26 @@ describe('ReportsPage store buttons', () => {
     await screen.findByText('SO-b');
     expect(history).toHaveBeenLastCalledWith(expect.not.objectContaining({ storeName: expect.anything() }));
     expect(screen.getByRole('columnheader', { name: '門市' })).toBeInTheDocument();
-    expect(screen.getAllByTestId('report-order-store').map((cell) => cell.textContent).sort()).toEqual(['台南快閃店', '奇可門市']);
+    // 對不到現有門市的舊訂單門市留空，不顯示 branchName / branchId。
+    expect(screen.getAllByTestId('report-order-store').map((cell) => cell.textContent).sort()).toEqual(['', '台南快閃店', '奇可門市']);
+    expect(screen.queryByText(/台北旗艦店|branch-store/)).toBeNull();
+
+    const rowOf = (orderNumber: string) => screen.getByText(orderNumber).closest('tr') as HTMLElement;
+    fireEvent.click(within(rowOf('SO-b')).getByRole('button', { name: '查看明細' }));
+    expect(await screen.findByTestId('order-detail-store')).toHaveTextContent('台南快閃店');
+  });
+
+  it('leaves the store blank in the detail popup for an order of an unknown store', async () => {
+    useSessionStore.setState({ storeName: '' });
+    vi.spyOn(systemService, 'listStoreChoices').mockResolvedValue([store('奇可門市')]);
+    vi.spyOn(checkoutService, 'getOrderHistory').mockResolvedValue([order('c', '台北旗艦店', 'branch-store')]);
+    vi.spyOn(checkoutService, 'getRecentOrders').mockResolvedValue([]);
+
+    render(<ReportsPage />);
+    await screen.findByText('SO-c');
+    fireEvent.click(screen.getByRole('button', { name: '查看明細' }));
+    expect(await screen.findByText(/銷售時間：/)).toBeInTheDocument();
+    expect(screen.queryByTestId('order-detail-store')).toBeNull();
+    expect(screen.queryByText(/台北旗艦店|branch-store/)).toBeNull();
   });
 });

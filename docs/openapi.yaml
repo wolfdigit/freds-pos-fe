@@ -1902,7 +1902,7 @@ components:
           type: string
         branchId:
           type: string
-          description: Checkout store (the login store at checkout; for a return, the store that processed it). Old orders may be `branch-store` / `branch-online` or a deleted store.
+          description: Checkout store name (`store_branch.name` of the login store at checkout; for a return, the store that processed it). Old orders may be `branch-store` / `branch-online` or a deleted store; the FE shows no store name for those.
         branchName:
           type: string
         items:
