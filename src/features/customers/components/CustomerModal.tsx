@@ -128,7 +128,7 @@ export function CustomerModal({ open, onClose, customer, onSaved }: CustomerModa
             {errors.phone && <p className="mt-1 text-xs font-medium text-rose-300">{errors.phone}</p>}
           </div>
           <div>
-            <label htmlFor="customer-email" className="mb-1 block text-xs font-medium text-zinc-400">電子信箱 (選填)</label>
+            <label htmlFor="customer-email" className="mb-1 block text-xs font-medium text-zinc-400">電子信箱</label>
             <Input
               id="customer-email"
               type="email"

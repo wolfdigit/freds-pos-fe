@@ -218,17 +218,7 @@ export function CartItemRow({
 
           {item.brand && <span>· {item.brand}</span>}
           {item.spec && !hasMultipleSkus && <span className="text-zinc-500">({item.spec})</span>}
-          {isModifiedPrice && (
-            <span className="text-zinc-500 line-through text-xs shrink-0">
-              原價 {formatCurrency(item.originalPrice)}
-            </span>
-          )}
-          {isModifiedPrice && !isPointsLine && (
-            <span className="font-mono text-xs font-semibold text-amber-400 shrink-0" title="成交單價減原價">
-              價格調整 {formatSignedCurrency(item.unitPrice - item.originalPrice)}
-            </span>
-          )}
-          {isPointsLine && (
+          {isPointsLine && !pointsDiscount?.applied && (
             <span className="rounded border border-violet-500/50 bg-violet-500/15 px-1 text-[11px] font-bold text-violet-200 shrink-0">
               點數折抵
             </span>
@@ -272,22 +262,37 @@ export function CartItemRow({
         </div>
       </div>
 
-      {/* 單價輸入框 */}
-      <div className="flex items-center gap-1 shrink-0">
-        <span className="text-xs text-zinc-400">$</span>
-        <input
-          type="text"
-          inputMode="numeric"
-          title={isPointsLine ? '點數折抵列不能直接改價，請先取消勾選' : '直接修改單價'}
-          readOnly={isPointsLine}
-          value={priceInput}
-          onChange={(e) => setPriceInput(e.target.value.replace(/[^0-9]/g, ''))}
-          onBlur={handlePriceBlur}
-          onKeyDown={(e) => e.key === 'Enter' && handlePriceBlur()}
-          className={`w-20 rounded-lg border bg-zinc-950 px-1.5 py-1 text-right font-mono text-sm font-bold transition-colors focus:border-cyan-500 focus:outline-none ${
-            isModifiedPrice ? 'border-amber-600/80 text-amber-300' : 'border-zinc-700 text-zinc-100'
-          }`}
-        />
+      {/* 單價輸入框（含原價與價格調整） */}
+      <div className="flex flex-col items-end shrink-0" data-testid="unit-price-cell">
+        {isModifiedPrice && (
+          <span className="mb-0.5 whitespace-nowrap text-[11px] leading-tight text-zinc-500 line-through">
+            原價 {formatCurrency(item.originalPrice)}
+          </span>
+        )}
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-zinc-400">$</span>
+          <input
+            type="text"
+            inputMode="numeric"
+            title={isPointsLine ? '點數折抵列不能直接改價，請先取消勾選' : '直接修改單價'}
+            readOnly={isPointsLine}
+            value={priceInput}
+            onChange={(e) => setPriceInput(e.target.value.replace(/[^0-9]/g, ''))}
+            onBlur={handlePriceBlur}
+            onKeyDown={(e) => e.key === 'Enter' && handlePriceBlur()}
+            className={`w-20 rounded-lg border bg-zinc-950 px-1.5 py-1 text-right font-mono text-sm font-bold transition-colors focus:border-cyan-500 focus:outline-none ${
+              isModifiedPrice ? 'border-amber-600/80 text-amber-300' : 'border-zinc-700 text-zinc-100'
+            }`}
+          />
+        </div>
+        {isModifiedPrice && !isPointsLine && (
+          <span
+            className="mt-0.5 whitespace-nowrap font-mono text-[11px] leading-tight font-semibold text-amber-400"
+            title="成交單價減原價"
+          >
+            價格調整 {formatSignedCurrency(item.unitPrice - item.originalPrice)}
+          </span>
+        )}
       </div>
 
       {/* 乘號 */}

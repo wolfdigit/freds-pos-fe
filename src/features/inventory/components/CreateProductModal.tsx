@@ -150,7 +150,7 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
             {errors.brand && <p className="mt-1 text-xs font-medium text-rose-300">{errors.brand}</p>}
           </div>
           <div>
-            <label htmlFor="create-product-scale" className="mb-1 block text-sm font-medium text-zinc-300">模型比例 (選填)</label>
+            <label htmlFor="create-product-scale" className="mb-1 block text-sm font-medium text-zinc-300">模型比例</label>
             <select
               id="create-product-scale"
               value={scale}
@@ -221,7 +221,7 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
             {errors.listPrice && <p className="mt-1 text-xs font-medium text-rose-300">{errors.listPrice}</p>}
           </div>
           <div>
-            <label htmlFor="create-product-spec" className="mb-1 block text-sm font-medium text-zinc-300">規格說明 (選填)</label>
+            <label htmlFor="create-product-spec" className="mb-1 block text-sm font-medium text-zinc-300">規格說明</label>
             <Input
               id="create-product-spec"
               value={spec}
@@ -233,7 +233,7 @@ export function CreateProductModal({ open, onClose, onSuccess, initialKeyword = 
 
         {/* 5. 備註說明 */}
         <div>
-          <label htmlFor="create-product-note" className="mb-1 block text-xs text-zinc-400">備註說明 (選填)</label>
+          <label htmlFor="create-product-note" className="mb-1 block text-xs text-zinc-400">備註說明</label>
           <Input
             id="create-product-note"
             value={note}

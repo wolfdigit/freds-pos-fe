@@ -151,7 +151,7 @@ export function StockAdjustmentConfirmModal({
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-semibold text-zinc-400">異動原因 / 備註說明（選填）</label>
+          <label className="mb-1 block text-xs font-semibold text-zinc-400">異動原因 / 備註說明</label>
           <Input
             value={note}
             onChange={(e) => setNote(e.target.value)}

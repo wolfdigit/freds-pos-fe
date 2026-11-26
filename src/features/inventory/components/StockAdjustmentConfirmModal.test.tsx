@@ -19,7 +19,7 @@ describe('StockAdjustmentConfirmModal 異動原因選填', () => {
   it('marks the reason optional and saves a transfer without one', async () => {
     const onSuccess = vi.fn();
     render(<StockAdjustmentConfirmModal open adjustments={[adjustment]} onClose={vi.fn()} onSuccess={onSuccess} />);
-    expect(screen.getByText('異動原因 / 備註說明（選填）')).toBeInTheDocument();
+    expect(screen.getByText('異動原因 / 備註說明')).toBeInTheDocument();
     expect(screen.queryByText(/\*$/)).not.toBeInTheDocument();
     const save = screen.getByRole('button', { name: /確認存檔/ });
     expect(save).toBeEnabled();
