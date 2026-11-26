@@ -110,7 +110,7 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
             />
           </div>
           <div>
-            <label htmlFor="edit-product-scale" className="mb-1 block text-sm font-medium text-zinc-300">模型比例 (選填)</label>
+            <label htmlFor="edit-product-scale" className="mb-1 block text-sm font-medium text-zinc-300">模型比例</label>
             <select
               id="edit-product-scale"
               value={scale}
@@ -181,7 +181,7 @@ export function ProductEditModal({ product, onClose, onSuccess }: ProductEditMod
             />
           </div>
           <div>
-            <label htmlFor="edit-product-spec" className="mb-1 block text-sm font-medium text-zinc-300">規格說明 (選填)</label>
+            <label htmlFor="edit-product-spec" className="mb-1 block text-sm font-medium text-zinc-300">規格說明</label>
             <Input
               id="edit-product-spec"
               value={spec}

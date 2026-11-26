@@ -21,6 +21,7 @@ export function StockTransferModal({ product, onClose, onTransferred }: StockTra
   const [fromLocation, setFromLocation] = useState('');
   const [toLocation, setToLocation] = useState('');
   const [quantity, setQuantity] = useState('1');
+  const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const locations = useMemo(() => {
@@ -47,6 +48,10 @@ export function StockTransferModal({ product, onClose, onTransferred }: StockTra
     setQuantity('1');
   }, [product, locations]);
 
+  useEffect(() => {
+    setReason('');
+  }, [product?.id]);
+
   if (!product) return null;
 
   const getQty = (locationId: string) => inventoryQuantity(product, locationId);
@@ -58,6 +63,7 @@ export function StockTransferModal({ product, onClose, onTransferred }: StockTra
       showToast('調出與調入地點不可相同', 'error');
       return;
     }
+    const trimmedReason = reason.trim();
     setSubmitting(true);
     try {
       await productService.transferStock({
@@ -65,6 +71,7 @@ export function StockTransferModal({ product, onClose, onTransferred }: StockTra
         fromLocation,
         toLocation,
         quantity: qty,
+        ...(trimmedReason ? { reason: trimmedReason } : {}),
       });
       showToast('已完成單項調撥', 'success');
       onTransferred();
@@ -80,9 +87,14 @@ export function StockTransferModal({ product, onClose, onTransferred }: StockTra
       showToast('調出與調入地點不可相同', 'error');
       return;
     }
+    const trimmedReason = reason.trim();
     setSubmitting(true);
     try {
-      await productService.moveAllStock({ fromLocation, toLocation });
+      await productService.moveAllStock({
+        fromLocation,
+        toLocation,
+        ...(trimmedReason ? { reason: trimmedReason } : {}),
+      });
       showToast('已移動來源地點全部非零數量（含負數）。門市綁定沒有改變。', 'success');
       onTransferred();
     } catch (err) {
@@ -171,6 +183,19 @@ export function StockTransferModal({ product, onClose, onTransferred }: StockTra
             className="text-lg font-bold"
           />
           <p className="mt-1 text-xs text-zinc-500">來源不夠時不會調撥，兩個地點都維持原數量。</p>
+        </div>
+
+        <div>
+          <label htmlFor="stock-transfer-reason" className="mb-1 block text-sm font-medium text-zinc-300">
+            4. 調撥原因
+          </label>
+          <Input
+            id="stock-transfer-reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="例如：門市補貨、庫存整理、跨店調度..."
+            disabled={submitting}
+          />
         </div>
 
         <div className="flex flex-wrap justify-end gap-3 pt-2">

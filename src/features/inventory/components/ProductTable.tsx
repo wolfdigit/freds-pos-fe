@@ -75,9 +75,12 @@ export function ProductTable({
   }
 
   return (
-    <div className="max-h-[calc(100vh-230px)] overflow-y-auto overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950 shadow-md [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-h]:2.5 [&::-webkit-scrollbar-track]:bg-zinc-900 [&::-webkit-scrollbar-track]:rounded-lg [&::-webkit-scrollbar-thumb]:bg-cyan-500/80 [&::-webkit-scrollbar-thumb]:rounded-lg hover:[&::-webkit-scrollbar-thumb]:bg-cyan-400">
+    <div
+      data-testid="product-table-scroll"
+      className="min-h-[280px] max-h-[calc(100vh-310px)] overflow-auto rounded-xl border border-zinc-800 bg-zinc-950 shadow-md [&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar]:w-2.5 [&::-webkit-scrollbar-corner]:bg-zinc-900 [&::-webkit-scrollbar-track]:rounded-lg [&::-webkit-scrollbar-track]:bg-zinc-900 [&::-webkit-scrollbar-thumb]:rounded-lg [&::-webkit-scrollbar-thumb]:bg-cyan-500/80 hover:[&::-webkit-scrollbar-thumb]:bg-cyan-400"
+    >
       <table className="w-full text-left text-base border-collapse">
-        <thead className="sticky top-0 z-10 bg-zinc-900 text-sm font-semibold uppercase tracking-wider text-zinc-400 border-b border-zinc-800 shadow-md">
+        <thead className="sticky top-0 z-20 bg-zinc-900 text-sm font-semibold uppercase tracking-wider text-zinc-400 border-b border-zinc-800 shadow-md">
           <tr>
             <th className="px-4 py-3.5 min-w-[160px] bg-zinc-900">商品貨號 (SKU) / 條碼</th>
             <th className="px-4 py-3.5 min-w-[280px] bg-zinc-900">車型與塗裝品名 (廠牌/比例)</th>
@@ -90,7 +93,7 @@ export function ProductTable({
             <th className="px-4 py-3.5 text-center min-w-[110px] bg-zinc-900">{storeLabel}可售</th>
             <th className="px-4 py-3.5 text-center min-w-[110px] bg-zinc-900">{storeLabel}退貨</th>
             <th className="px-4 py-3.5 text-right font-bold bg-zinc-900">全據點合計</th>
-            <th className="sticky right-0 z-20 min-w-[7.25rem] whitespace-nowrap bg-zinc-900 px-4 py-3.5 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.45)]">操作</th>
+            <th className="sticky right-0 z-30 min-w-[7.25rem] whitespace-nowrap bg-zinc-900 pl-4 pr-5 py-3.5 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.45)]">操作</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-800/80">
@@ -197,7 +200,7 @@ export function ProductTable({
                 </td>
 
                 {/* 操作按鈕 (單項調撥) */}
-                <td className="sticky right-0 z-10 min-w-[7.25rem] whitespace-nowrap bg-zinc-950 px-4 py-3.5 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.35)] group-hover:bg-zinc-900">
+                <td className="sticky right-0 z-10 min-w-[7.25rem] whitespace-nowrap bg-zinc-950 pl-4 pr-5 py-3.5 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.35)] group-hover:bg-zinc-900">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();

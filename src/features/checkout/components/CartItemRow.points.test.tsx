@@ -57,7 +57,7 @@ describe('CartItemRow 點數折抵 $360', () => {
         pointsDiscount={{ applied: true, onToggle }} />
     );
     expect(screen.getByRole('checkbox', { name: /點數折抵 \$360/ })).toBeChecked();
-    expect(screen.getByText('點數折抵')).toBeInTheDocument();
+    expect(screen.queryByText('點數折抵')).not.toBeInTheDocument();
     expect(screen.getByTitle('點數折抵列不能直接改價，請先取消勾選')).toHaveAttribute('readonly');
     expect(screen.getByTitle('點數折抵固定 1 件')).toBeDisabled();
     fireEvent.click(screen.getByRole('checkbox', { name: /點數折抵 \$360/ }));
