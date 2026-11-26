@@ -316,3 +316,51 @@ describe('points discount (點數折抵)', () => {
   });
 });
 
+describe('mock order history storeName', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    setStoredStores([
+      {
+        name: '奇可門市',
+        inventoryLocationId: NORMAL,
+        inventoryLocationName: '門市現貨',
+        returnedInventoryLocationId: RETURNED,
+        returnedInventoryLocationName: '退貨品',
+        preorderInventoryLocationId: PREORDER,
+        preorderInventoryLocationName: '預購保留',
+      },
+      {
+        name: '台南快閃店',
+        inventoryLocationId: NORMAL,
+        inventoryLocationName: '門市現貨',
+        returnedInventoryLocationId: RETURNED,
+        returnedInventoryLocationName: '退貨品',
+        preorderInventoryLocationId: PREORDER,
+        preorderInventoryLocationName: '預購保留',
+      },
+    ]);
+    setProducts([product(1, 0)]);
+    setOrders([
+      { ...historyOrder('main', 100, '鋼彈'), branchId: '奇可門市', branchName: '奇可門市' },
+      { ...historyOrder('popup', 200, '鋼彈'), branchId: '台南快閃店', branchName: '台南快閃店' },
+      { ...historyOrder('legacy', 300, '鋼彈'), branchId: 'branch-store', branchName: '台北旗艦店' },
+    ]);
+  });
+
+  it('keeps only orders of that store, lists every order without it, and rejects an unknown store', async () => {
+    const service = new MockCheckoutService();
+    const ids = (rows: CheckoutOrder[]) => rows.map((row) => row.id).sort();
+
+    expect(ids(await service.getOrderHistory({ productKeyword: '鋼彈', storeName: '奇可門市' }))).toEqual(['main']);
+    expect(ids(await service.getOrderHistory({ productKeyword: '鋼彈' }))).toEqual(['legacy', 'main', 'popup']);
+    expect(ids(await service.getRecentOrders(10, { storeName: ' 台南快閃店 ' }))).toEqual(['popup']);
+    expect(ids(await service.getRecentOrders(10))).toEqual(['legacy', 'main', 'popup']);
+    expect((await service.searchOrderPage({ storeName: '奇可門市', page: 1, pageSize: 10 })).total).toBe(1);
+    // storeName 不算限縮條件。
+    await expect(service.getOrderHistory({ storeName: '奇可門市' })).rejects.toThrow('至少需要一個篩選條件');
+    await expect(service.getRecentOrders(10, { storeName: '不存在' })).rejects.toMatchObject({ code: 'STORE_NOT_FOUND' });
+    await expect(service.getOrderHistory({ productKeyword: '鋼彈', storeName: '不存在' })).rejects.toMatchObject({
+      code: 'STORE_NOT_FOUND',
+    });
+  });
+});

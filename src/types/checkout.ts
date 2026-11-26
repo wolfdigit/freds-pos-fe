@@ -68,6 +68,12 @@ export interface CheckoutOrder {
   totalAmount: number;
   payments: PaymentTender[];
   note?: string;
+  /**
+   * 結帳門市（結帳當下的登入門市名稱）；退貨單是處理退貨的門市。
+   * 舊資料可能是 branch-store / branch-online 或已刪除的門市。
+   */
+  branchId?: string;
+  branchName?: string;
   createdAt: string;
   createdBy?: string;
   updatedAt: string;
@@ -111,6 +117,16 @@ export interface OrderSearchParams {
   minAmount?: number;
   maxAmount?: number;
   status?: OrderStatus | 'all';
+  /**
+   * 只看在這間門市結帳的訂單（後端比對 branchId）。空白 = 不送 = 全部門市。
+   * 找不到門市時後端回 404 STORE_NOT_FOUND。不算限縮條件（見 hasOrderHistoryFilter）。
+   */
+  storeName?: string;
+}
+
+/** getRecentOrders 的選項：storeName 只看那間門市（空白 = 全部門市）。 */
+export interface RecentOrdersOptions {
+  storeName?: string;
 }
 
 /**

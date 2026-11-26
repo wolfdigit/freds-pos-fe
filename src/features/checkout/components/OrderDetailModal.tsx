@@ -89,6 +89,14 @@ export function OrderDetailModal({
               <p className="mt-1 font-mono text-xs text-zinc-400">
                 銷售時間：{formatDateTime(order.createdAt)} · 收銀員：
                 <span className="text-zinc-200 font-medium">{order.cashierName || '店長 Fred'}</span>
+                {(order.branchName || order.branchId) && (
+                  <>
+                    {' · 門市：'}
+                    <span className="text-zinc-200 font-medium" data-testid="order-detail-store">
+                      {order.branchName || order.branchId}
+                    </span>
+                  </>
+                )}
               </p>
             </div>
 

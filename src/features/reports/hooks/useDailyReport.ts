@@ -5,6 +5,8 @@ import type { DailyReportSummary, PaymentMethodStat } from '@/types/report';
 import { PAYMENT_METHOD_OPTIONS } from '@/types/report';
 import { formatDate, nowIso } from '@/utils/date';
 import { safeAdd } from '@/utils/currency';
+import { useSessionStore } from '@/store/sessionStore';
+import { defaultReportStoreFilter, reportStoreName, type ReportStoreFilter } from '../reportStoreFilter';
 
 /** 「有紀錄」日期捷徑只看最近這麼多筆訂單，不再抓全部歷史。 */
 const RECENT_ORDERS_FOR_DATE_CHIPS = 100;
@@ -25,40 +27,74 @@ export function dayRangeForDate(date: string): { startDate: string; endDate: str
   return { startDate: start.toISOString(), endDate: end.toISOString() };
 }
 
+function storeParam(storeName: string | undefined): { storeName?: string } {
+  return storeName ? { storeName } : {};
+}
+
 export function useDailyReport() {
+  const loginStoreName = useSessionStore((state) => state.storeName).trim();
   const [selectedDate, setSelectedDate] = useState<string>(() => formatDate(nowIso()));
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodType | 'all'>('all');
+  // 門市篩選：預設登入門市（沒有登入門市時是所有門市總計）。換日期、付款方式時保留；
+  // 重新載入頁面或換登入門市時回到登入門市。
+  const [storeFilter, setStoreFilter] = useState<ReportStoreFilter>(() => defaultReportStoreFilter(loginStoreName));
+  useEffect(() => {
+    setStoreFilter(defaultReportStoreFilter(loginStoreName));
+  }, [loginStoreName]);
+  const storeName = reportStoreName(storeFilter);
+
   const [allOrders, setAllOrders] = useState<CheckoutOrder[]>([]);
   const [recentOrders, setRecentOrders] = useState<CheckoutOrder[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const dayRequest = useRef(0);
+  const recentRequest = useRef(0);
+  // 目前畫面上的訂單是哪間門市的（undefined = 所有門市）；換門市失敗時不能留著別間門市的數字。
+  const shownDayStore = useRef<string | undefined | null>(null);
+  const shownRecentStore = useRef<string | undefined | null>(null);
 
   const loadDayOrders = useCallback(async () => {
     const requestId = ++dayRequest.current;
     setIsLoading(true);
     try {
-      // 只向後端要選定日期的訂單，不再抓全部歷史回來在瀏覽器篩選。
+      // 只向後端要選定日期（與所選門市）的訂單，不再抓全部歷史回來在瀏覽器篩選。
       const range = dayRangeForDate(selectedDate);
       // 日期無法解析時直接當作沒有訂單，不能退回成「不帶條件」去抓全部歷史。
-      const orders = range ? await checkoutService.getOrderHistory(range) : [];
+      const orders = range ? await checkoutService.getOrderHistory({ ...range, ...storeParam(storeName) }) : [];
       if (requestId !== dayRequest.current) return;
       // 依建立時間由新到舊排序
       orders.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
       setAllOrders(orders);
+      shownDayStore.current = storeName;
     } catch (err) {
-      if (requestId === dayRequest.current) console.error('Failed to load order history for reports:', err);
+      if (requestId !== dayRequest.current) return;
+      console.error('Failed to load order history for reports:', err);
+      if (shownDayStore.current !== storeName) {
+        setAllOrders([]);
+        shownDayStore.current = storeName;
+      }
     } finally {
       if (requestId === dayRequest.current) setIsLoading(false);
     }
-  }, [selectedDate]);
+  }, [selectedDate, storeName]);
 
   const loadRecentOrders = useCallback(async () => {
+    const requestId = ++recentRequest.current;
     try {
-      setRecentOrders(await checkoutService.getRecentOrders(RECENT_ORDERS_FOR_DATE_CHIPS));
+      const orders = storeName
+        ? await checkoutService.getRecentOrders(RECENT_ORDERS_FOR_DATE_CHIPS, { storeName })
+        : await checkoutService.getRecentOrders(RECENT_ORDERS_FOR_DATE_CHIPS);
+      if (requestId !== recentRequest.current) return;
+      setRecentOrders(orders);
+      shownRecentStore.current = storeName;
     } catch (err) {
+      if (requestId !== recentRequest.current) return;
       console.error('Failed to load recent orders for report date shortcuts:', err);
+      if (shownRecentStore.current !== storeName) {
+        setRecentOrders([]);
+        shownRecentStore.current = storeName;
+      }
     }
-  }, []);
+  }, [storeName]);
 
   useEffect(() => {
     void loadDayOrders();
@@ -209,6 +245,9 @@ export function useDailyReport() {
   }, [allOrders, recentOrders]);
 
   return {
+    storeFilter,
+    setStoreFilter,
+    loginStoreName,
     selectedDate,
     setSelectedDate,
     selectedPaymentMethod,

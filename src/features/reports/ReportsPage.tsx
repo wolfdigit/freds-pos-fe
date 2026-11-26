@@ -1,12 +1,19 @@
+import { useMemo } from 'react';
 import { useDailyReport } from './hooks/useDailyReport';
 import { DailyReportTable } from './components/DailyReportTable';
 import { PAYMENT_METHOD_OPTIONS } from '@/types/report';
 import { Button } from '@/components/common/Button';
 import { Spinner } from '@/components/feedback/Spinner';
 import { formatDate, nowIso } from '@/utils/date';
+import { StoreFilterTabs } from '@/components/common/StoreFilterTabs';
+import { useStoreChoices } from '@/hooks/useStoreChoices';
+import { reportStoreButtons, reportStoreKey } from './reportStoreFilter';
 
 export function ReportsPage() {
   const {
+    storeFilter,
+    setStoreFilter,
+    loginStoreName,
     selectedDate,
     setSelectedDate,
     selectedPaymentMethod,
@@ -19,6 +26,9 @@ export function ReportsPage() {
   } = useDailyReport();
 
   const isToday = selectedDate === formatDate(nowIso());
+  const { stores } = useStoreChoices();
+  const storeButtons = useMemo(() => reportStoreButtons(stores, loginStoreName), [stores, loginStoreName]);
+  const allStores = storeFilter.kind === 'all';
 
   return (
     <div className="flex h-full flex-col space-y-3.5 min-h-0">
@@ -55,6 +65,20 @@ export function ReportsPage() {
 
       {/* 篩選控制器：日期選擇與付款方式篩選 (緊湊設計) */}
       <div className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-3 shadow-md backdrop-blur-sm space-y-2.5 shrink-0">
+        {/* 門市篩選列：登入門市、其他門市、所有門市總計（門市多時橫向捲動） */}
+        <div className="border-b border-zinc-800/60 pb-2">
+          <StoreFilterTabs
+            testId="report-store-tabs"
+            size="sm"
+            tabs={storeButtons}
+            activeKey={reportStoreKey(storeFilter)}
+            onSelect={(key) => {
+              const button = storeButtons.find((row) => row.key === key);
+              if (button) setStoreFilter(button.filter);
+            }}
+          />
+        </div>
+
         {/* 日期篩選列 */}
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-800/60 pb-2.5">
           <div className="flex flex-wrap items-center gap-2.5">
@@ -158,6 +182,7 @@ export function ReportsPage() {
             selectedPaymentMethod={selectedPaymentMethod}
             availableDates={availableDatesWithOrders}
             onSelectDate={setSelectedDate}
+            showStoreColumn={allStores}
           />
         </div>
       )}

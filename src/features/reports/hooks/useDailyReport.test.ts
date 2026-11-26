@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { checkoutService } from '@/services';
+import { useSessionStore } from '@/store/sessionStore';
 import { formatDate } from '@/utils/date';
 import { dayRangeForDate, useDailyReport } from './useDailyReport';
 import { PAYMENT_METHOD_LABELS, PAYMENT_METHOD_OPTIONS, paymentMethodLabel } from '@/types/report';
@@ -14,6 +15,7 @@ function localDay(offsetDays: number): string {
 describe('useDailyReport', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    useSessionStore.setState({ storeName: '' });
   });
 
   it('turns a local date into a half-open [start, next midnight) range', () => {
@@ -116,6 +118,84 @@ describe('useDailyReport', () => {
     expect(byType.cash.percentage).toBeCloseTo(40);
     expect(byType.line_pay.percentage).toBeCloseTo(30);
     expect(byType.credit_card_online.percentage).toBeCloseTo(10);
+  });
+});
+
+describe('useDailyReport store filter', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    useSessionStore.setState({ storeName: '' });
+  });
+
+  it('starts on the login store and sends its storeName to both the day query and the date shortcuts', async () => {
+    useSessionStore.setState({ storeName: '奇可門市' });
+    const history = vi.spyOn(checkoutService, 'getOrderHistory').mockResolvedValue([]);
+    const recent = vi.spyOn(checkoutService, 'getRecentOrders').mockResolvedValue([]);
+    const { result } = renderHook(() => useDailyReport());
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.storeFilter).toEqual({ kind: 'store', storeName: '奇可門市' });
+    expect(history).toHaveBeenLastCalledWith({ ...dayRangeForDate(localDay(0)), storeName: '奇可門市' });
+    expect(recent).toHaveBeenLastCalledWith(100, { storeName: '奇可門市' });
+
+    act(() => result.current.setStoreFilter({ kind: 'store', storeName: '台南快閃店' }));
+    await waitFor(() => expect(history).toHaveBeenCalledTimes(2));
+    expect(history).toHaveBeenLastCalledWith({ ...dayRangeForDate(localDay(0)), storeName: '台南快閃店' });
+    await waitFor(() => expect(recent).toHaveBeenLastCalledWith(100, { storeName: '台南快閃店' }));
+
+    act(() => result.current.setStoreFilter({ kind: 'all' }));
+    await waitFor(() => expect(history).toHaveBeenCalledTimes(3));
+    expect(history).toHaveBeenLastCalledWith(dayRangeForDate(localDay(0)));
+    await waitFor(() => expect(recent).toHaveBeenLastCalledWith(100));
+  });
+
+  it('keeps the store on date and payment changes and resets to the new login store', async () => {
+    useSessionStore.setState({ storeName: '奇可門市' });
+    const history = vi.spyOn(checkoutService, 'getOrderHistory').mockResolvedValue([]);
+    vi.spyOn(checkoutService, 'getRecentOrders').mockResolvedValue([]);
+    const { result } = renderHook(() => useDailyReport());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => result.current.setStoreFilter({ kind: 'all' }));
+    act(() => result.current.setSelectedDate('2026-10-17'));
+    act(() => result.current.setSelectedPaymentMethod('cash'));
+    await waitFor(() => expect(history).toHaveBeenLastCalledWith(dayRangeForDate('2026-10-17')));
+    expect(result.current.storeFilter).toEqual({ kind: 'all' });
+
+    act(() => useSessionStore.setState({ storeName: '台南快閃店' }));
+    await waitFor(() => expect(result.current.storeFilter).toEqual({ kind: 'store', storeName: '台南快閃店' }));
+    await waitFor(() =>
+      expect(history).toHaveBeenLastCalledWith({ ...dayRangeForDate('2026-10-17'), storeName: '台南快閃店' })
+    );
+  });
+
+  it('defaults to all stores when there is no login store', async () => {
+    const history = vi.spyOn(checkoutService, 'getOrderHistory').mockResolvedValue([]);
+    vi.spyOn(checkoutService, 'getRecentOrders').mockResolvedValue([]);
+    const { result } = renderHook(() => useDailyReport());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.storeFilter).toEqual({ kind: 'all' });
+    expect(history).toHaveBeenLastCalledWith(dayRangeForDate(localDay(0)));
+  });
+
+  it('does not keep another store\'s orders when switching stores fails', async () => {
+    useSessionStore.setState({ storeName: '奇可門市' });
+    const order = {
+      id: 'o1', orderNumber: 'SO-1', createdAt: new Date().toISOString(), totalAmount: 100, discountAmount: 0,
+      items: [{ quantity: 1, subtotal: 100 }], payments: [{ type: 'cash', name: '現金', amount: 100 }],
+    };
+    const history = vi.spyOn(checkoutService, 'getOrderHistory').mockResolvedValueOnce([order] as never);
+    const recent = vi.spyOn(checkoutService, 'getRecentOrders').mockResolvedValueOnce([order] as never);
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const { result } = renderHook(() => useDailyReport());
+    await waitFor(() => expect(result.current.summary.totalOrdersCount).toBe(1));
+    expect(result.current.availableDatesWithOrders).toHaveLength(1);
+
+    history.mockRejectedValue(new Error('STORE_NOT_FOUND'));
+    recent.mockRejectedValue(new Error('STORE_NOT_FOUND'));
+    act(() => result.current.setStoreFilter({ kind: 'store', storeName: '已刪除門市' }));
+    await waitFor(() => expect(result.current.summary.totalOrdersCount).toBe(0));
+    await waitFor(() => expect(result.current.availableDatesWithOrders).toEqual([]));
   });
 });
 

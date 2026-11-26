@@ -8,6 +8,7 @@ import type {
   OrderPageParams,
   OrderSearchParams,
   OrderStatus,
+  RecentOrdersOptions,
 } from '@/types/checkout';
 import { hasOrderHistoryFilter, ORDER_HISTORY_FILTER_REQUIRED } from '@/types/checkout';
 import { getProducts, setProducts, getOrders, setOrders, getStoredStores, simulateDelay } from './storageHelper';
@@ -24,6 +25,13 @@ function buildOrderNumber(existingCount: number): string {
   const datePart = formatDate(nowIso()).replace(/-/g, '');
   const seq = String(existingCount + 1).padStart(4, '0');
   return `SO-${datePart}-${seq}`;
+}
+
+/** 跟後端一樣：storeName 不是現有門市時回 404 STORE_NOT_FOUND。 */
+function assertStoreExists(storeName: string): void {
+  if (!getStoredStores().some((store) => store.name === storeName)) {
+    throw new BusinessError('STORE_NOT_FOUND', `找不到門市「${storeName}」`);
+  }
 }
 
 export class MockCheckoutService implements ICheckoutService {
@@ -233,6 +241,9 @@ export class MockCheckoutService implements ICheckoutService {
       orderNumber: buildOrderNumber(orders.length),
       cashierId: 'staff-001',
       cashierName: '店長 Fred',
+      // 跟後端一樣記下結帳當下的登入門市（退貨單 = 處理退貨的門市）。
+      branchId: loginStore?.name,
+      branchName: loginStore?.name,
       status: 'completed',
       customerId: payload.customerId,
       customerName: customer?.name || 'Retail',
@@ -261,9 +272,12 @@ export class MockCheckoutService implements ICheckoutService {
     return { order: newOrder };
   }
 
-  async getRecentOrders(limit: number): Promise<CheckoutOrder[]> {
+  async getRecentOrders(limit: number, options?: RecentOrdersOptions): Promise<CheckoutOrder[]> {
     await simulateDelay();
+    const storeName = options?.storeName?.trim();
+    if (storeName) assertStoreExists(storeName);
     return getOrders()
+      .filter((o) => !storeName || o.branchId === storeName)
       .slice()
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
       .slice(0, Math.max(0, limit));
@@ -272,6 +286,7 @@ export class MockCheckoutService implements ICheckoutService {
   async searchOrderPage(params: OrderPageParams): Promise<CheckoutOrderPage> {
     const { page, pageSize, ...filters } = params;
     await simulateDelay();
+    if (filters.storeName?.trim()) assertStoreExists(filters.storeName.trim());
     const matched = this.filterOrders(filters)
       .slice()
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
@@ -285,6 +300,7 @@ export class MockCheckoutService implements ICheckoutService {
     if (!hasOrderHistoryFilter(typeof params === 'string' ? { customerId: params } : params)) {
       throw new Error(ORDER_HISTORY_FILTER_REQUIRED);
     }
+    if (typeof params === 'object' && params.storeName?.trim()) assertStoreExists(params.storeName.trim());
     return this.filterOrders(params);
   }
 
@@ -307,6 +323,8 @@ export class MockCheckoutService implements ICheckoutService {
       if (params.orderNumber && !o.orderNumber.toLowerCase().includes(params.orderNumber.toLowerCase())) return false;
       if (params.productId && !o.items.some((i) => i.productId === params.productId)) return false;
       if (params.status && params.status !== 'all' && o.status !== params.status) return false;
+      const storeName = params.storeName?.trim();
+      if (storeName && o.branchId !== storeName) return false;
       if (params.startDate && o.createdAt < params.startDate) return false;
       if (params.endDate) {
         // If endDate has time (e.g. YYYY-MM-DDTHH:mm), compare directly, otherwise append end of day

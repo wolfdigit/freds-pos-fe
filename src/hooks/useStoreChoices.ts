@@ -5,8 +5,8 @@ import type { StoreDto } from '@/types/system';
 import { useSessionStore } from '@/store/sessionStore';
 
 /**
- * 所有門市（GET /auth/stores，任何登入帳號都可以讀），給庫存頁的門市按鈕與地點排序用。
- * 讀不到時是空陣列：畫面仍有「登入門市」與「全部商品」兩顆按鈕。
+ * 所有門市（GET /auth/stores，任何登入帳號都可以讀），給庫存頁的門市按鈕與地點排序、日報表的門市按鈕用。
+ * 讀不到時是空陣列：庫存頁仍有「登入門市」與「全部商品」，日報表仍有「登入門市」與「所有門市總計」。
  */
 export function useStoreChoices(service: ISystemService = systemService): { stores: StoreDto[]; loaded: boolean } {
   const storeName = useSessionStore((state) => state.storeName);

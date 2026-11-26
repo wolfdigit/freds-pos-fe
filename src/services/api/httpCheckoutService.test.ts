@@ -254,4 +254,30 @@ describe('HttpCheckoutService.searchOrderPage', () => {
 
     expect(calls).toEqual(['/api/v1/checkout/orders?page=1&pageSize=100']);
   });
+
+  it('sends a trimmed storeName on the page search and on recent orders, and omits a blank one', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = new URL(String(input));
+        calls.push(`${url.pathname}${url.search}`);
+        return json({ items: [], page: 1, pageSize: 100, total: 0 });
+      })
+    );
+    const service = new HttpCheckoutService();
+
+    await service.searchOrderPage({ storeName: ' 台南快閃店 ', page: 1, pageSize: 20 });
+    await service.searchOrderPage({ storeName: '   ', page: 1, pageSize: 20 });
+    await service.getRecentOrders(100, { storeName: '奇可門市' });
+    await service.getRecentOrders(100, { storeName: ' ' });
+    await service.getRecentOrders(100);
+
+    expect(calls.map((call) => decodeURIComponent(call))).toEqual([
+      '/api/v1/checkout/orders?storeName=台南快閃店&page=1&pageSize=20',
+      '/api/v1/checkout/orders?page=1&pageSize=20',
+      '/api/v1/checkout/orders?page=1&pageSize=100&storeName=奇可門市',
+      '/api/v1/checkout/orders?page=1&pageSize=100',
+      '/api/v1/checkout/orders?page=1&pageSize=100',
+    ]);
+  });
 });
