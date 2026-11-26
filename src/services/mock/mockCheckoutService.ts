@@ -181,7 +181,7 @@ export class MockCheckoutService implements ICheckoutService {
     // 3.1 銷售扣登入門市的正常貨地點（可以變負數）；預購取貨的列改扣預購保留地點。
     // 退貨：restock 不是 false 時加回正常貨（可售）；false 時加到退貨庫存點。
     const loginStore = loginStoreFrom(getStoredStores(), readPersistedStoreName());
-    if (!loginStore) throw new BusinessError('LOCATION_NOT_FOUND', '找不到門市');
+    if (!loginStore) throw new BusinessError('STORE_NOT_FOUND', '找不到門市');
     const locationRaw = localStorage.getItem(LOCATIONS_STORAGE_KEY);
     const locations = locationRaw ? (JSON.parse(locationRaw) as Array<{ id: string; name: string }>) : defaultLocationRows();
     let nextProducts = products.map((product) => ({ ...product, inventories: product.inventories.map((row) => ({ ...row })) }));

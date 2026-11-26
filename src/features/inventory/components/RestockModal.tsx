@@ -96,7 +96,10 @@ export function RestockModal({
 
   const [restockBatch, setRestockBatch] = useState<RestockItem[]>([]);
   // 待入庫清單比對同條碼其他貨號：只查清單裡出現的條碼，不再抓全部商品。
-  const siblingsByBarcode = useBarcodeSiblings(restockBatch.map((item) => item.product.barcode));
+  const siblingsByBarcode = useBarcodeSiblings(
+    restockBatch.map((item) => item.product.barcode),
+    lookupScope
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
@@ -259,7 +262,7 @@ export function RestockModal({
     }, SEARCH_DEBOUNCE_MS);
   };
 
-  // 伺服器端分頁搜尋（GET /products page/pageSize），跟著登入門市的商品清單；不再一次載入全部商品。
+  // 伺服器端分頁搜尋（GET /products page/pageSize），跟著所選門市的商品清單（lookupScope）；不再一次載入全部商品。
   const runBarcodeSearch = async (query: string, reqId: number) => {
     try {
       const page = await productService.searchProductPage({

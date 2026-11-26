@@ -882,7 +882,7 @@ paths:
       description: |
         Any business user (staff included). Other store management stays admin-only.
         Switching back to `all` keeps the list rows, so switching to `list` again reuses them.
-        Missing store is `404` `LOCATION_NOT_FOUND`.
+        Missing store is `404` `STORE_NOT_FOUND`.
       parameters:
         - name: storeName
           in: path
@@ -996,7 +996,7 @@ paths:
       summary: Copy another store's list
       description: |
         Any business user. Copies the source store's `store_product` rows (deleted products skipped), whatever the
-        source's `productScope` is. Missing source or target store is `404` `LOCATION_NOT_FOUND`.
+        source's `productScope` is. Missing source or target store is `404` `STORE_NOT_FOUND`.
       parameters:
         - name: storeName
           in: path
@@ -1225,6 +1225,7 @@ components:
         - LOCATION_NOT_FOUND
         - INVALID_LOCATION_TRANSFER
         - TARGET_LOCATION_NOT_FOUND
+        - STORE_NOT_FOUND
         - STORAGE_CORRUPTED
 
     ModelScale:

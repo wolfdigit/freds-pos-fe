@@ -12,7 +12,13 @@ vi.mock('@/services', () => ({
 }));
 const mockLocations = vi.hoisted(() => ({ value: [] as Array<{ id: string; name: string }> }));
 vi.mock('../hooks/useLocations', () => ({ useLocations: () => ({ locations: mockLocations.value }) }));
-vi.mock('@/hooks/useBarcodeSiblings', () => ({ useBarcodeSiblings: () => ({}) }));
+const mockSiblingScopes = vi.hoisted(() => ({ value: [] as unknown[] }));
+vi.mock('@/hooks/useBarcodeSiblings', () => ({
+  useBarcodeSiblings: (_codes: unknown, scope: unknown) => {
+    mockSiblingScopes.value.push(scope);
+    return {};
+  },
+}));
 
 import { useToastStore } from '@/components/feedback/toastStore';
 import { RestockModal } from './RestockModal';
@@ -111,6 +117,8 @@ describe('RestockModal 商品搜尋', () => {
     fireEvent.keyDown(input(), { key: 'Enter' });
     await waitFor(() => expect(toasts()).toContain('已加入進貨: NEW-2 (1台)'));
     expect(getProductsByBarcode).toHaveBeenCalledWith('4710000000028', { storeName: '台南快閃店' });
+    // 批次清單的「同條碼其他貨號」也用同一間門市的清單。
+    expect(mockSiblingScopes.value.at(-1)).toEqual({ storeName: '台南快閃店' });
   });
 
   it('defaults to the target store sellable location and warns when it is not the login store', async () => {

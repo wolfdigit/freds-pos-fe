@@ -30,6 +30,23 @@ describe('useBarcodeSiblings', () => {
     expect(byBarcode).toHaveBeenCalledTimes(3);
   });
 
+  it('looks siblings up in the given store scope and starts over when the scope changes', async () => {
+    const byBarcode = vi
+      .spyOn(productService, 'getProductsByBarcode')
+      .mockImplementation(async (code, scope) => [product(`${code}-${scope?.storeName ?? (scope?.allProducts ? 'all' : 'login')}`, code)]);
+    const { result, rerender } = renderHook(({ scope }) => useBarcodeSiblings(['111'], scope), {
+      initialProps: { scope: { storeName: '台南快閃店' } as { storeName?: string; allProducts?: boolean } | undefined },
+    });
+    await waitFor(() => expect(result.current['111']?.map((p) => p.id)).toEqual(['111-台南快閃店']));
+    expect(byBarcode).toHaveBeenLastCalledWith('111', { storeName: '台南快閃店' });
+
+    rerender({ scope: { allProducts: true } });
+    await waitFor(() => expect(result.current['111']?.map((p) => p.id)).toEqual(['111-all']));
+    rerender({ scope: undefined });
+    await waitFor(() => expect(result.current['111']?.map((p) => p.id)).toEqual(['111-login']));
+    expect(byBarcode).toHaveBeenLastCalledWith('111');
+  });
+
   it('treats a failed lookup as no siblings', async () => {
     vi.spyOn(productService, 'getProductsByBarcode').mockRejectedValue(new Error('offline'));
     const { result } = renderHook(() => useBarcodeSiblings(['999']));
